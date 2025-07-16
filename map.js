@@ -246,7 +246,7 @@ function findCoreceiver(rx1, rx2) {
     let r1 = rx1[i];
     let r2 = rx2[j];
     if (r1.cs == r2.cs) {
-      if (Math.abs(r1.freq - r2.freq) < 5) return true;
+      if (Math.abs(r1.freq - r2.freq) < 6) return true;
       i++;
       j++;
     } else if (r1.cs < r2.cs) {
