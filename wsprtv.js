@@ -854,13 +854,13 @@ map = L.map('map',
 L.tileLayer(
     'osm_tiles/{z}/{x}/{y}.png',
     {maxZoom: 6,
-     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+     attribution: '<a href="https://github.com/wsprtv/wsprtv.github.io">WSPR TV</a> | &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
     }).addTo(map);
 
 L.tileLayer(
     'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
     {minZoom: 7, maxZoom: 12,
-     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+     attribution: '<a href="https://github.com/wsprtv/wsprtv.github.io">WSPR TV</a> | &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
     }).addTo(map);
 
 // Add day / night visualization and the scale indicator
