@@ -1,0 +1,63 @@
+html, body, #map {
+  height: 100%;
+  margin: 0;
+}
+
+#control_panel {
+  z-index: 1000;
+  position: absolute;
+  top: 10px;
+  left: 80px;
+  background-color: rgba(0, 0, 0, 0.5);
+  color: white;
+  padding: 10px;
+  border-radius: 10px;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+  font-family: 'Roboto', sans-serif;
+  font-size: 14px;
+}
+
+#spot_info {
+  z-index: 1000;
+  position: absolute;
+  background-color: rgba(0, 0, 0, 0.6);
+  color: white;
+  padding: 10px;
+  border-radius: 10px;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+  font-family: 'Roboto', sans-serif;
+  font-size: 14px;
+  display: none;
+}
+
+#aux_info {
+  position: absolute;
+  bottom: 50px;
+  left: 10px;
+  background-color: rgba(255, 255, 255, 0.6);
+  padding: 5px;
+  border-radius: 3px;
+  font-family: 'Roboto', sans-serif;
+  font-size: 14px;
+  z-index: 1000;
+  display: none;
+}
+
+#form_line1 {
+  display: inline-flex;
+  gap: 3px; padding: 2px 0px;
+}
+
+#form_line2 {
+  display: inline-flex;
+  gap: 3px; padding: 2px 0px;
+  align-items: center;
+}
+
+#synopsis, #update_countdown {
+  display: block;
+}
+
+#synopsis:not(:empty), #update_countdown:not(:empty) {
+  margin-top: 5px;
+}
