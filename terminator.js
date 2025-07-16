@@ -1,6 +1,10 @@
-// terminator.js -- Overlay day/night region on a Leaflet map
-// Adapted from (MIT license):
-// https://joergdietrich.github.io/Leaflet.Terminator/
+// Day / night overlay for a Leaflet map
+//
+// Adapted from:
+// https://github.com/joergdietrich/Leaflet.Terminator
+//
+// The original file was released under the MIT license:
+// https://github.com/joergdietrich/Leaflet.Terminator/blob/master/LICENSE
 
 Date.prototype.getJulian = function() {
   // Calculate the present UTC Julian Date. Function is valid after
@@ -37,7 +41,7 @@ L.Terminator = L.Polygon.extend({
   },
   setTime: function(date) {
     this.options.time = date;
-    let latLng = this._compute(date || null)
+    let latLng = this._compute(date || null);
     this.setLatLngs(latLng);
   },
 
@@ -48,19 +52,19 @@ L.Terminator = L.Polygon.extend({
 
     // Days since start of J2000.0
     let n = julianDay - 2451545.0;
-    // mean longitude of the Sun
+    // Mean longitude of the Sun
     let L = 280.460 + 0.9856474 * n;
     L %= 360;
-    // mean anomaly of the Sun
+    // Mean anomaly of the Sun
     let g = 357.528 + 0.9856003 * n;
     g %= 360;
-    // ecliptic longitude of Sun
+    // Ecliptic longitude of Sun
     let lambda = L + 1.915 * Math.sin(g * this._D2R) +
         0.02 * Math.sin(2 * g * this._D2R);
-    // distance from Sun in AU
+    // Distance from Sun in AU
     let R = 1.00014 - 0.01671 * Math.cos(g * this._D2R) -
         0.0014 * Math.cos(2 * g * this._D2R);
-    return {"lambda": lambda, "R": R};
+    return {'lambda': lambda, 'R': R};
   },
 
   _eclipticObliquity: function(julianDay) {
@@ -91,7 +95,7 @@ L.Terminator = L.Polygon.extend({
     let raQuadrant = Math.floor(alpha / 90) * 90;
     alpha = alpha + (lQuadrant - raQuadrant);
 
-    return {"alpha": alpha, "delta": delta};
+    return {'alpha': alpha, 'delta': delta};
   },
 
   _hourAngle: function(lng, sunPos, gst) {
@@ -123,7 +127,7 @@ L.Terminator = L.Polygon.extend({
       lng = -360 + i / this.options.resolution;
       ha = this._hourAngle(lng, sunEqPos, gst);
       lat = this._latitude(ha, sunEqPos);
-      latLng[i+1] = [lat, lng];
+      latLng[i + 1] = [lat, lng];
     }
     if (sunEqPos.delta < 0) {
       latLng[0] = [90, -360];

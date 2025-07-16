@@ -1,5 +1,5 @@
 // WSPR Telemetry Viewer
-// All rights reserved
+// https://github.com/wsprtv/wsprtv.github.io
 
 let map;  // Leaflet map object
 let params;  // form / URL params
@@ -860,7 +860,7 @@ L.tileLayer(
     }).addTo(map);
 
 // Add day / night visualization and the scale indicator
-L.terminator().addTo(map);
+let terminator = L.terminator().addTo(map);
 L.control.scale().addTo(map);
 
 // Draw the antimeridian
@@ -925,3 +925,8 @@ document.getElementById('button').addEventListener(
 if (document.getElementById('cs').value) {
   processSubmission();
 }
+
+// Update the terminator (day / night overlay) periodically
+setInterval(() => {
+  terminator.setTime(new Date());
+}, 120 * 1000);
