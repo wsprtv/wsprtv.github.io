@@ -3,7 +3,7 @@
 
 let map;  // Leaflet map object
 let params;  // form / URL params
-let debug = 1;  // controls console logging
+let debug = 0;  // controls console logging
 
 // Band info. For each band, the value is
 // [starting_minute_base (for ch 0), wspr_live_band]
