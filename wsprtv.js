@@ -202,7 +202,7 @@ function importBasicTelemetryData(data) {
 
 // Both old_data and new_data are sorted by row.ts. Extends old_data with
 // items in new_data whose timestamps are not present in old_data and
-// reteurns the result.
+// returns the result.
 function mergeData(old_data, new_data) {
   let result = [];
   let i = 0;  // index in old_data
@@ -239,8 +239,8 @@ function mergeData(old_data, new_data) {
 // Given two sets of sorted RX reports, check if any callsign
 // is in both and the RX frequency is similar
 function findCoreceiver(rx1, rx2) {
-  let i = 0;
-  let j = 0;
+  let i = 0;  // index in rx1
+  let j = 0;  // index in rx2
   for (;;) {
     if (i >= rx1.length || j >= rx2.length) return false;
     let r1 = rx1[i];
@@ -261,8 +261,8 @@ function findCoreceiver(rx1, rx2) {
 // basic telemetry transmissions)
 function matchTelemetry(reg_cs_data, basic_tel_data) {
   let spots = [];
-  let i = 0;  // index into reg_cs_data
-  let j = 0;  // index into basic_tel_data
+  let i = 0;  // index in reg_cs_data
+  let j = 0;  // index in basic_tel_data
 
   for (;;) {
     if (i >= reg_cs_data.length) {
@@ -278,13 +278,14 @@ function matchTelemetry(reg_cs_data, basic_tel_data) {
     } else if (reg_cs_data[i].ts > basic_tel_data[j].ts - 120 * 1000 ||
                !basic_tel_data[j].rx) {
       // Unmatched basic telemetry message or already previously matched
-      // (rx was deleted)
+      // to a regular callsign message (indicated by rx deletion)
       j++;
     } else {
       // Possible match. Check if the messages were co-received by the same
       // callsign on a similar frequency.
       if (findCoreceiver(reg_cs_data[i].rx, basic_tel_data[j].rx)) {
         let data = reg_cs_data[i];
+        // Combine the two messages
         data.basic = basic_tel_data[j];
         delete data.basic.rx;
         spots.push(data);
@@ -308,6 +309,7 @@ function maidenheadToLatLon(grid) {
   lon += (grid.charCodeAt(2) - zero) * 2;
   lat += (grid.charCodeAt(3) - zero) * 1;
 
+  // Move lat / lon to the center of the grid
   if (grid.length == 6) {
     lon += (grid.charCodeAt(4) - a) / 12 + 1 / 24;
     lat += (grid.charCodeAt(5) - a) / 24 + 1 / 48;
@@ -315,7 +317,6 @@ function maidenheadToLatLon(grid) {
     lon += 1;
     lat += 0.5;
   }
-  // (lat, lon) is adjusted to center of grid
   return [lat, lon];
 }
 
@@ -341,7 +342,8 @@ const kWsprPowers = [0, 3, 7, 10, 13, 17, 20, 23, 27, 30, 33, 37, 40,
   43, 47, 50, 53, 57, 60];
 
 // Decodes and annotates a spot
-// Based on https://qrp-labs.com/flights/s4.html
+// as documented at https://qrp-labs.com/flights/s4.html.
+// Note: voltage calculation is documented incorrectly there.
 function decodeSpot(spot) {
   spot.grid = spot.grid.slice(0, 4);  // normalize grid
   if (spot.basic) {
@@ -382,6 +384,8 @@ function decodeSpot(spot) {
 function decodeSpots(spots) {
   spots.forEach((spot, index) => { decodeSpot(spot); });
 }
+
+// Value formatting
 
 function formatDuration(ts1, ts2) {
   const delta = Math.abs(ts1 - ts2) / 1000;
@@ -689,37 +693,39 @@ function getHoursToSunset(ts, lat, lon) {
   return (SunCalc.getTimes(ts, lat, lon).sunset - ts) / 3600000;
 }
 
+// Sets a timer to incrementally update the track at the end of
+// next expected TX slot
 function scheduleNextUpdate() {
   const [starting_minute_base, wspr_band] = kBandInfo[params.band];
   const tx_minute = (starting_minute_base + (params.ch % 5) * 2 + 2) % 10;
 
   const now = new Date();
 
-  // We will update 1m 15s after the end of the next basic telemetry TX.
-  // The delay is needed to allow WSPR telemetry to trickle in.
-
-  // Timestamp of last 10m boundary plus desired offset
+  // Wait 1m 15s after the end of the next basic telemetry TX.
+  // The delay is needed so that WSPR telemetry can trickle in.
   let next_update_ts = now.getTime() / 1000 -
       (now.getUTCMinutes() % 10) * 60 - now.getUTCSeconds() +
       tx_minute * 60 + 195;
   if (next_update_ts < now.getTime() / 1000 + 10) {
+    // Wait for the next cycle if the map was just updated recently
     next_update_ts += 600;
   }
 
-  const delta = next_update_ts - now.getTime() / 1000;
+  // Number of seconds to wait until the next update
+  const wait = next_update_ts - now.getTime() / 1000;
 
   let update_countdown = document.getElementById('update_countdown');
 
   let status_updater = setInterval(() => {
-    const now = (new Date()).getTime() / 1000;
-    const delta = next_update_ts - now;
+    const now = new Date();
+    const wait = next_update_ts - now.getTime() / 1000;
 
-    if (delta <= 0) {
+    if (wait <= 0) {
       clearInterval(status_updater);
     } else {
-      if (delta >= 60) {
+      if (wait >= 60) {
           update_countdown.innerHTML =
-              `Update in <b>${Math.floor((delta + 10) / 60)}m</b>`;
+              `Update in <b>${Math.floor((wait + 10) / 60)}m</b>`;
       } else {
           update_countdown.innerHTML =
               `Update in <b>&lt;1m</b>`;
@@ -729,17 +735,17 @@ function scheduleNextUpdate() {
     // Update "Last ago" timestamp
     let last_age = document.getElementById("last_age");
     if (last_age && last_marker) {
-      last_age.innerHTML = formatDuration(new Date(), last_marker.spot.ts);
+      last_age.innerHTML = formatDuration(now, last_marker.spot.ts);
     }
   }, 60 * 1000);
 
   update_countdown.innerHTML =
-      `Update in <b>${Math.floor((delta + 10) / 60)}m</b>`;
+      `Update in <b>${Math.floor((wait + 10) / 60)}m</b>`;
 
   setTimeout(() => {
     clearInterval(status_updater);
     update(true);  // update incrementally
-  }, delta * 1000);
+  }, wait * 1000);
 }
 
 // Regular callsign data fetched from wspr.live
@@ -748,14 +754,13 @@ let reg_cs_data = [];
 // Basic telemetry data fetched from wspr.live
 let basic_tel_data = [];
 
-// Fetch new data from wspr.live and update the internal state
+// Fetch new data from wspr.live and update the map
 async function update(incremental_update = false) {
   const button = document.getElementById('button');
 
   try {
     // Disable the button and show progress
     button.disabled = true;
-    button.textContent = '.';
 
     displayProgress(button, 1);
 
@@ -787,10 +792,11 @@ async function update(incremental_update = false) {
     decodeSpots(spots);
     displayTrack(spots);
 
-    last_update_ts = new Date();
+    const now = new Date();
+    last_update_ts = now;
 
     if (incremental_update ||
-        (new Date()) - params.end_date < 86400 * 1000) {
+        now - params.end_date < 86400 * 1000) {
       // Only schedule updates for current flights
       scheduleNextUpdate();
     }
@@ -798,6 +804,7 @@ async function update(incremental_update = false) {
     clearTrack();
     alert(error);
   } finally {
+    // Restore the submit button
     button.disabled = false;
     button.textContent = 'Go';
   }
@@ -846,17 +853,20 @@ if (/Mobi|Android|iPhone|iPad|iPod|Opera Mini|IEMobile|WPDesktop|BlackBerry|BB|P
   click_tolerance = 15;
 }
 
+// Initialize the map
 map = L.map('map',
     {renderer : L.canvas({tolerance: click_tolerance}),
      worldCopyJump: true})
     .setView([init_lat, init_lon], init_zoom_level);
 
+// Use local English-label tiles for lower levels
 L.tileLayer(
     'osm_tiles/{z}/{x}/{y}.png',
     {maxZoom: 6,
      attribution: '<a href="https://github.com/wsprtv/wsprtv.github.io">WSPR TV</a> | &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
     }).addTo(map);
 
+// Use OSM-hosted tiles for higher levels
 L.tileLayer(
     'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
     {minZoom: 7, maxZoom: 12,
@@ -881,7 +891,7 @@ L.polyline([[0, -180], [0, 180]],
     .addTo(map).bringToBack();
 
 
-// Remember last map location and zoom level
+// On pan / zoom, save location and zoom level
 map.on('moveend', function() {
   let center = map.getCenter();
   localStorage.setItem('lat', center.lat);
@@ -892,21 +902,24 @@ map.on('zoomend', function() {
   localStorage.setItem('zoom_level', map.getZoom());
 });
 
+// Display aux info for clicks on the map outside of markers
 map.on('click', function(e) {
   // Hide spot info if currently displayed
   document.getElementById('spot_info').style.display = 'none';
 
   // Display lat / lng / sun elevation of clicked point
-  const lat = e.latlng.lat.toFixed(2); // Get latitude
-  const lon = e.latlng.lng.toFixed(2); // Get longitude
+  const lat = e.latlng.lat.toFixed(2);
+  const lon = e.latlng.lng.toFixed(2);
 
-  const sun_pos = SunCalc.getPosition(new Date(), lat, lon);
+  const now = new Date();
+
+  const sun_pos = SunCalc.getPosition(now, lat, lon);
   const sun_elev = Math.round(sun_pos.altitude * 180 / Math.PI);
 
-  const hrs_sunrise = getHoursSinceSunrise(new Date(), lat, lon).toFixed(1);
-  const hrs_sunset = getHoursToSunset(new Date(), lat, lon).toFixed(1);
+  const hrs_sunrise = getHoursSinceSunrise(now, lat, lon).toFixed(1);
+  const hrs_sunset = getHoursToSunset(now, lat, lon).toFixed(1);
 
-  // Update the display with the lat/lon
+  // Update the display
   let aux_info = document.getElementById('aux_info');
   aux_info.innerHTML = `${lat}, ${lon} | ${sun_elev}&deg; `;
   if (!isNaN(hrs_sunrise)) {
@@ -914,14 +927,18 @@ map.on('click', function(e) {
   }
 
   if (clicked_marker) {
+    // Display distance to the previously clicked marker
     let dist = e.latlng.distanceTo(clicked_marker.getLatLng());
     aux_info.innerHTML += ' | ' + Math.trunc(dist / 1000) + ' km';
+    // Clicking anywhere on the map hides the info bar for the last
+    // clicked marker
     hideMarkerRXInfo(clicked_marker);
     clicked_marker = null;
   }
   aux_info.style.display = 'block';
 });
 
+// Handle button clicks
 document.getElementById('button').addEventListener(
     'click', processSubmission);
 
