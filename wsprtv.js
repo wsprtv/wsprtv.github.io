@@ -789,7 +789,11 @@ async function update(incremental_update = false) {
 
     last_update_ts = new Date();
 
-    scheduleNextUpdate();
+    if (incremental_update ||
+        (new Date()) - params.end_date < 86400 * 1000) {
+      // Only schedule updates for current flights
+      scheduleNextUpdate();
+    }
   } catch (error) {
     clearTrack();
     alert(error);
