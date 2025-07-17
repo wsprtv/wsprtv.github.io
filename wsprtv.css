@@ -61,3 +61,8 @@ html, body, #map {
 #synopsis:not(:empty), #update_countdown:not(:empty) {
   margin-top: 5px;
 }
+
+#unit_switch_link {
+  color: white;
+  text-decoration: none;
+}

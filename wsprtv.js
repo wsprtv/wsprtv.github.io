@@ -56,6 +56,7 @@ function parseParams() {
       document.getElementById('start_date').value);
   const end_date = end_date_param ?
       parseDateParam(end_date_param) : new Date();
+  const units = units_param || localStorage.getItem('units') || "metric";
 
   const cs_regex = /^[a-zA-Z0-9]{4,6}$/;
   if (!cs_regex.test(cs)) {
@@ -91,7 +92,8 @@ function parseParams() {
 
   // Successful validation
   return {'cs' : cs, 'ch' : ch, 'band' : band,
-          'start_date' : start_date, 'end_date' : end_date};
+          'start_date' : start_date, 'end_date' : end_date,
+          'units' : units};
 }
 
 // Date() object corresponding to last track update
@@ -381,7 +383,7 @@ function decodeSpot(spot) {
 }
 
 // Annotates telemetry spots (appends lat, lon, speed, etc)
-function decodeSpots(spots) {
+function decodeSpots() {
   spots.forEach((spot, index) => { decodeSpot(spot); });
 }
 
@@ -401,6 +403,56 @@ function formatDuration(ts1, ts2) {
   }
 }
 
+function formatDistance(m) {
+  if (params.units == 'metric') {
+    return Math.floor(m / 1000) + ' km';
+  } else {
+    return Math.floor(m * 0.621371 / 1000) + ' mi';
+  }
+}
+
+function formatSpeed(kph) {
+  if (params.units == 'metric') {
+    return Math.floor(kph) + ' km/h';
+  } else {
+    return Math.floor(kph * 0.621371) + ' mph';
+  }
+}
+
+function formatAltitude(m) {
+  if (params.units == 'metric') {
+    return (m / 1000).toFixed(2) + ' km';
+  } else {
+    // 10ft increments
+    return Math.floor(m * 3.28084 / 10) * 10 + ' ft';
+  }
+}
+
+function formatTemperature(c) {
+  if (params.units == 'metric') {
+    return c + 'C';
+  } else {
+    return Math.floor(c * 9 / 5 + 32) + 'F';
+  }
+}
+
+function formatVoltage(v) {
+  return v.toFixed(2) + 'V';
+}
+
+function changeUnits() {
+  if (params.units == 'metric') {
+    params.units = 'imperial';
+  } else {
+    params.units = 'metric';
+  }
+  // Redraw the track using new units
+  displayTrack();
+
+  // Remember units preference
+  localStorage.setItem('units', params.units);
+}
+
 // Only count distance between points at least 100km apart.
 // This improves accuracy.
 function computeDistance(markers) {
@@ -409,8 +461,8 @@ function computeDistance(markers) {
   let last_marker = markers[0];
   for (let i = 1; i < markers.length; i++) {
     const segment_dist = markers[i].getLatLng().distanceTo(
-        last_marker.getLatLng()) / 1000;
-    if (segment_dist > 100 || i == markers.length - 1) {
+        last_marker.getLatLng());
+    if (segment_dist > 100000 || i == markers.length - 1) {
       dist += segment_dist;
       last_marker = markers[i];
     }
@@ -449,7 +501,7 @@ function clearTrack() {
 let last_marker = null;
 
 // Draws the track on the map
-function displayTrack(spots) {
+function displayTrack() {
   clearTrack();
   marker_group = L.featureGroup();
   segment_group = L.featureGroup();
@@ -513,18 +565,22 @@ function displayTrack(spots) {
   if (markers.length > 0) {
     const last_spot = last_marker.spot;
     const duration = formatDuration(last_marker.spot.ts, markers[0].spot.ts);
-    const distance = computeDistance(markers);
-    synopsis.innerHTML = `Distance: <b>${Math.floor(distance)} km</b>`;
-    synopsis.innerHTML += `<br>Duration: <b>${duration}</b>`;
+    synopsis.innerHTML = `Duration: <b>${duration}</b>`;
+    // Distance is a clickable link to switch units
+    const dist = computeDistance(markers);
+    synopsis.innerHTML += '<br>Distance: <b>' +
+        '<a href="#" id="unit_switch_link" title="Click to change units" ' +
+        'onclick="changeUnits(); event.preventDefault()">' +
+        formatDistance(dist) + '</a></b>';
     synopsis.innerHTML += `<br><b>${markers.length}</b> spot` +
         ((markers.length > 1) ? 's' : '');
     if (last_spot.basic) {
       synopsis.innerHTML += '<br>Last altitude: <b>' +
-          (last_spot.altitude / 1000).toFixed(2) + ' km</b>';
+          formatAltitude(last_spot.altitude) + '</b>';
       synopsis.innerHTML +=
-          `<br>Last speed: <b>${Math.round(last_spot.speed)} km/h</b>`;
+          `<br>Last speed: <b>${formatSpeed(last_spot.speed)}</b>`;
       synopsis.innerHTML +=
-          `<br>Last voltage: <b>${last_spot.voltage.toFixed(2)}V</b>`;
+          `<br>Last voltage: <b>${formatVoltage(last_spot.voltage)}</b>`;
     }
     const last_age = formatDuration(new Date(), last_spot.ts);
     synopsis.innerHTML += `<br><b>(<span id='last_age'>${last_age}</span> ago)</b>`;
@@ -651,11 +707,10 @@ function displaySpotInfo(marker, point) {
   }
   spot_info.innerHTML += `<br>${spot.lat.toFixed(2)}, ${spot.lon.toFixed(2)}`;
   if (spot.basic) {
-    spot_info.innerHTML += '<br>Altitude: ' +
-        (spot.altitude / 1000).toFixed(2) + ' km';
-    spot_info.innerHTML += `<br>Speed: ${Math.round(spot.speed)} km/h`;
-    spot_info.innerHTML += `<br>Temp: ${spot.temp}C`;
-    spot_info.innerHTML += `<br>Voltage: ${spot.voltage.toFixed(2)}V`;
+    spot_info.innerHTML += '<br>Altitude: ' + formatAltitude(spot.altitude);
+    spot_info.innerHTML += `<br>Speed: ${formatSpeed(spot.speed)}`;
+    spot_info.innerHTML += `<br>Temp: ${formatTemperature(spot.temp)}`;
+    spot_info.innerHTML += `<br>Voltage: ${formatVoltage(spot.voltage)}`;
   }
   const sun_pos = SunCalc.getPosition(spot.ts, spot.lat, spot.lon);
   const sun_elev = Math.round(sun_pos.altitude * 180 / Math.PI);
@@ -665,8 +720,8 @@ function displaySpotInfo(marker, point) {
   const max_snr = Math.max(...spot.rx.map(r => r.snr));
   spot_info.innerHTML += ` | ${max_snr} dBm`;
   const max_rx_dist = Math.max(...spot.rx.map(r =>
-      marker.getLatLng().distanceTo(maidenheadToLatLon(r.grid)))) / 1000;
-  spot_info.innerHTML += `<br> ${Math.round(max_rx_dist)} km`;
+      marker.getLatLng().distanceTo(maidenheadToLatLon(r.grid))));
+  spot_info.innerHTML += `<br> ${formatDistance(max_rx_dist)}`;
 
   if (marker == clicked_marker) {
     // Add GoogleEarth view
@@ -754,6 +809,9 @@ let reg_cs_data = [];
 // Basic telemetry data fetched from wspr.live
 let basic_tel_data = [];
 
+// Combined and annotated telemetry data
+let spots = [];
+
 // Fetch new data from wspr.live and update the map
 async function update(incremental_update = false) {
   const button = document.getElementById('button');
@@ -786,11 +844,11 @@ async function update(incremental_update = false) {
       basic_tel_data = mergeData(basic_tel_data, new_basic_tel_data);
     }
 
-    let spots = matchTelemetry(reg_cs_data, basic_tel_data);
+    spots = matchTelemetry(reg_cs_data, basic_tel_data);
     if (debug > 2) console.log(spots);
 
-    decodeSpots(spots);
-    displayTrack(spots);
+    decodeSpots();
+    displayTrack();
 
     const now = new Date();
     last_update_ts = now;
@@ -840,6 +898,7 @@ if (!start_date_param) {
 }
 document.getElementById('start_date').value = start_date_param;
 let end_date_param = getUrlParameter('end_date');
+let units_param = getUrlParameter('units');
 
 // Initial center and zoom level, if stored previously
 let init_lat = localStorage.getItem('init_lat') || 40;
@@ -929,7 +988,7 @@ map.on('click', function(e) {
   if (clicked_marker) {
     // Display distance to the previously clicked marker
     let dist = e.latlng.distanceTo(clicked_marker.getLatLng());
-    aux_info.innerHTML += ' | ' + Math.trunc(dist / 1000) + ' km';
+    aux_info.innerHTML += ' | ' + formatDistance(dist);
     // Clicking anywhere on the map hides the info bar for the last
     // clicked marker
     hideMarkerRXInfo(clicked_marker);
