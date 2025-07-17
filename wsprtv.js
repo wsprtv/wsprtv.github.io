@@ -1,5 +1,21 @@
 // WSPR Telemetry Viewer
 // https://github.com/wsprtv/wsprtv.github.io
+//
+// This file is part of the WSPR TV project.
+// Copyright (C) 2025 WSPR TV authors.
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Affero General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU Affero General Public License for more details.
+//
+// You should have received a copy of the GNU Affero General Public License
+// along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 let map;  // Leaflet map object
 let params;  // form / URL params
@@ -8,6 +24,8 @@ let debug = 0;  // controls console logging
 // Band info. For each band, the value is
 // [starting_minute_base (for ch 0), wspr_live_band]
 const kBandInfo = {
+  '2200m' : [0, -1],
+  '630m' : [4, 0],
   '160m' : [8, 1],
   '80m' : [2, 3],
   '60m' : [6, 5],
@@ -18,7 +36,9 @@ const kBandInfo = {
   '15m' : [6, 21],
   '12m' : [0, 24],
   '10m' : [4, 28],
-  '6m' : [8, 50]
+  '6m' : [8, 50],
+  '4m' : [2, 70],
+  '2m' : [6, 144]
 }
 
 // Extract a parameter value from URL
