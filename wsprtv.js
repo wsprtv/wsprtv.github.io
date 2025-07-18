@@ -70,7 +70,7 @@ function parseDateParam(param) {
 // Alerts the user and returns null if validation failed.
 function parseParams() {
   const cs = document.getElementById('cs').value.trim().toUpperCase();
-  const ch = Number(document.getElementById('ch').value.trim());
+  const ch = Number(document.getElementById('ch').value.trim() || 'NaN');
   const band = document.getElementById('band').value.trim();
   const start_date = parseDateParam(
       document.getElementById('start_date').value);
@@ -608,6 +608,8 @@ function displayTrack() {
     synopsis.innerHTML = '<b>0</b> spots';
   }
 
+  displayNextUpdateCountdown();
+
   // Add segments between markers
   // Handle segments across map edges
   for (let i = 1; i < markers.length; i++) {
@@ -768,9 +770,46 @@ function getHoursToSunset(ts, lat, lon) {
   return (SunCalc.getTimes(ts, lat, lon).sunset - ts) / 3600000;
 }
 
+// Shows the 'Next update in Xm' message in the flight synopsis bar
+function displayNextUpdateCountdown() {
+  if (!next_update_ts) return;
+
+  // Number of seconds until the next update
+  const remaining_time = next_update_ts - Date.now() / 1000;
+
+  let update_countdown = document.getElementById('update_countdown');
+
+  if (remaining_time >= 60) {
+    update_countdown.innerHTML =
+        `Update in <b>${Math.floor(remaining_time / 60)}m</b>`;
+  } else {
+    update_countdown.innerHTML =
+              `Update in <b>&lt;1m</b>`;
+  }
+}
+
+let next_update_ts = null;  // in seconds
+
+// Scheduled tasks
+let periodic_status_update = null;
+let next_scheduled_update = null;
+
+function clearScheduledTasks() {
+  if (periodic_status_update) {
+    clearInterval(periodic_status_update);
+    periodic_status_update = null;
+  }
+  if (next_scheduled_update) {
+    clearTimeout(next_scheduled_update);
+    next_scheduled_update = null;
+  }
+}
+
 // Sets a timer to incrementally update the track at the end of
 // next expected TX slot
 function scheduleNextUpdate() {
+  clearScheduledTasks();
+
   const [starting_minute_base, wspr_band] = kBandInfo[params.band];
   const tx_minute = (starting_minute_base + (params.ch % 5) * 2 + 2) % 10;
 
@@ -778,7 +817,7 @@ function scheduleNextUpdate() {
 
   // Wait 1m 15s after the end of the next basic telemetry TX.
   // The delay is needed so that WSPR telemetry can trickle in.
-  let next_update_ts = now.getTime() / 1000 -
+  next_update_ts = now.getTime() / 1000 -
       (now.getUTCMinutes() % 10) * 60 - now.getUTCSeconds() +
       tx_minute * 60 + 195;
   if (next_update_ts < now.getTime() / 1000 + 10) {
@@ -786,41 +825,23 @@ function scheduleNextUpdate() {
     next_update_ts += 600;
   }
 
-  // Number of seconds to wait until the next update
-  const wait = next_update_ts - now.getTime() / 1000;
+  periodic_status_update = setInterval(() => {
+    displayNextUpdateCountdown();
 
-  let update_countdown = document.getElementById('update_countdown');
-
-  let status_updater = setInterval(() => {
-    const now = new Date();
-    const wait = next_update_ts - now.getTime() / 1000;
-
-    if (wait <= 0) {
-      clearInterval(status_updater);
-    } else {
-      if (wait >= 60) {
-          update_countdown.innerHTML =
-              `Update in <b>${Math.floor((wait + 10) / 60)}m</b>`;
-      } else {
-          update_countdown.innerHTML =
-              `Update in <b>&lt;1m</b>`;
-      }
-    }
-
-    // Update "Last ago" timestamp
-    let last_age = document.getElementById("last_age");
+    // Update the "Last ago" timestamp
+    let last_age = document.getElementById('last_age');
     if (last_age && last_marker) {
-      last_age.innerHTML = formatDuration(now, last_marker.spot.ts);
+      last_age.innerHTML = formatDuration(new Date(), last_marker.spot.ts);
     }
   }, 60 * 1000);
 
-  update_countdown.innerHTML =
-      `Update in <b>${Math.floor((wait + 10) / 60)}m</b>`;
+  displayNextUpdateCountdown();
 
-  setTimeout(() => {
-    clearInterval(status_updater);
+  let time_remaining = next_update_ts - now.getTime() / 1000;
+
+  next_scheduled_update = setTimeout(() => {
     update(true);  // update incrementally
-  }, wait * 1000);
+  }, time_remaining * 1000);
 }
 
 // Regular callsign data fetched from wspr.live
@@ -834,6 +855,7 @@ let spots = [];
 
 // Fetch new data from wspr.live and update the map
 async function update(incremental_update = false) {
+  clearScheduledTasks();
   const button = document.getElementById('button');
 
   try {
@@ -890,6 +912,7 @@ async function update(incremental_update = false) {
 
 // Try to update the internal state based on submitted params
 function processSubmission() {
+  clearScheduledTasks();
   params = parseParams();
   if (params) {
     if (debug > 0) console.log(params);
