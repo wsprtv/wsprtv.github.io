@@ -70,8 +70,50 @@ function parseDateParam(param) {
 // Alerts the user and returns null if validation failed.
 function parseParams() {
   const cs = document.getElementById('cs').value.trim().toUpperCase();
-  const ch = Number(document.getElementById('ch').value.trim() || 'NaN');
   const band = document.getElementById('band').value.trim();
+  if (!(band in kBandInfo)) {
+    alert('Invalid band');
+    return null;
+  }
+  // Channel may also encode tracker type, such as Z3 for Zachtek
+  const raw_ch = document.getElementById('ch').value.trim().toUpperCase();
+  let ch;
+  let tracker;
+  if (raw_ch.length > 1 && /^[A-Z]$/.test(raw_ch[0])) {
+    if (raw_ch[0] == 'Z') {
+      tracker = 'zachtek';
+      if (!/^[02468]$/.test(raw_ch.slice(1))) {
+        alert('Zachtek starting minute should be one of 0, 2, 4, 6 or 8');
+        return null;
+      }
+      ch = raw_ch[1] - '0';
+    } else if (raw_ch[0] == 'W' || raw_ch[0] == 'U') {
+      // Q34 format, where Q and 3 are special callsign ids and 4 is
+      // the starting minute
+      if (!/^[Q01][0-9][02468]$/.test(raw_ch.slice(1))) {
+        alert('Incorrect U/W channel format');
+        return null;
+      }
+      const [starting_minute_base, wspr_band] = kBandInfo[band];
+      // Convert channel to an equivalent u4b one (0-599)
+      ch = ['0', '1', 'Q'].indexOf(raw_ch[1]) * 200 +
+          (raw_ch[2] - '0') * 20 +
+          (((raw_ch[3] - '0' - starting_minute_base) / 2) % 5 + 5) % 5;
+      if (raw_ch[0] == 'W') {
+        tracker = 'wb8elk';
+      }
+    } else {
+      alert('Unknown tracker type: ' + raw_ch[0]);
+      return null;
+    }
+  } else {
+    ch = Number(raw_ch || 'NaN');
+    if (isNaN(ch) || !Number.isInteger(ch) || ch < 0 || ch >= 600) {
+      alert('Channel should be an integer between 0 and 599');
+      return null;
+    }
+    tracker = '';  // deafult
+  }
   const start_date = parseDateParam(
       document.getElementById('start_date').value);
   const end_date = end_date_param ?
@@ -81,11 +123,6 @@ function parseParams() {
   const cs_regex = /^[a-zA-Z0-9]{4,6}$/;
   if (!cs_regex.test(cs)) {
     alert('Please enter a valid callsign');
-    return null;
-  }
-
-  if (isNaN(ch) || !Number.isInteger(ch) || ch < 0 || ch >= 600) {
-    alert('Channel should be an integer between 0 and 599');
     return null;
   }
 
@@ -111,7 +148,7 @@ function parseParams() {
   }
 
   // Successful validation
-  return {'cs' : cs, 'ch' : ch, 'band' : band,
+  return {'cs' : cs, 'ch' : ch, 'band' : band, 'tracker' : tracker,
           'start_date' : start_date, 'end_date' : end_date,
           'units' : units};
 }
@@ -363,40 +400,72 @@ function charToNum(c, alphanum = false) {
 const kWsprPowers = [0, 3, 7, 10, 13, 17, 20, 23, 27, 30, 33, 37, 40,
   43, 47, 50, 53, 57, 60];
 
+function processU4BBasicTelemetryMessage(spot) {
+  // Basic telemetry message is present
+  if (spot.basic.cs.length != 6) {
+    spot.invalid = true;
+    return false;
+  }
+  spot.basic.grid = spot.basic.grid.slice(0, 4);
+  // Extract values from callsign
+  let cs = spot.basic.cs;
+  let m = ((((charToNum(cs[1], true) * 26 + charToNum(cs[3])) * 26) +
+           charToNum(cs[4]))) * 26 + charToNum(cs[5]);
+  let p = Math.floor(m / 1068);
+  spot.grid6 = spot.grid + String.fromCharCode(97 + Math.floor(p / 24)) +
+      String.fromCharCode(97 + (p % 24));
+  spot.altitude = (m % 1068) * 20;
+  // Extract values from grid + power
+  let grid = spot.basic.grid;
+  let n = ((((charToNum(grid[0]) * 18 + charToNum(grid[1])) * 10) +
+           charToNum(grid[2], true)) * 10 + charToNum(grid[3], true)) * 19 +
+      kWsprPowers.indexOf(spot.basic.power);
+  if (!(Math.floor(n / 2) % 2)) {
+    // Invalid GPS bit
+    spot.invalid = true;
+    return;
+  }
+  spot.speed = (Math.floor(n / 4) % 42) * 2 * 1.852;
+  spot.voltage = ((Math.floor(n / 168) + 20) % 40) * 0.05 + 3;
+  spot.temp = (Math.floor(n / 6720) % 90) - 50;
+  return true;
+}
+
+function processWB8ELKBasicTelemetryMessage(spot) {
+  // Basic telemetry message is present
+  if (spot.basic.cs.length != 6) {
+    spot.invalid = true;
+    return false;
+  }
+  spot.altitude += 60 * kWsprPowers.indexOf(spot.basic.power);
+  spot.basic.grid = spot.basic.grid.slice(0, 4);
+  if (spot.grid != spot.basic.grid ||
+      !/^[A-X][A-X]$/.test(spot.basic.cs.slice(4))) {
+    spot.invalid = true;
+    return false;
+  }
+  spot.grid6 = spot.grid + spot.basic.cs.slice(4,6).toLowerCase();
+  spot.voltage = 3.3 + (spot.basic.cs.charCodeAt(3) - 'A'.charCodeAt(0)) * 0.1;
+  return true;
+}
+
 // Decodes and annotates a spot
 // as documented at https://qrp-labs.com/flights/s4.html.
 // Note: voltage calculation is documented incorrectly there.
 function decodeSpot(spot) {
   spot.grid = spot.grid.slice(0, 4);  // normalize grid
-  if (spot.basic) {
-    // Basic telemetry message is present
-    if (spot.basic.cs.length != 6) {
-      spot.invalid = true;
-      return;
+  if (params.tracker == 'wb8elk') {
+    spot.altitude = 1000 * kWsprPowers.indexOf(spot.power);
+    if (spot.basic) {
+      processWB8ELKBasicTelemetryMessage(spot);
     }
-    spot.basic.grid = spot.basic.grid.slice(0, 4);
-    // Extract values from callsign
-    let cs = spot.basic.cs;
-    let m = ((((charToNum(cs[1], true) * 26 + charToNum(cs[3])) * 26) +
-             charToNum(cs[4]))) * 26 + charToNum(cs[5]);
-    let p = Math.floor(m / 1068);
-    spot.grid6 = spot.grid + String.fromCharCode(97 + Math.floor(p / 24)) +
-        String.fromCharCode(97 + (p % 24));
+  } else if (params.tracker == 'zachtek') {
+    spot.altitude = spot.power * 300;
+  } else if (spot.basic) {
+    processU4BBasicTelemetryMessage(spot);
+  }
+  if (spot.grid6) {
     [spot.lat, spot.lon] = maidenheadToLatLon(spot.grid6);
-    spot.altitude = (m % 1068) * 20;
-    // Extract values from grid + power
-    let grid = spot.basic.grid;
-    let n = ((((charToNum(grid[0]) * 18 + charToNum(grid[1])) * 10) +
-             charToNum(grid[2], true)) * 10 + charToNum(grid[3], true)) * 19 +
-        kWsprPowers.indexOf(spot.basic.power);
-    if (!(Math.floor(n / 2) % 2)) {
-      // Invalid GPS bit
-      spot.invalid = true;
-      return;
-    }
-    spot.speed = (Math.floor(n / 4) % 42) * 2 * 1.852;
-    spot.voltage = ((Math.floor(n / 168) + 20) % 40) * 0.05 + 3;
-    spot.temp = (Math.floor(n / 6720) % 90) - 50;
   } else {
     [spot.lat, spot.lon] = maidenheadToLatLon(spot.grid);
   }
@@ -594,11 +663,15 @@ function displayTrack() {
         formatDistance(dist) + '</a></b>';
     synopsis.innerHTML += `<br><b>${markers.length}</b> spot` +
         ((markers.length > 1) ? 's' : '');
-    if (last_spot.basic) {
+    if ('altitude' in last_spot) {
       synopsis.innerHTML += '<br>Last altitude: <b>' +
           formatAltitude(last_spot.altitude) + '</b>';
+    }
+    if ('speed' in last_spot) {
       synopsis.innerHTML +=
           `<br>Last speed: <b>${formatSpeed(last_spot.speed)}</b>`;
+    }
+    if ('voltage' in last_spot) {
       synopsis.innerHTML +=
           `<br>Last voltage: <b>${formatVoltage(last_spot.voltage)}</b>`;
     }
@@ -728,10 +801,16 @@ function displaySpotInfo(marker, point) {
         `<br>${spot.basic.cs} ${spot.basic.grid} ${spot.basic.power}`;
   }
   spot_info.innerHTML += `<br>${spot.lat.toFixed(2)}, ${spot.lon.toFixed(2)}`;
-  if (spot.basic) {
+  if ('altitude' in spot) {
     spot_info.innerHTML += '<br>Altitude: ' + formatAltitude(spot.altitude);
+  }
+  if ('speed' in spot) {
     spot_info.innerHTML += `<br>Speed: ${formatSpeed(spot.speed)}`;
+  }
+  if ('temp' in spot) {
     spot_info.innerHTML += `<br>Temp: ${formatTemperature(spot.temp)}`;
+  }
+  if ('voltage' in spot) {
     spot_info.innerHTML += `<br>Voltage: ${formatVoltage(spot.voltage)}`;
   }
   const sun_pos = SunCalc.getPosition(spot.ts, spot.lat, spot.lon);
@@ -820,8 +899,13 @@ function scheduleNextUpdate() {
   next_update_ts = now.getTime() / 1000 -
       (now.getUTCMinutes() % 10) * 60 - now.getUTCSeconds() +
       tx_minute * 60 + 195;
+
+  if (!next_update_ts) {
+    alert('Internal error');
+    return;
+  }
+
   if (next_update_ts < now.getTime() / 1000 + 10) {
-    // Wait for the next cycle if the map was just updated recently
     next_update_ts += 600;
   }
 
@@ -871,10 +955,14 @@ async function update(incremental_update = false) {
 
     displayProgress(button, 2);
 
-    const basic_tel_query = createBasicTelemetryQuery(incremental_update);
-    const new_basic_tel_data = importBasicTelemetryData(
-       await runQuery(basic_tel_query));
-    if (debug > 2) console.log(new_basic_tel_data);
+    let new_basic_tel_data = [];
+
+    if (params.tracker != 'zachtek') {
+      const basic_tel_query = createBasicTelemetryQuery(incremental_update);
+      new_basic_tel_data = importBasicTelemetryData(
+          await runQuery(basic_tel_query));
+      if (debug > 2) console.log(new_basic_tel_data);
+    }
 
     displayProgress(button, 3);
 
@@ -917,6 +1005,8 @@ function processSubmission() {
   if (params) {
     if (debug > 0) console.log(params);
     update();
+  } else {
+    clearTrack();
   }
 }
 
