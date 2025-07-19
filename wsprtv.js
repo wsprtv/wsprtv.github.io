@@ -1015,8 +1015,7 @@ function updateURL() {
     if (units_param) {
       url += '&units=' + encodeURIComponent(units_param);
     }
-    console.log(url);
-    history.pushState(null, '', url);
+    history.replaceState(null, '', url);
   } catch (error) {
     console.log('Security error triggered by history.pushState()');
   }
