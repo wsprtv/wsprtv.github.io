@@ -998,12 +998,34 @@ async function update(incremental_update = false) {
   }
 }
 
+// Updates the URL based on current params, for bookmarking etc
+function updateURL() {
+  try {
+    let url = '/?cs=' + document.getElementById('cs').value.trim();
+    url += '&ch=' + document.getElementById('ch').value;
+    url += '&band=' + document.getElementById('band').value;
+    url += '&start_date=' +
+        document.getElementById('start_date').value.trim();
+    if (end_date_param) {
+      url += '&end_date=' + end_date_param;
+    }
+    if (units_param) {
+      url += '&units=' + units_param;
+    }
+    console.log(url);
+    history.pushState(null, '', url);
+  } catch (error) {
+    console.log('Security error triggered by history.pushState()');
+  }
+}
+
 // Try to update the internal state based on submitted params
 function processSubmission() {
   clearScheduledTasks();
   params = parseParams();
   if (params) {
     if (debug > 0) console.log(params);
+    updateURL();
     update();
   } else {
     clearTrack();
