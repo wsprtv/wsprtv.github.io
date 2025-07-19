@@ -1090,7 +1090,8 @@ L.tileLayer(
     }).addTo(map);
 
 // Add day / night visualization and the scale indicator
-let terminator = L.terminator().addTo(map);
+let terminator = L.terminator(
+    {opacity : 0, fillOpacity : 0.3, interactive : false}).addTo(map);
 L.control.scale().addTo(map);
 
 // Draw the antimeridian
