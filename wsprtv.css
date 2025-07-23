@@ -188,3 +188,7 @@ table.data_table {
   cursor: not-allowed;
   border: 1px solid #aaa;
 }
+
+.leaflet-tooltip {
+  font-size: 13px;
+}

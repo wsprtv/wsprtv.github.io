@@ -864,7 +864,7 @@ function onMarkerClick(e) {
       let dist = marker.getLatLng().distanceTo(rx_lat_lon);
       rx_marker.bindTooltip(
           `${r.cs} ${formatDistance(dist)} ${r.snr} dBm`,
-          { direction: 'top', opacity: 0.8});
+          {direction: 'top', opacity: 0.8});
       marker.rx_markers.push(rx_marker);
       let segment = L.polyline([marker.getLatLng(), rx_lat_lon],
           { weight: 2, color: 'blue' }).addTo(map).bringToBack();
@@ -1130,10 +1130,7 @@ async function update(incremental_update = false) {
 
     // Recenter the map on first load
     if (!incremental_update && last_marker) {
-      const map_bounds = map.getBounds();
-      if (!map_bounds.contains(last_marker.getLatLng())) {
-        map.setView(last_marker.getLatLng(), map.getZoom(), {animate: false});
-      }
+      map.setView(last_marker.getLatLng(), map.getZoom(), {animate: false});
     }
 
     const now = new Date();
