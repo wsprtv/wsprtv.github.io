@@ -1491,8 +1491,7 @@ function Run() {
 
   // Initialize the map
   map = L.map('map',
-      {renderer : L.canvas({tolerance: click_tolerance})})
-      .setView([init_lat, init_lon], init_zoom_level);
+      {renderer : L.canvas({tolerance: click_tolerance})});
 
   // Use local English-label tiles for lower levels
   L.tileLayer(
@@ -1513,6 +1512,8 @@ function Run() {
            'WSPR TV</a> | &copy; <a href="https://www.openstreetmap.org' +
            '/copyright">OpenStreetMap</a> contributors'
       }).addTo(map);
+
+  map.setView([init_lat, init_lon], init_zoom_level);
 
   // Add day / night visualization and the scale indicator
   let terminator = L.terminator(
