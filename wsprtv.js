@@ -307,7 +307,7 @@ function compareRows(r1, r2) {
 }
 
 // Both old_data and new_data are sorted by (row.ts, row.cs).
-// Extends old_data with items in new_data whose timestamps are not
+// Extends old_data with items in new_data whose keys are not
 // present in old_data and returns the result.
 function mergeData(old_data, new_data) {
   let result = [];
@@ -1474,9 +1474,9 @@ function Run() {
   }
 
   // Recall previously stored map location and zoom level
-  let init_lat = localStorage.getItem('init_lat') || 40;
-  let init_lon = localStorage.getItem('init_lon') || -100;
-  let init_zoom_level = localStorage.getItem('init_zoom_level') || 2;
+  let init_lat = localStorage.getItem('lat') || 40;
+  let init_lon = localStorage.getItem('lon') || -100;
+  let init_zoom_level = localStorage.getItem('zoom_level') || 2;
 
   // Make the map div visible (if not already)
   document.getElementById('map').style.display = 'block';
