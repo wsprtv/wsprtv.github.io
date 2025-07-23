@@ -1366,7 +1366,7 @@ function showDataView() {
   div.appendChild(document.createElement('br'));
 
   div.appendChild(
-      createPrettyButton('ToggleUnits', toggleUnits));
+      createPrettyButton('Toggle Units', toggleUnits));
   div.appendChild(
       createPrettyButton('Download JSON', () => downloadJSON(reverse_spots)));
 
