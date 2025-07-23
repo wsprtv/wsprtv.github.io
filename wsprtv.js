@@ -1517,7 +1517,8 @@ function Run() {
 
   // Add day / night visualization and the scale indicator
   let terminator = L.terminator(
-      {opacity : 0, fillOpacity : 0.3, interactive : false}).addTo(map);
+      {opacity : 0, fillOpacity : 0.3, interactive : false,
+       longitudeRange: 360}).addTo(map);
   L.control.scale().addTo(map);
 
   // Draw the antimeridian
