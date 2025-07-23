@@ -3,20 +3,24 @@
 <head>
   <title>WSPR Telemetry Viewer</title>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <link rel="stylesheet" href="wsprtv.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/uplot@1.6.32/dist/uPlot.min.css" />
+  <link rel="stylesheet" href="wsprtv.css?2" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://unpkg.com/@joergdietrich/leaflet.terminator"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/suncalc/1.9.0/suncalc.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/uplot@1.6.32/dist/uPlot.iife.min.js"></script>
 </head>
 
 <body>
   <div id="map"></div>
   <div id="control_panel">
     <span id="form_line1">
-      <input type="text" id="cs" size=4 placeholder="Callsign">
-      <input type="text" id="ch" size=2 placeholder="Ch">
+      <input type="text" id="cs" size=6 style="width: 55px"
+       placeholder="Callsign">
+      <input type="text" id="ch" size=4 style="width: 40px"
+       placeholder="Ch">
       <select id="band">
         <option value="2200m">LF</option>
         <option value="630m">630m</option>
@@ -37,8 +41,9 @@
     </span>
     <br>
     <span id="form_line2">
-      &gt;= <input type="text" id="start_date" size=7>
-      <button id="button">Go</button>
+      &gt;= <input type="text" id="start_date" size=11
+             style="width: 75px">
+      <button id="go_button" style="width: 50px">Go</button>
     </span>
     <span id="synopsis"></span>
     <span id="update_countdown"></span>
@@ -46,6 +51,11 @@
   <div id="spot_info"></div>
   <div id="aux_info"></div>
 
-  <script src="wsprtv.js?v=6"></script>
+  <div id="show_data_button" title="Show data">📊</div>
+  <div id="close_data_button" title="Back to Map">❎</div>
+  <div id="data_view"></div>
+
+  <script src="uplot_plugins.js?2"></script>
+  <script src="wsprtv.js?1"></script>
 </body>
 </html>

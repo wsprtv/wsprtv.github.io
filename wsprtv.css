@@ -1,6 +1,13 @@
-html, body, #map {
+html, body {
   height: 100%;
   margin: 0;
+  font-family: Roboto, sans-serif;
+  font-size: 14px;
+}
+
+#map {
+  height: 100%;
+  width: 100%;
 }
 
 #control_panel {
@@ -13,8 +20,6 @@ html, body, #map {
   padding: 10px;
   border-radius: 10px;
   box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
-  font-family: 'Roboto', sans-serif;
-  font-size: 14px;
 }
 
 #spot_info {
@@ -25,8 +30,6 @@ html, body, #map {
   padding: 10px;
   border-radius: 10px;
   box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
-  font-family: 'Roboto', sans-serif;
-  font-size: 14px;
   display: none;
 }
 
@@ -37,8 +40,6 @@ html, body, #map {
   background-color: rgba(255, 255, 255, 0.6);
   padding: 5px;
   border-radius: 3px;
-  font-family: 'Roboto', sans-serif;
-  font-size: 14px;
   z-index: 1000;
   display: none;
 }
@@ -65,4 +66,125 @@ html, body, #map {
 #unit_switch_link {
   color: white;
   text-decoration: none;
+}
+
+#show_data_button, #close_data_button {
+  cursor: pointer;
+  text-shadow: 
+    -1px -1px 0 #888,
+     1px -1px 0 #888,
+    -1px  1px 0 #888,
+     1px  1px 0 #888;
+  z-index: 1000;
+  display: none;
+}
+
+#show_data_button {
+  position: absolute;
+  font-size: 26px;
+  top: 90px;
+  left: 11px;
+}
+
+#close_data_button {
+  position: fixed;
+  font-size: 20px;
+  top: 15px;
+  left: 15px;
+}
+
+#data_view {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  padding: 0px;
+  display: none;
+  overflow-y: auto;
+  background-color: #f4f4f4;
+  padding: 0.1px;  // rendering bug
+}
+
+#data_view_wrapper {
+  padding: 14px;
+  display: inline-block;
+}
+
+table.data_table {
+  margin: 0px;
+  font-family: Arial, sans-serif;
+  font-size: 14px;
+  border-collapse: collapse;
+  overflow: hidden;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+  max-width: none;
+}
+
+.data_table tr {
+  background-color: white;
+}
+
+.data_table th, .data_table td {
+  padding: 3px 5px;
+  text-align: right;
+  color: #333333;
+  border: 1px solid #e0e0e0;
+  white-space: nowrap;
+}
+
+.data_table th {
+  text-align: center;
+  background-color: #aaa;
+  color: white;
+}
+
+.pretty_button {
+   margin: 20px 10px 20px 0px;
+   padding: 5px 10px;
+   font-size: 14px;
+   cursor: pointer;
+   background-color: #7777cc;
+   color: white;
+   border: none;
+   border-radius: 5px;
+   transition: background-color 0.3s ease;
+}
+
+.pretty_button:hover {
+  background-color: #5555aa;
+}
+
+.uplot {
+  display: inline-block;
+  background-color: white;
+  border: 1px solid #aaa;
+  margin: 20px 20px 0px 0px;
+  padding: 0px 10px;
+  touch-action: none;
+}
+
+@media (pointer: coarse) and (hover: none) {
+  .uplot {
+    margin: 40px 40px 0px 0px;
+  }
+  #data_view_wrapper {
+    padding: 14px 30px 30px 30px;
+  }
+}
+
+.notice {
+  background-color: #ffffdd;
+  border: 1px solid #ccc;
+  padding: 4px;
+  border-radius: 4px;
+  display: table;
+  clear: both;
+}
+
+#go_button:disabled {
+  background-color: #888;
+  color: #d9d9d9;
+  cursor: not-allowed;
+  border: 1px solid #aaa;
 }
