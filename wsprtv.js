@@ -1128,6 +1128,14 @@ async function update(incremental_update = false) {
       // Data view is active
     }
 
+    // Recenter the map on first load
+    if (!incremental_update && last_marker) {
+      const map_bounds = map.getBounds();
+      if (!map_bounds.contains(last_marker.getLatLng())) {
+        map.setView(last_marker.getLatLng(), map.getZoom(), {animate: false});
+      }
+    }
+
     const now = new Date();
     last_update_ts = now;
 
@@ -1533,7 +1541,7 @@ function Run() {
     // Readjust the map when moving across the antimeridian
     const wrapped_center = map.wrapLatLng(center);
     if (Math.abs(center.lng - wrapped_center.lng) > 1e-8) {
-      map.setView(wrapped_center, map.getZoom(), { animate: false });
+      map.setView(wrapped_center, map.getZoom(), {animate: false});
     }
   });
   map.on('zoomend', function() {
