@@ -1298,19 +1298,27 @@ function createPrettyButton(text, action) {
   return button;
 }
 
+function clearDataView() {
+  let data_view = document.getElementById('data_view');
+  if (data_view.u_plots) {
+    for (let u_plot of data_view.u_plots) {
+      u_plot.destroy();
+    }
+    delete data_view.u_plots;
+  }
+  data_view.innerHTML = '';
+}
+
 function showDataView() {
   // Hide map UI
   document.getElementById('map').style.display = 'none';
   document.getElementById('show_data_button').style.display = 'none';
   document.getElementById('control_panel').style.display = 'none';
   clearTrack();
+  clearDataView();
 
-  // Display data view UI
   let data_view = document.getElementById('data_view');
-
-  data_view.innerHTML = '';
   data_view.style.display = 'block';
-
   document.getElementById('close_data_button').style.display = 'block';
 
   let div = document.createElement('div');
@@ -1333,6 +1341,7 @@ function showDataView() {
       .reduce((result, key) => ({...result, [key]: true}), {});
 
   // Add graphs
+  data_view.u_plots = [];  // references to created uPlot instances
   const x_values = spots.map(spot => spot.ts.getTime() / 1000);
   for (const [field, spec] of kTableDataFields) {
     if (!spec.graph || !present_fields[field]) {
@@ -1365,7 +1374,7 @@ function showDataView() {
       axes: [{}, {size: 52}]
     };
 
-    new uPlot(opts, [x_values, y_values], div);
+    data_view.u_plots.push(new uPlot(opts, [x_values, y_values], div));
   }
 
   div.appendChild(document.createElement('br'));
@@ -1428,9 +1437,8 @@ function downloadJSON(spots) {
 
 function closeDataView() {
   // Hide data view UI
-  let data_view = document.getElementById('data_view');
-  data_view.style.display = 'none';
-  data_view.innerHTML = '';
+  clearDataView();
+  document.getElementById('data_view').style.display = 'none';
   document.getElementById('close_data_button').style.display = 'none';
   document.getElementById('map').style.display = 'block';
 
