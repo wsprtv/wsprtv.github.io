@@ -9,7 +9,7 @@ The code in this repository is accessible through https://wsprtv.github.com and 
 - Provides a way to download the entire dataset for a flight as a JSON file.
 - Mobile friendly -- works great even on small screens.
 
-See the [user guide](docs/user_guide.html) for more details.
+See the [user guide](https://wsprtv.com/docs/user_guide.html) for more details.
 
 ## Acknowledgements
 This project relies heavily [WSPR Live](https://wspr.live) -- a free and publicly accessible database of over 10 billion
