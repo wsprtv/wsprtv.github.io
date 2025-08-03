@@ -41,7 +41,7 @@ third characters of the special callsign, the starting minute, and one of 4 freq
 `459` on the 10m band signifies transmissions that use Q\*2\* special callsigns, begin 2 minutes after
 the start of a 10 minute cycle, and use the last 40 Hz of the frequency band.
 
-  Additional special callsign messages may follow in slots 2-4, representing **enhanced telemetry (ET)**.
+  Additional special callsign messages may follow in slots 2-4, representing **extended telemetry (ET)**.
 These are not shown by default for two reasons: to minimize the load on WSPR Live servers
 when only basic telemetry is used, and to update the map as soon as possible,
 without waiting for additional slots to be transmitted.
