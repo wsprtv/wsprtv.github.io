@@ -599,24 +599,19 @@ function decodeExtendedTelemetry(spot) {
     const decoders = params.et_spec.decoders;
     for (let j = 0; j < decoders.length; j++) {
       const [filters, extractors] = decoders[j];
-      if (filters.length == 2 && filters[0] == 's' &&
-          filters[1] != i) {
-        continue;
-      }
-      if (filters.length == 4 && filters[0] == 't' &&
-          Math.trunc(ts_seq / filter[1]) % filter[2] != filter[3]) {
-        continue;
-      }
       let matched = true;
       for (let filter of filters) {
-        if (filter.length == 4) {
-          // Slot # is part of the filter
-          if (i != filter[0]) {
-            matched = false;
-            break;
-          }
-          filter = filter.slice(1);
+        if (filter.length == 4 && filter[0] == 't' &&
+            Math.trunc(ts_seq / filter[1]) % filter[2] != filter[3]) {
+          matched = false;
+          break;
         }
+        if (filter.length == 2 && filter[0] == 's' &&
+            filter[1] != i) {
+          matched = false;
+          break;
+        }
+        if (filter.length != 3) continue;
         let [divisor, modulus, expected_value] = filter;
         if (expected_value == 's') expected_value = i; // slot
         if (Math.trunc(raw_et / divisor) % modulus != expected_value) {
