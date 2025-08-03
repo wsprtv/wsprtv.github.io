@@ -496,7 +496,7 @@ are 3-term), the divisor starts at 1 for unspecified protocols and at the end of
 for known protocols (e.g., initial_divisor = 320 when one of the filters in the decoder
 specification is of the `et0:<slot>` form).
 
-For the previous Pressure / Heading example, the filter specification becomes:
+For the previous Pressure / Heading example, the extractor specification becomes:
 
 ```
 110:0:0.001,90:0:4
@@ -529,7 +529,7 @@ WSPR TV offers a set of extended telemetry annotation parameters --
 of ET values. All of these are a comma-separated list of parameters, with
 one value per extractor specification. For example, if there are 2 decoders
 containing 4 and 5 extractors respectively, then the 7th item in `et_units`
-will correspond to the 3rd extractor of the second decoder.
+corresponds to the 3rd extractor of the second decoder.
 
 Only non-default values need to be specified in the above URL parameters.
 For example, here is how to assign units to the 4th extractor while keeping
@@ -566,7 +566,7 @@ displayed after the decimal point (e.g., 3.14 instead of 3).
 ### Extended Telemetry URL Generation
 
 In a future version of WSPR TV, a wizard will be available to generate
-ET URL parameters using a web form. For now, these parameters must be constructed
+ET URL parameters automatically. For now, these parameters must be constructed
 by hand with some practice and bookmarked for future use.
 
 ## License

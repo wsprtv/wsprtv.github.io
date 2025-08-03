@@ -423,7 +423,7 @@ of the previous extractor. If no initial divisor is specified anywhere (i.e., al
 are 3-term), the divisor starts at 1 for unspecified protocols and at the end of headers
 for known protocols (e.g., initial_divisor = 320 when one of the filters in the decoder
 specification is of the <code class="notranslate">et0:&lt;slot&gt;</code> form).</p>
-<p>For the previous Pressure / Heading example, the filter specification becomes:</p>
+<p>For the previous Pressure / Heading example, the extractor specification becomes:</p>
 <pre class="notranslate"><code class="notranslate">110:0:0.001,90:0:4
 </code></pre>
 <p>and the full decoder may look as follows:</p>
@@ -445,7 +445,7 @@ integers.</p>
 of ET values. All of these are a comma-separated list of parameters, with
 one value per extractor specification. For example, if there are 2 decoders
 containing 4 and 5 extractors respectively, then the 7th item in <code class="notranslate">et_units</code>
-will correspond to the 3rd extractor of the second decoder.</p>
+corresponds to the 3rd extractor of the second decoder.</p>
 <p>Only non-default values need to be specified in the above URL parameters.
 For example, here is how to assign units to the 4th extractor while keeping
 all the other values unitless.</p>
@@ -482,7 +482,7 @@ displayed after the decimal point (e.g., 3.14 instead of 3).</p>
 </ul>
 <h3>Extended Telemetry URL Generation</h3>
 <p>In a future version of WSPR TV, a wizard will be available to generate
-ET URL parameters using a web form. For now, these parameters must be constructed
+ET URL parameters automatically. For now, these parameters must be constructed
 by hand with some practice and bookmarked for future use.</p>
 <h2>License</h2>
 <p>WSPR TV is open-source under the AGPL-3.0
