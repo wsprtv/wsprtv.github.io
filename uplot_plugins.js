@@ -93,6 +93,7 @@ function touchZoomPlugin(opts) {
     }
 
     function touchmove(e) {
+      e.preventDefault();
       storePos(to, e);
 
       if (!rafPending) {
@@ -115,11 +116,11 @@ function touchZoomPlugin(opts) {
       xVal = u.posToVal(left, "x");
       yVal = u.posToVal(top, "y");
 
-      document.addEventListener("touchmove", touchmove, {passive: true});
-    });
+      document.addEventListener("touchmove", touchmove, {passive: false});
+    }, {passive: false});
 
     over.addEventListener("touchend", function(e) {
-      document.removeEventListener("touchmove", touchmove, {passive: true});
+      document.removeEventListener("touchmove", touchmove, {passive: false});
     });
   }
 
