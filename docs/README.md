@@ -6,14 +6,13 @@ designed to be as intuitive as possible, this guide explains some of the site's 
 ## Returning to This Page
 
 If you ever forget something and need to return to this page, the band selection menu
-in the control panel (where you specify the HF band) has a `Help` option at the bottom
-that will bring you back here.
+in the control panel (where you specify the HF band) has a `Help` option at the bottom.
 
 <img src="images/img1.png" width=360>
 
 Additionally, a small
 WSPR TV [link](https://github.com/wsprtv/wsprtv.github.io) next to the OSM attribution in the bottom-right
-corner of the screen links to the project's main GitHub page.
+corner of the screen links to the project's GitHub repository.
 
 ## Control Panel
 
@@ -53,9 +52,9 @@ to alternate with basic telemetry in slot 1.
 
 - **U4B [`U<CS1><CS3><M>`]**. This is an alternative U4B channel representation that specifies the first
 and third characters of the special callsign as well as the starting minute explicitly. Extended telemetry
-(`E`) suffixes may be appended as before. Note: this format carries no frequency lane information,
-which WSPR TV does not use anyway. Example: `UQ22E` to represent channel `459` (but also `454`, `449`, etc.)
-on the 10 meter band: Q\*2\* special callsigns, starting minute equal to 2,
+(`E`) suffixes may be appended as before. This format carries no frequency lane information,
+which WSPR TV does not use anyway. Example: `UQ22E` is equivalent to channel `459` (but also `454`, `449`, etc.)
+on the 10 meter band, corresponding to Q\*2\* special callsigns, starting minute equal to 2,
 and one additional extended telemetry message.
 
 - **Generic 1 [`g<M>`]**. This is the simplest type of telemetry, consisting of a single type 1 WSPR message.
@@ -141,7 +140,7 @@ is shown as a dashed line, and the side of the map that has no data is shaded in
 <img src="images/img4.png" width=360>
 
 The Equator is shown as a grey horizontal line. The first spot in the track (after `start_date`) is green,
-while the latest one is red. Night / day regions are indicated on the map by grey shading.
+while the last one is red. Night / day regions are indicated on the map by grey shading.
 
 ### Spot Info
 
@@ -320,7 +319,7 @@ available in an extended telemetry message.
 
 The format of basic telemetry messages is well defined in the U4B protocol.
 For extended telemetry, there is an existing protocol that we will call ET0
-(because the version or HdrRESERVED bits of this protocol are set to 0). This
+(because the version or `HdrRESERVED` bits of this protocol are set to 0). This
 protocol contains the following header fields, starting from the least
 significant bit after `HdrTelemetryType`.
 
@@ -398,7 +397,7 @@ expressing the following condition:
 (BigNumber / divisor) % modulus == expected_value
 ```
 
-To support ET0, the special variable `s` is available to represent the TX slot in which the
+To support ET0, a special variable `s` is available to represent the TX slot in which the
 extended telemetry message was received. This allows us to express the filter set for
 ET0 as follows:
 
@@ -557,7 +556,9 @@ alphanumeric characters, spaces, and the characters `#` and `_`.
 
 - **et_units** contains units that will be attached to extracted values
 where appropriate. These should be at most 8 character long and contain
-only alphanumeric characters, spaces, and the character `/`.
+only alphanumeric characters, spaces, and the character `/`. Spaces before
+units are significant: 23.2 + ' F' will display as '23.2 F', whereas
+23.2 + 'F' will show as '23.2F'.
 
 - **et_res** specifies resolution for ET values, which are shown as
 integers by default. A resolution of 2 means that 2 digits will be
@@ -566,8 +567,8 @@ displayed after the decimal point (e.g., 3.14 instead of 3).
 ### Extended Telemetry URL Generation
 
 In a future version of WSPR TV, a wizard will be available to generate
-ET URL parameters automatically. For now, these parameters must be constructed
-by hand with some practice and bookmarked for future use.
+ET URL parameters automatically. For now, these parameters can be constructed
+by hand with some practice.
 
 ## License
 

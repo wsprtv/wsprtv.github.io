@@ -24,12 +24,11 @@
 designed to be as intuitive as possible, this guide explains some of the site's more advanced features.</p>
 <h2>Returning to This Page</h2>
 <p>If you ever forget something and need to return to this page, the band selection menu
-in the control panel (where you specify the HF band) has a <code class="notranslate">Help</code> option at the bottom
-that will bring you back here.</p>
+in the control panel (where you specify the HF band) has a <code class="notranslate">Help</code> option at the bottom.</p>
 <p><a target="_blank" rel="noopener noreferrer" href="images/img1.png"><img src="images/img1.png" width="360" style="max-width: 100%;"></a></p>
 <p>Additionally, a small
 WSPR TV <a href="https://github.com/wsprtv/wsprtv.github.io">link</a> next to the OSM attribution in the bottom-right
-corner of the screen links to the project's main GitHub page.</p>
+corner of the screen links to the project's GitHub repository.</p>
 <h2>Control Panel</h2>
 <p>The control panel in the top-left corner of the screen contains most of the parameters for
 telemetry visualization.</p>
@@ -62,9 +61,9 @@ to alternate with basic telemetry in slot 1.</p>
 <li>
 <p><strong>U4B [<code class="notranslate">U&lt;CS1&gt;&lt;CS3&gt;&lt;M&gt;</code>]</strong>. This is an alternative U4B channel representation that specifies the first
 and third characters of the special callsign as well as the starting minute explicitly. Extended telemetry
-(<code class="notranslate">E</code>) suffixes may be appended as before. Note: this format carries no frequency lane information,
-which WSPR TV does not use anyway. Example: <code class="notranslate">UQ22E</code> to represent channel <code class="notranslate">459</code> (but also <code class="notranslate">454</code>, <code class="notranslate">449</code>, etc.)
-on the 10 meter band: Q*2* special callsigns, starting minute equal to 2,
+(<code class="notranslate">E</code>) suffixes may be appended as before. This format carries no frequency lane information,
+which WSPR TV does not use anyway. Example: <code class="notranslate">UQ22E</code> is equivalent to channel <code class="notranslate">459</code> (but also <code class="notranslate">454</code>, <code class="notranslate">449</code>, etc.)
+on the 10 meter band, corresponding to Q*2* special callsigns, starting minute equal to 2,
 and one additional extended telemetry message.</p>
 </li>
 <li>
@@ -148,7 +147,7 @@ disappear from view. This is not a bug -- the track is still there, but it's now
 is shown as a dashed line, and the side of the map that has no data is shaded in grey.</p>
 <p><a target="_blank" rel="noopener noreferrer" href="images/img4.png"><img src="images/img4.png" width="360" style="max-width: 100%;"></a></p>
 <p>The Equator is shown as a grey horizontal line. The first spot in the track (after <code class="notranslate">start_date</code>) is green,
-while the latest one is red. Night / day regions are indicated on the map by grey shading.</p>
+while the last one is red. Night / day regions are indicated on the map by grey shading.</p>
 <h3>Spot Info</h3>
 <p>Hovering over a spot (or touching it on a mobile device) brings up the Spot Info panel. This displays most of
 the available telemetry, including raw WSPR messages, reception statistics,
@@ -300,7 +299,7 @@ and 0 for extended telemetry. Therefore, approximately 37.5 bits are
 available in an extended telemetry message.</p>
 <p>The format of basic telemetry messages is well defined in the U4B protocol.
 For extended telemetry, there is an existing protocol that we will call ET0
-(because the version or HdrRESERVED bits of this protocol are set to 0). This
+(because the version or <code class="notranslate">HdrRESERVED</code> bits of this protocol are set to 0). This
 protocol contains the following header fields, starting from the least
 significant bit after <code class="notranslate">HdrTelemetryType</code>.</p>
 <pre class="notranslate"><code class="notranslate">HdrRESERVED - 4 values, set to 0 for ET0
@@ -357,7 +356,7 @@ true for a message to be accepted:</p>
 <p>expressing the following condition:</p>
 <pre class="notranslate"><code class="notranslate">(BigNumber / divisor) % modulus == expected_value
 </code></pre>
-<p>To support ET0, the special variable <code class="notranslate">s</code> is available to represent the TX slot in which the
+<p>To support ET0, a special variable <code class="notranslate">s</code> is available to represent the TX slot in which the
 extended telemetry message was received. This allows us to express the filter set for
 ET0 as follows:</p>
 <pre class="notranslate"><code class="notranslate">1:4:0,4:16:0,64:5:s
@@ -472,7 +471,9 @@ alphanumeric characters, spaces, and the characters <code class="notranslate">#<
 <li>
 <p><strong>et_units</strong> contains units that will be attached to extracted values
 where appropriate. These should be at most 8 character long and contain
-only alphanumeric characters, spaces, and the character <code class="notranslate">/</code>.</p>
+only alphanumeric characters, spaces, and the character <code class="notranslate">/</code>. Spaces before
+units are significant: 23.2 + ' F' will display as '23.2 F', whereas
+23.2 + 'F' will show as '23.2F'.</p>
 </li>
 <li>
 <p><strong>et_res</strong> specifies resolution for ET values, which are shown as
@@ -482,8 +483,8 @@ displayed after the decimal point (e.g., 3.14 instead of 3).</p>
 </ul>
 <h3>Extended Telemetry URL Generation</h3>
 <p>In a future version of WSPR TV, a wizard will be available to generate
-ET URL parameters automatically. For now, these parameters must be constructed
-by hand with some practice and bookmarked for future use.</p>
+ET URL parameters automatically. For now, these parameters can be constructed
+by hand with some practice.</p>
 <h2>License</h2>
 <p>WSPR TV is open-source under the AGPL-3.0
 license and can be used freely as long as the license conditions are met.

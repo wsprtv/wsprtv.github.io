@@ -545,7 +545,6 @@ function decodeSpot(spot) {
     if (spot.slots[1]) {
       if (!processWB8ELKSlot1Message(spot)) {
         spot.slots[1].is_invalid = true;
-        return true;
       }
     }
   } else if (params.tracker == 'zachtek1') {
@@ -569,7 +568,6 @@ function decodeSpot(spot) {
     if (spot.slots[1]) {
       if (!processU4BSlot1Message(spot)) {
         spot.slots[1].is_invalid = true;
-        return true;
       }
     }
     // Process extended telemetry, if any
@@ -833,6 +831,7 @@ function displayTrack() {
   // instead.
   for (let i = 0; i < spots.length; i++) {
     let spot = spots[i];
+    if (spot.lat == undefined || spot.lon == undefined) continue;
 
     if (last_marker &&
         last_marker.getLatLng().distanceTo(
@@ -876,7 +875,7 @@ function displayTrack() {
   }
 
   // Highlight the first and last marker
-  if (markers) {
+  if (markers.length > 0) {
     markers[0].setStyle({ fillColor: '#3cb371' });
   }
   if (last_marker) {
@@ -2146,8 +2145,8 @@ function Run() {
   document.getElementById('band').addEventListener('change', function () {
     if (this.value == 'help') {
       window.open('docs/user_guide.html', '_new');
+      this.value = params.band;
     }
-    this.value = params.band;
   });
 
   // Handle clicks on the "Show data" button

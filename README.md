@@ -1,15 +1,15 @@
 # WSPR Telemetry Viewer (WSPR TV)
 WSPR TV is a picoballoon telemetry visualization tool serving a small but growing community of radio amateurs.
-The code in this repository is accessible through https://wsprtv.github.com and also the DNS alias https://wsprtv.com.
+The code in this repository is accessible through https://wsprtv.com.
 
 ## Features
 - Supports several telemetry protocols, including U4B, WB8ELK, and Zachtek.
-- Displays extended U4B telemetry using an extremely flexible decoder framework.
-- Visualizes real-time flight data on a full-screen map, as well as in a table format, and through interactive charts.
-- Provides a way to download the entire dataset for a flight as a JSON file.
+- Displays extended U4B telemetry.
+- Visualizes real-time flight data on a full-screen map, in a table format, and through interactive charts.
+- Provides data export.
 - Mobile friendly -- works great even on small screens.
 
-See the [user guide](https://wsprtv.com/docs/user_guide.html) for more details.
+See the [user guide](https://wsprtv.com/docs/user_guide.html) for details.
 
 ## Acknowledgements
 This project relies heavily [WSPR Live](https://wspr.live) -- a free and publicly accessible database of over 10 billion
