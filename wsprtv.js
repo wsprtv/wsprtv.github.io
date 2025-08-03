@@ -34,8 +34,14 @@ let debug = 0;  // controls console logging
 
 // URL-only parameters
 let end_date_param;
-let units_param;
 let dnu_param;  // dnu = do not update
+
+// Extended telemetry URL params
+let et_dec_param;
+let et_labels_param;
+let et_llabels_param;
+let et_units_param;
+let et_res_param;
 
 let last_update_ts;
 let next_update_ts;
@@ -45,26 +51,28 @@ let update_task;  // telemetry / map update task
 // Last scroll position of the table / chart viewer
 let last_data_view_scroll_pos = 0;
 
-let mobile;  // running on a mobile device
+let is_mobile;  // running on a mobile device
 
 // WSPR band info. For each band, the value is
-// [U4B starting minute offset, WSPRLive band id]
+// [U4B starting minute offset, WSPR Live band id].
 const kWSPRBandInfo = {
-  '2200m' : [0, -1],
-  '630m' : [4, 0],
-  '160m' : [8, 1],
-  '80m' : [2, 3],
-  '60m' : [6, 5],
-  '40m' : [0, 7],
-  '30m' : [4, 10],
-  '20m' : [8, 14],
-  '17m' : [2, 18],
-  '15m' : [6, 21],
-  '12m' : [0, 24],
-  '10m' : [4, 28],
-  '6m' : [8, 50],
-  '4m' : [2, 70],
-  '2m' : [6, 144]
+  '2200m': [0, -1],
+  '630m': [4, 0],
+  '160m': [8, 1],
+  '80m': [2, 3],
+  '60m': [6, 5],
+  '40m': [0, 7],
+  '30m': [4, 10],
+  '20m': [8, 14],
+  '17m': [2, 18],
+  '15m': [6, 21],
+  '12m': [0, 24],
+  '10m': [4, 28],
+  '6m': [8, 50],
+  '4m': [2, 70],
+  '2m': [6, 144],
+  '70cm': [0, 432],
+  '23cm': [4, 1296]
 }
 
 // Used for spot decoding
@@ -101,11 +109,11 @@ function formatTimestamp(ts) {
 
 // Extract a parameter value from URL
 function getUrlParameter(name) {
-  name = name.replace(/[\[]/, '\\[').replace(/[\]]/, '\\]');
-  const regex = new RegExp('[\\?&]' + name + '=([^&#]*)');
-  const results = regex.exec(location.search);
-  return results === null ?
-      '' : decodeURIComponent(results[1].replace(/\+/g, ' '));
+  const regex = new RegExp('[?&]' + name + '(=([^&]*)|(?=[&]|$))');
+  const match = regex.exec(location.search);
+  if (!match) return null;
+  return match[2] != undefined ?
+      decodeURIComponent(match[2].replace(/\+/g, ' ')) : '';
 }
 
 // Parses and validates input params, returning them as a dictionary.
@@ -118,26 +126,29 @@ function parseParams() {
     return null;
   }
   // Channel may also encode tracker type, such as Z4 for Zachtek
-  const raw_ch = document.getElementById('ch').value.trim().toUpperCase();
+  const raw_ch = document.getElementById('ch').value.trim();
   let ch;
   let tracker;
-  let fetch_extended;
+  let fetch_et;
   const [starting_minute_offset, _] = kWSPRBandInfo[band];
-  if (raw_ch.length > 1 && /^[A-Z]$/.test(raw_ch[0])) {
-    if (raw_ch[0] == 'Z' || raw_ch[0] == 'X') {
-      // 'zachtek1': original protocol using a single type 1 message
-      // 'zachtek2': later protocol using type 2 and type 3 messages
-      tracker = (raw_ch[0] == 'Z') ? 'zachtek2' : 'zachtek1';
+  if (raw_ch.length > 1 && /^[A-Z]$/i.test(raw_ch[0])) {
+    if (/[GZ]/i.test(raw_ch[0])) {
+      // generic1 (g): unspecified protocol, single type 1 message
+      // generic2 (G): unspecified protocol, type 2 + type 3 message combo
+      // zachtek1 (z): older Zachtek protocol, single type 1 message
+      // zachtek2 (Z): newer Zachtek protocol, type 2 + type 3 message combo
+      tracker = { 'g': 'generic1', 'G': 'generic2',
+                  'z': 'zachtek1', 'Z': 'zachtek2' }[raw_ch[0]];
       if (!/^[02468]$/.test(raw_ch.slice(1))) {
-        alert('Zachtek starting minute should be one of 0, 2, 4, 6 or 8');
+        alert('Starting minute should be one of 0, 2, 4, 6 or 8');
         return null;
       }
       // Convert channel to an equivalent u4b one
       ch = ((raw_ch[1] - '0' - starting_minute_offset) / 2 + 5) % 5;
-    } else if (raw_ch[0] == 'W' || raw_ch[0] == 'U') {
+    } else if (/[WU]/i.test(raw_ch[0])) {
       // Q34 format, where Q and 3 are special callsign ids and 4 is
       // the starting minute
-      if (!/^[Q01][0-9][02468]$/.test(raw_ch.slice(1))) {
+      if (!/^[Q01][0-9][02468]$/i.test(raw_ch.slice(1))) {
         alert('Incorrect U/W channel format');
         return null;
       }
@@ -145,38 +156,40 @@ function parseParams() {
       ch = ['0', '1', 'Q'].indexOf(raw_ch[1]) * 200 +
           (raw_ch[2] - '0') * 20 +
           ((raw_ch[3] - '0' - starting_minute_offset) / 2 + 5) % 5;
-      if (raw_ch[0] == 'W') {
-        tracker = 'wb8elk';
-      }
+      tracker = raw_ch[0].toUpperCase() == 'W' ? 'wb8elk' : 'u4b';
     } else {
       alert('Unknown tracker type: ' + raw_ch[0]);
       return null;
     }
   } else {
     // Default: U4B
-    const match = raw_ch.match(/^(\d+)(E(\d*))?$/);
+    const match = raw_ch.match(/^(\d+)(E(\d*))?$/i);
     if (!match) {
       alert('Invalid U4B channel');
       return null;
     }
     ch = Number(match[1]);
-    fetch_extended = match[2] ? (match[3] ? Number(match[3]) : 1) : null;
+    fetch_et = match[2] ? (match[3] ? Number(match[3]) : 1) : null;
     if (ch < 0 || ch > 599 ||
-        (fetch_extended != null &&
-         (fetch_extended < 1 || fetch_extended > 3))) {
+        (fetch_et != null &&
+         (fetch_et < 0 || fetch_et > 3))) {
       alert('Invalid U4B channel');
       return null;
     }
-    tracker = 'u4b';  // deafult
+    tracker = 'u4b';  // default
   }
+
   const start_date = parseDate(
       document.getElementById('start_date').value);
   const end_date = end_date_param ?
       parseDate(end_date_param) : new Date();
-  const units = units_param || localStorage.getItem('units') || "metric";
+  const units = (units_param == null) ?
+      (localStorage.getItem('units') == 1 ? 1 : 0) :
+      (units_param == 'imperial' ? 1 : 0);
+  const detail = localStorage.getItem('detail') == 1 ? 1 : 0;
 
   let cs_regex;
-  if (tracker == 'zachtek2') {
+  if (tracker == 'zachtek2' || tracker == 'generic2') {
     // Zachtek allows compound callsigns
     cs_regex = /^([A-Z0-9]{1,4}\/)?[A-Z0-9]{4,6}(\/[A-Z0-9]{1,4})?$/i;
   } else {
@@ -209,10 +222,17 @@ function parseParams() {
     return null;
   }
 
+  const et_spec = et_dec_param ? parseExtendedTelemetrySpec() : null;
+  if (et_dec_param && !et_spec) {
+    alert('Invalid ET spec');
+    return null;
+  }
+
   // Successful validation
-  return {'cs' : cs, 'ch' : ch, 'band' : band, 'tracker' : tracker,
-          'start_date' : start_date, 'end_date' : end_date,
-          'fetch_extended' : fetch_extended, 'units' : units};
+  return { 'cs': cs, 'ch': ch, 'band': band, 'tracker': tracker,
+           'start_date': start_date, 'end_date': end_date,
+           'fetch_et' : fetch_et, 'units' : units,
+           'detail': detail, 'et_spec': et_spec };
 }
 
 // Returns TX minute for given slot in the U4B protocol
@@ -291,18 +311,18 @@ async function runQuery(query) {
 function importWSPRLiveData(data) {
   for (let i = 0; i < data.length; i++) {
     let row = data[i];
-    data[i] = {'ts' : parseTimestamp(row[0]),
-               'cs' : row[1], 'grid' : row[2], 'power' : row[3],
-               'rx' : row[4].map(
-                   rx => ({'cs' : rx[0], 'grid' : rx[1],
-                           'freq' : rx[2], 'snr' : rx[3]}))
-                   .sort((r1, r2) => (r1.cs > r2.cs) - (r1.cs < r2.cs))};
+    data[i] = { 'ts': parseTimestamp(row[0]),
+                'cs': row[1], 'grid': row[2], 'power': row[3],
+                'rx': row[4].map(
+                    rx => ({ 'cs': rx[0], 'grid': rx[1],
+                            'freq': rx[2], 'snr': rx[3] }))
+                    .sort((r1, r2) => (r1.cs > r2.cs) - (r1.cs < r2.cs))};
   }
   return data;
 }
 
 // Compares rows by (ts, cs)
-function compareRows(r1, r2) {
+function compareDataRows(r1, r2) {
   return r1.ts - r2.ts || (r1.cs > r2.cs) - (r1.cs < r2.cs);
 }
 
@@ -315,7 +335,7 @@ function mergeData(old_data, new_data) {
   let j = 0;  // index in new_data
 
   while (i < old_data.length && j < new_data.length) {
-    let cmp = compareRows(old_data[i], new_data[j]);
+    let cmp = compareDataRows(old_data[i], new_data[j]);
     if  (cmp < 0) {
       result.push(old_data[i++]);
     } else if (cmp > 0) {
@@ -341,10 +361,10 @@ function findCoreceiver(rx1, rx2) {
   let j = 0;  // index in rx2
   for (;;) {
     if (i >= rx1.length || j >= rx2.length) return false;
-    let r1 = rx1[i];
-    let r2 = rx2[j];
+    const r1 = rx1[i];
+    const r2 = rx2[j];
     if (r1.cs == r2.cs) {
-      if (Math.abs(r1.freq - r2.freq) < 5) return true;
+      if (Math.abs(r1.freq - r2.freq) <= 5) return true;
       i++;
       j++;
     } else if (r1.cs < r2.cs) {
@@ -356,7 +376,7 @@ function findCoreceiver(rx1, rx2) {
 }
 
 // Combines telemetry data from corresponding WSPR messages (regular callsign +
-// basic telemetry messages for U4B, type2 and type3 for Zachtek).
+// basic telemetry messages for U4B, type 2 and type 3 for Zachtek).
 // Returns a list of spots, with each spot having one or more messages
 // attached.
 function matchTelemetry(data) {
@@ -371,20 +391,21 @@ function matchTelemetry(data) {
 
     if (slot == 0) {
       if (!last_spot || last_spot.slots[0].ts != row.ts) {
-        last_spot = {'slots' : [row]};
+        // New spot
+        last_spot = { 'slots': [row] };
         spots.push(last_spot);
       }
     } else if (last_spot && row.ts - last_spot.slots[0].ts < 10 * 60 * 1000 &&
                !last_spot.slots[slot]) {
       // Same TX sequence as last spot, try to attach the row
-      if (params.tracker == 'zachtek2') {
+      if (params.tracker == 'zachtek2' || params.tracker == 'generic2') {
         // Always a match
         last_spot.slots[slot] = row;
       } else if (params.tracker == 'wb8elk') {
         if (last_spot.slots[0].grid == row.grid) {
           last_spot.slots[slot] = row;
         }
-      } else {
+      } else if (params.tracker == 'u4b') {
         // U4B frequency matching
         for (let j = 0; j < slot; j++) {
           if (last_spot.slots[j] &&
@@ -454,8 +475,10 @@ function processU4BSlot1Message(spot) {
   // Extract values from callsign
   const [m, n] = extractU4BQ01Payload(spot.slots[1]);
   if (!(n % 2)) {
-    // Possible extended telemetry in slot1
-    // return processU4BExtendedTelemetryMessage(spot, 1);
+    if (params.fetch_et == 0) {
+      // Possible extended telemetry in slot1
+      return processU4BExtendedTelemetryMessage(spot, 1);
+    }
     return false;
   }
   let p = Math.floor(m / 1068);
@@ -483,10 +506,10 @@ function processU4BExtendedTelemetryMessage(spot, i) {
     return false;
   }
   const v = Math.floor((m * 615600 + n) / 2);
-  if (!spot.ext) {
-    spot.ext = [];
+  if (!spot.raw_et) {
+    spot.raw_et = [];
   }
-  spot.ext[i] = v;
+  spot.raw_et[i] = v;
   return true;
 }
 
@@ -521,38 +544,101 @@ function decodeSpot(spot) {
     spot.altitude = 1000 * kWSPRPowers.indexOf(spot.slots[0].power);
     if (spot.slots[1]) {
       if (!processWB8ELKSlot1Message(spot)) {
-        spot.slots[1].invalid = true;
+        spot.slots[1].is_invalid = true;
         return true;
       }
     }
   } else if (params.tracker == 'zachtek1') {
     spot.altitude = spot.slots[0].power * 300;
-  } else if (params.tracker == 'zachtek2') {
+  } else if (params.tracker == 'generic1') {
+    // Nothing to do here
+  } else if (params.tracker == 'zachtek2' || params.tracker == 'generic2') {
     if (!spot.slots[1]) {
-      // Zachtek2 requires both slots to be present
+      // Slot 1 need to be present as it contains the location. WSPRNet
+      // guesses the location for type 2 (slot 0) messages. Relying
+      // just on type 3 (slot 1) messages risks 15-bit hash collisions.
       return false;
     }
-    spot.altitude = spot.slots[0].power * 300 + spot.slots[1].power * 20;
+    if (params.tracker == 'zachtek2') {
+      spot.altitude = spot.slots[0].power * 300 + spot.slots[1].power * 20;
+    }
     // Grid comes from slot1 (type 3) message
     spot.grid = spot.slots[1].grid;
-  } else {
+  } else if (params.tracker == 'u4b') {
     // Default: U4B
     if (spot.slots[1]) {
       if (!processU4BSlot1Message(spot)) {
-        spot.slots[1].invalid = true;
+        spot.slots[1].is_invalid = true;
+        return true;
       }
     }
     // Process extended telemetry, if any
     for (let i = 2; i < spot.slots.length; i++) {
       if (spot.slots[i] && !processU4BExtendedTelemetryMessage(spot, i)) {
-        spot.slots[i].invalid = true;
+        spot.slots[i].is_invalid = true;
+        return true;
+      }
+    }
+  } else {
+    // Unexpected tracker
+    throw new Error('Internal error');
+  }
+  [spot.lat, spot.lon] = maidenheadToLatLon(spot.grid);
+  if (spot.raw_et) decodeExtendedTelemetry(spot);
+  return true;
+}
+
+function decodeExtendedTelemetry(spot) {
+  if (!params.et_spec || !spot.raw_et) return null;
+  let et = [];
+  let index = 0;  // index within data
+  let ts_seq = spot.ts.getUTCHours() * 30 + spot.ts.getUTCMinutes() / 2;
+  for (let i = 0; i < spot.raw_et.length; i++) {
+    const raw_et = spot.raw_et[i];
+    if (raw_et == undefined) continue;
+    const decoders = params.et_spec.decoders;
+    for (let j = 0; j < decoders.length; j++) {
+      const [filters, extractors] = decoders[j];
+      if (filters.length == 2 && filters[0] == 's' &&
+          filters[1] != i) {
+        continue;
+      }
+      if (filters.length == 4 && filters[0] == 't' &&
+          Math.trunc(ts_seq / filter[1]) % filter[2] != filter[3]) {
+        continue;
+      }
+      let matched = true;
+      for (let filter of filters) {
+        if (filter.length == 4) {
+          // Slot # is part of the filter
+          if (i != filter[0]) {
+            matched = false;
+            break;
+          }
+          filter = filter.slice(1);
+        }
+        let [divisor, modulus, expected_value] = filter;
+        if (expected_value == 's') expected_value = i; // slot
+        if (Math.trunc(raw_et / divisor) % modulus != expected_value) {
+          matched = false;
+          break;
+        }
+      }
+      if (matched) {
+        // Extract the values
+        for (const [divisor, modulus, offset, slope] of extractors) {
+          et[index++] = offset +
+              (Math.trunc(raw_et / divisor) % modulus) * slope;
+        }
+        break;  // do not try other decoders
+      } else {
+        // Skip over the missing indices
+        index += extractors.length;
       }
     }
   }
-  [spot.lat, spot.lon] = maidenheadToLatLon(spot.grid);
-  const sun_pos = SunCalc.getPosition(spot.ts, spot.lat, spot.lon);
-  spot.sun_elev = Math.round(sun_pos.altitude * 180 / Math.PI);
-  return true;
+  if (et) spot.et = et;
+  return data;
 }
 
 // Value formatting
@@ -571,62 +657,122 @@ function formatDuration(ts1, ts2) {
   }
 }
 
-function formatDistance(m) {
-  const [v, precision, units] = getDistanceInCurrentUnits(m);
-  return v + ' ' + units;
+function formatDistance(m, append_units = true) {
+  const v = getDistanceInCurrentUnits(m);
+  const [units, _] = kUnitInfo['distance'][params.units]
+  return v + (append_units ? units : '');
 }
 
-function formatSpeed(kph) {
-  const [v, precision, units] = getSpeedInCurrentUnits(kph);
-  return v + ' ' + units;
+function formatSpeed(kph, append_units = true) {
+  const v = getSpeedInCurrentUnits(kph);
+  const [units, _] = kUnitInfo['speed'][params.units];
+  return v + (append_units ? units : '');
 }
 
-function formatAltitude(m) {
-  const [v, precision, units] = getAltitudeInCurrentUnits(m);
-  return (precision ? v.toFixed(precision) : v) + ' ' + units;
+// Vertical speed, mpm = m/min
+function formatVSpeed(mpm, append_units = true) {
+  const v = getVSpeedInCurrentUnits(mpm);
+  const [units, _] = kUnitInfo['vspeed'][params.units];
+  return v + (append_units ? units : '');
 }
 
-function formatTemperature(c) {
-  const [v, precision, units] = getTemperatureInCurrentUnits(c);
-  return (precision ? v.toFixed(precision) : v) + ' ' + units;
+function formatAltitude(m, append_units = true) {
+  const v = getAltitudeInCurrentUnits(m);
+  const [units, resolution] = kUnitInfo['altitude'][params.units];
+  return (resolution ? v.toFixed(resolution) : v) +
+      (append_units ? units : '');
 }
 
-function formatVoltage(v) {
-  return v.toFixed(2) + 'V';
+function formatTemperature(c, append_units = true) {
+  const v = getTemperatureInCurrentUnits(c);
+  const [units, _] = kUnitInfo['temp'][params.units]
+  return v + (append_units ? units : '');
 }
 
-// Following functions return [value, suggested_precision, units]
-// Example [12.6232, 2, 'km'] for '12.62 km'
+function formatVoltage(v, append_units = true) {
+  return v.toFixed(2) + (append_units ? 'V' : '');
+}
+
 function getDistanceInCurrentUnits(m) {
-  return params.units == 'metric' ?
-      [Math.round(m / 1000), 0, 'km'] :
-      [Math.round(m * 0.621371 / 1000), 0, 'mi'];
+  return (params.units == 0) ?
+      Math.round(m / 1000) :
+      Math.round(m * 0.621371 / 1000);
 }
 
 function getAltitudeInCurrentUnits(m) {
-  return params.units == 'metric' ?
-      [m / 1000, 2, 'km'] :
-      [Math.round(m * 3.28084 / 10) * 10, 0, 'ft'];
+  return (params.units == 0) ?
+      m / 1000 : Math.round(m * 3.28084 / 10) * 10;
 }
 
 function getSpeedInCurrentUnits(kph) {
-  return params.units == 'metric' ?
-      [Math.round(kph), 0, 'km/h'] :
-      [Math.round(kph * 0.621371), 0, 'mph'];
+  return (params.units == 0) ?
+       Math.round(kph) : Math.round(kph * 0.621371);
+}
+
+function getVSpeedInCurrentUnits(mpm) {
+  return (params.units == 0) ?
+       Math.round(mpm) : Math.round(mpm * 3.28084);
 }
 
 function getTemperatureInCurrentUnits(c) {
-  return params.units == 'metric' ?
-      [Math.round(c), 0, 'C'] :
-      [Math.round(c * 9 / 5 + 32), 0, 'F'];
+  return (params.units == 0) ?
+      Math.round(c) : Math.round(c * 9 / 5 + 32);
 }
 
-function toggleUnits() {
-  if (params.units == 'metric') {
-    params.units = 'imperial';
-  } else {
-    params.units = 'metric';
+function getSunElevation(ts, lat, lon) {
+  const sun_pos = SunCalc.getPosition(ts, lat, lon);
+  return Math.round(sun_pos.altitude * 180 / Math.PI);
+}
+
+function getTimeSinceSunrise(ts, lat, lon) {
+  return ts - SunCalc.getTimes(ts, lat, lon).sunrise;
+}
+
+function getTimeToSunset(ts, lat, lon) {
+  return SunCalc.getTimes(ts, lat, lon).sunset - ts;
+}
+
+// Returns [num_rx, max_rx_dist, max_snr]
+function getRXStats(spot) {
+  let cs = {};
+  let grids = {};
+  let max_snr = -100;
+  for (let i = 0; i < spot.slots.length; i++) {
+    const slot = spot.slots[i];
+    if (slot) {
+      for (let j = 0; j < slot.rx.length; j++) {
+        const rx = slot.rx[j];
+        max_snr = Math.max(max_snr, rx.snr);
+        cs[rx.cs] = 1;
+        grids[rx.grid] = 1;
+      }
+    }
   }
+  const lat_lon = L.latLng([spot.lat, spot.lon]);
+  const max_rx_dist = Math.max(...Object.keys(grids).map(grid =>
+      lat_lon.distanceTo(maidenheadToLatLon(grid))));
+  return [Object.keys(cs).length, max_rx_dist, max_snr];
+}
+
+// Units / localization
+
+// Metric / imperial, with second param being the display resolution.
+// Spaces in units are deliberate: 5 mph vs 5V.
+const kUnitInfo = {
+  'speed': [[' km/h', 0], [' mph', 0]],
+  'vspeed': [[' m/min', 0], [' ft/min', 0]],
+  'altitude': [[' km', 2], [' ft', 0]],
+  'distance': [[' km', 0], [' mi', 0]],
+  'temp': [['°C', 0], ['°F', 1]],
+  'voltage': [['V', 2], ['V', 2]],
+  'power': [[' dBm', 0], [' dBm', 0]],
+  'snr': [[' dB', 0], [' dB', 0]],
+  'angle': [['°', 0], ['°', 0]],
+};
+
+function toggleUnits() {
+  params.units ^= 1;
+
   if (document.getElementById('map').style.display == 'block') {
     // Redraw the track using new units
     displayTrack();
@@ -710,8 +856,8 @@ function displayTrack() {
           (last_marker.getLatLng().distanceTo(
                [spot.lat, spot.lon]) > 200000)) {
         marker = L.circleMarker([spot.lat, spot.lon],
-            {radius: 5, color: 'black', fillColor: 'white', weight: 1,
-             stroke: true, fillOpacity: 1});
+            { radius: 5, color: 'black', fillColor: 'white', weight: 1,
+              stroke: true, fillOpacity: 1 });
       }
     } else {
       if (last_marker && last_marker.spot.grid.length < 6 &&
@@ -723,8 +869,8 @@ function displayTrack() {
         markers.pop();
       }
       marker = L.circleMarker([spot.lat, spot.lon],
-          {radius: 7, color: 'black', fillColor: '#add8e6', weight: 1,
-           stroke: true, fillOpacity: 1});
+          { radius: 7, color: 'black', fillColor: '#add8e6', weight: 1,
+            stroke: true, fillOpacity: 1 });
     }
     if (marker) {
       last_marker = marker;
@@ -734,9 +880,12 @@ function displayTrack() {
     }
   }
 
-  // Highlight the last marker
+  // Highlight the first and last marker
+  if (markers) {
+    markers[0].setStyle({ fillColor: '#3cb371' });
+  }
   if (last_marker) {
-    last_marker.setStyle({fillColor: 'red'});
+    last_marker.setStyle({ fillColor: 'red' });
   }
 
   // Populate flight synopsis
@@ -751,7 +900,7 @@ function displayTrack() {
         '<a href="#" id="unit_switch_link" title="Click to change units" ' +
         'onclick="toggleUnits(); event.preventDefault()">' +
         formatDistance(dist) + '</a></b>';
-    synopsis.innerHTML += `<br><b>${markers.length}</b> spot` +
+    synopsis.innerHTML += `<br><b>${markers.length}</b> map spot` +
         ((markers.length > 1) ? 's' : '');
     if ('altitude' in last_spot) {
       synopsis.innerHTML += '<br>Last altitude: <b>' +
@@ -794,14 +943,14 @@ function displayTrack() {
       let lat180 = lat1 + (lat2 - lat1) * (180 - lon1) /
           (lon2 - lon1 + 360);
       L.polyline([[lat1, lon1], [lat180, 180]],
-          {color: '#00cc00'}).addTo(segment_group);
+          { color: '#00cc00' }).addTo(segment_group);
       L.polyline([[lat2, lon2], [lat180, -180]],
-          {color: '#00cc00'}).addTo(segment_group);
+          { color: '#00cc00' }).addTo(segment_group);
     } else {
       // Regular segment, no antimeridian crossing
       L.polyline(
         [markers[i - 1].getLatLng(), markers[i].getLatLng()],
-        {color: '#00cc00'}).addTo(segment_group);
+        { color: '#00cc00' }).addTo(segment_group);
     }
   }
 
@@ -855,19 +1004,19 @@ function onMarkerClick(e) {
       let rx_lat_lon = maidenheadToLatLon(r.grid);
       let rx_marker = L.circleMarker(
           rx_lat_lon,
-          {radius: 6, color: 'black',
-           fillColor: 'yellow', weight: 1, stroke: true,
-           fillOpacity: 1}).addTo(map);
+          { radius: 6, color: 'black',
+            fillColor: 'yellow', weight: 1, stroke: true,
+            fillOpacity: 1 }).addTo(map);
       rx_marker.on('click', function(e) {
         L.DomEvent.stopPropagation(e);
       });
       let dist = marker.getLatLng().distanceTo(rx_lat_lon);
       rx_marker.bindTooltip(
           `${r.cs} ${formatDistance(dist)} ${r.snr} dBm`,
-          {direction: 'top', opacity: 0.8});
+          { direction: 'top', opacity: 0.8 });
       marker.rx_markers.push(rx_marker);
       let segment = L.polyline([marker.getLatLng(), rx_lat_lon],
-          { weight: 2, color: 'blue' }).addTo(map).bringToBack();
+          { weight: 1.4, color: 'blue' }).addTo(map).bringToBack();
       marker.rx_segments.push(segment);
     });
   }
@@ -887,8 +1036,8 @@ function onMapClick(e) {
   const sun_pos = SunCalc.getPosition(now, lat, lon);
   const sun_elev = Math.round(sun_pos.altitude * 180 / Math.PI);
 
-  const hrs_sunrise = getHoursSinceSunrise(now, lat, lon).toFixed(1);
-  const hrs_sunset = getHoursToSunset(now, lat, lon).toFixed(1);
+  const hrs_sunrise = (getTimeSinceSunrise(now, lat, lon) / 3600000).toFixed(1);
+  const hrs_sunset = (getTimeToSunset(now, lat, lon) / 3600000).toFixed(1);
 
   // Update the display
   let aux_info = document.getElementById('aux_info');
@@ -924,15 +1073,16 @@ function displaySpotInfo(marker, point) {
   spot_info.style.left = point.x + 50 + 'px';
   spot_info.style.top = point.y - 20 + 'px';
   const utc_ts = formatTimestamp(spot.ts);
-  spot_info.innerHTML = `${utc_ts} UTC`;
+  spot_info.innerHTML = `<span style="color: #ffc">${utc_ts} UTC</span>`;
   for (let i = 0; i < spot.slots.length; i++) {
     const slot = spot.slots[i];
-    if (slot && slot.invalid != true) {
+    if (slot && !slot.is_invalid) {
       spot_info.innerHTML +=
           `<br>${i}: ${slot.cs} ${slot.grid} ${slot.power}`;
     }
   }
-  spot_info.innerHTML += `<br>${spot.lat.toFixed(2)}, ${spot.lon.toFixed(2)}`;
+  spot_info.innerHTML +=
+      `<br>${spot.lat.toFixed(2)}°, ${spot.lon.toFixed(2)}°`;
   if ('altitude' in spot) {
     spot_info.innerHTML += '<br>Altitude: ' + formatAltitude(spot.altitude);
   }
@@ -945,22 +1095,28 @@ function displaySpotInfo(marker, point) {
   if ('voltage' in spot) {
     spot_info.innerHTML += `<br>Voltage: ${formatVoltage(spot.voltage)}`;
   }
-  if (spot.ext) {
+  if (spot.raw_et) {
     // Display opaque extended telemetry
-    for (let i = 0; i < spot.ext.length; i++) {
-      if (spot.ext[i] != undefined) {
-        spot_info.innerHTML +=
-            `<br>Ext ${i}: ${spot.ext[i]}`;
-      }
-    }
+    spot.raw_et.forEach((v, i) =>
+        spot_info.innerHTML += `<br>Raw ET${i}: ${v}`);
   }
-  spot_info.innerHTML += `<br>Sun elevation: ${spot.sun_elev}&deg;`
-  spot_info.innerHTML += `<br> ${spot.slots[0].rx.length} report` +
-        ((spot.slots[0].rx.length == 1) ? '' : 's');
-  const max_snr = Math.max(...spot.slots[0].rx.map(r => r.snr));
+  if (spot.et) {
+    // Display decoded extended telemetry
+    let count = 0;
+    spot.et.forEach((v, i) => {
+      if (count++ < 8) {
+        const [label, long_label, units, formatter] =
+            getExtendedTelemetryAttributes(i);
+        spot_info.innerHTML += `<br>${label}: ${formatter(v, true)}`
+      }
+    });
+  }
+  const sun_elev = getSunElevation(spot.ts, spot.lat, spot.lon);
+  spot_info.innerHTML += `<br>Sun elevation: ${sun_elev}&deg;`
+  const [num_rx, max_rx_dist, max_snr] = getRXStats(spot);
+  spot_info.innerHTML += `<br> ${num_rx} report` +
+        ((num_rx == 1) ? '' : 's');
   spot_info.innerHTML += ` | ${max_snr} dBm`;
-  const max_rx_dist = Math.max(...spot.slots[0].rx.map(r =>
-      marker.getLatLng().distanceTo(maidenheadToLatLon(r.grid))));
   spot_info.innerHTML += `<br> ${formatDistance(max_rx_dist)}`;
 
   if (marker == selected_marker) {
@@ -980,22 +1136,17 @@ function displaySpotInfo(marker, point) {
   spot_info.style.display = 'block';
 }
 
-function getHoursSinceSunrise(ts, lat, lon) {
-  return (ts - SunCalc.getTimes(ts, lat, lon).sunrise) / 3600000;
-}
-
-function getHoursToSunset(ts, lat, lon) {
-  return (SunCalc.getTimes(ts, lat, lon).sunset - ts) / 3600000;
-}
-
 // Shows the 'Next update in Xm' message in the flight synopsis bar
 function displayNextUpdateCountdown() {
-  if (!next_update_ts) return;
+  let update_countdown = document.getElementById('update_countdown');
+
+  if (!next_update_ts) {
+    update_countdown.innerHTML = '';
+    return;
+  }
 
   // Number of seconds until the next update
   const remaining_time = (next_update_ts - (new Date())) / 1000;
-
-  let update_countdown = document.getElementById('update_countdown');
 
   if (remaining_time >= 60) {
     update_countdown.innerHTML =
@@ -1007,7 +1158,6 @@ function displayNextUpdateCountdown() {
     // Can happen if the device went to sleep after last setTimeout()
     update_countdown.innerHTML = 'Update pending';
   }
-
 }
 
 // Displays progress by number of dots inside the button
@@ -1024,6 +1174,7 @@ function cancelPendingUpdate() {
     update_task = null;
   }
   next_update_ts = null;
+  document.getElementById('update_countdown').innerHTML = '';
 }
 
 // Sets a timer to incrementally update the track at the end of
@@ -1032,7 +1183,8 @@ function scheduleNextUpdate() {
   cancelPendingUpdate();
 
   // Number of slots in telemetry sequence
-  const num_slots = (params.tracker == 'zachtek1' ? 1 : 2);
+  const num_slots = (params.tracker == 'zachtek1' ? 1 : 2) +
+      (params.fetch_et || 0);
   const tx_end_minute = getU4BSlotMinute(num_slots);
 
   const now = new Date();
@@ -1048,8 +1200,7 @@ function scheduleNextUpdate() {
        Math.floor(Math.random() * 10000));
 
   if (!next_update_ts) {
-    alert('Internal error');
-    return;
+    throw new Error('Internal error');
   }
 
   while (next_update_ts - now < 10 * 1000) {
@@ -1085,7 +1236,8 @@ async function update(incremental_update = false) {
 
     const query = createWSPRLiveQuery(
         false /* fetch_q01 */,
-        (params.tracker == 'zachtek2') ? [0, 1] : [0] /* slots */,
+        (params.tracker == 'zachtek2' || params.tracker == 'generic2') ?
+            [0, 1] : [0] /* slots */,
         incremental_update);
     new_data = importWSPRLiveData(await runQuery(query));
 
@@ -1093,8 +1245,8 @@ async function update(incremental_update = false) {
 
     if (params.tracker == 'u4b' || params.tracker == 'wb8elk') {
       // Fetch Q/0/1 callsign telemetry
-      const slots = params.fetch_extended ?
-          Array.from({length: params.fetch_extended + 1}, (_, i) => i + 1) :
+      const slots = params.fetch_et ?
+          Array.from({length: params.fetch_et + 1}, (_, i) => i + 1) :
           [1];
       const q01_query = createWSPRLiveQuery(
           true /* fetch_q01 */, slots, incremental_update);
@@ -1130,7 +1282,7 @@ async function update(incremental_update = false) {
 
     // Recenter the map on first load
     if (!incremental_update && last_marker) {
-      map.setView(last_marker.getLatLng(), map.getZoom(), {animate: false});
+      map.setView(last_marker.getLatLng(), map.getZoom(), { animate: false });
     }
 
     const now = new Date();
@@ -1143,7 +1295,13 @@ async function update(incremental_update = false) {
     }
   } catch (error) {
     clearTrack();
-    alert(debug > 0 ? `\n${error.stack}` : error);
+    cancelPendingUpdate();
+    if (error instanceof TypeError) {
+      alert('WSPR Live request failed. ' +
+            'Refresh the page to resume updates.');
+    } else {
+      alert(debug > 0 ? `\n${error.stack}` : error);
+    }
   } finally {
     // Restore the submit button
     go_button.disabled = false;
@@ -1168,20 +1326,46 @@ function updateURL() {
     if (units_param) {
       url += '&units=' + encodeURIComponent(units_param);
     }
+    if (et_dec_param) {
+      url += '&et_dec=' + encodeURLParam(et_dec_param);
+    }
+    if (et_labels_param) {
+      url += '&et_labels=' + encodeURLParam(et_labels_param);
+    }
+    if (et_llabels_param) {
+      url += '&et_llabels=' + encodeURLParam(et_llabels_param);
+    }
+    if (et_units_param) {
+      url += '&et_units=' + encodeURLParam(et_units_param);
+    }
+    if (et_res_param) {
+      url += '&et_res=' + encodeURLParam(et_res_param);
+    }
     history.replaceState(null, '', url);
   } catch (error) {
     console.log('Security error triggered by history.replaceState()');
   }
 }
 
-// Invoked when the "Go" button is pressed
-function processSubmission() {
+// Similar to encodeURIComponent but does not escape ',' and ':', and
+// escapes ' ' as '+'
+function encodeURLParam(param) {
+  return Array.from(param.replace(/\s/g, '+')).map(c =>
+      ',:'.includes(c) ? c : encodeURIComponent(c)
+  ).join('');
+}
+
+// Invoked when the "Go" button is pressed or when URL params are provided
+// on load
+function processSubmission(e, on_load = false) {
   last_data_view_scroll_pos = 0;
   cancelPendingUpdate();
   params = parseParams();
   if (params) {
     if (debug > 0) console.log(params);
-    updateURL();
+    if (!on_load) {
+      updateURL();
+    }
     update();
   } else {
     clearTrack();
@@ -1189,94 +1373,192 @@ function processSubmission() {
 }
 
 // Table / charts
-const kTableDataFields = [
-  ['ts', {
-    'label': '#',
-    'type': 'row_index'
-  }],
+
+const kDataFields = [
   ['ts', {
     'label': 'Time UTC',
     'color': '#7b5d45',
-    'formatter': (spot) => formatTimestamp(spot.ts)
+    'type': 'timestamp'
   }],
-  ['grid', {
-    'align': 'left',}],
+  ['grid', { 'align': 'left' }],
   ['lat', {
-    'label': 'Lat / Lon',
-    'align': 'center',
+    'label': 'Lat',
     'color': '#0066cc',
-    'formatter':
-        (spot) => `[${spot.lat.toFixed(2)}, ${spot.lon.toFixed(2)}]`
+    'type': 'angle',
+    'formatter': (v, au) => `${v.toFixed(2)}` + (au ? '°' : '')
   }],
-  ['altitude', {
-    'graph': {
-      'fetcher': (spot) => getAltitudeInCurrentUnits(spot.altitude)[0],
-      'units': () => getAltitudeInCurrentUnits(0)[2],
-      'precision': () => getAltitudeInCurrentUnits(0)[1]
-    },
-    'formatter': (spot) => formatAltitude(spot.altitude)
+  ['lon', {
+    'label': 'Lon',
+    'color': '#0066cc',
+    'type': 'angle',
+    'formatter': (v, au) => `${v.toFixed(2)}` + (au ? '°' : '')
   }],
-  ['speed', {
-    'graph': {
-      'fetcher': (spot) => getSpeedInCurrentUnits(spot.speed)[0],
-      'units': () => getSpeedInCurrentUnits(0)[2],
-      'precision': () => 0
-    },
-    'formatter': (spot) => formatSpeed(spot.speed)
+  ['altitude', { 'graph': {} }],
+  ['vspeed', {
+    'min_detail': 1,
+    'label': 'VSpeed',
+    'long_label': 'Vertical Speed',
+    'graph': {}
   }],
-  ['voltage', {
-    'graph': {
-      'units': () => 'V'
-    },
-    'formatter': (spot) => formatVoltage(spot.voltage)
+  ['speed', { 'graph': {} }],
+  ['cspeed', {
+    'min_detail': 1,
+    'type': 'speed',
+    'label': 'CSpeed',
+    'long_label': 'Computed Speed',
+    'graph': {}
   }],
+  ['voltage', { 'graph': {} }],
   ['temp', {
-    'graph': {
-      'fetcher': (spot) => getTemperatureInCurrentUnits(spot.temp)[0],
-      'units': () => getTemperatureInCurrentUnits(0)[2],
-      'precision': () => 0
-    },
-    'formatter': (spot) => formatTemperature(spot.temp)
+    'long_label': 'Temperature',
+    'graph': {}
+  }],
+  ['power', {
+    'min_detail': 1,
+    'label': 'Pwr',
+    'long_label': 'TX Power',
+    'type': 'power',
+    'graph': {},
   }],
   ['sun_elev', {
+    'min_detail': 1,
     'label': 'Sun',
-    'graph': {
-      'label': 'Sun Elevation (°)'
-    },
-    'formatter': (spot) => `${spot.sun_elev}°`,
+    'long_label': 'Sun Elevation',
+    'type': 'angle',
+    'graph': {},
   }],
-  ['slots', {
-    'graph': {
-      'label': '# RX Reports',
-      'fetcher':
-          (spot) => spot.slots[0].rx.length
-    },
+  ['num_rx', {
+    'min_detail': 1,
     'label': '# RX',
-    'formatter':
-        (spot) => spot.slots[0].rx.length,
+    'long_label': '# RX Reports',
+    'graph': {},
   }],
-  ['slots', {
+  ['max_rx_dist', {
+    'min_detail': 1,
+    'type': 'distance',
     'label': 'Max RX',
-    'formatter':
-        (spot) => {
-          const lat_lon = L.latLng(spot.lat, spot.lon);
-          const max_dist = Math.max(...spot.slots[0].rx.map(r =>
-              lat_lon.distanceTo(maidenheadToLatLon(r.grid))));
-          return formatDistance(max_dist);
-        }
+    'long_label': 'Max RX distance',
+    'graph': {}
   }],
-  ['slots', {
+  ['max_snr', {
+    'min_detail': 1,
     'label': 'Max SNR',
-    'formatter':
-        (spot) => (Math.max(...spot.slots[0].rx.map(r => r.snr)) + ' dBm')
-  }],
-  ['ext', {
-    'color': '#7b5d45',
-    'formatter':
-        (spot) => spot.ext ?
-            `[${spot.ext.filter(x => x !== undefined).join(', ')}]` : ''
+    'graph': {},
+    'type': 'snr'
   }]
-]
+];
+
+const kDerivedFields = [
+  'power', 'sun_elev', 'cspeed', 'vspeed', 'sun_elev', 'num_rx',
+  'max_rx_dist', 'max_snr'];
+
+const kFormatters = {
+  'timestamp': (v, au) => formatTimestamp(v),
+  'distance': formatDistance,
+  'altitude': formatAltitude,
+  'speed': formatSpeed,
+  'vspeed': formatVSpeed,
+  'voltage': formatVoltage,
+  'temp': formatTemperature,
+  'power': (v, au) => v + (au ? ' dBm' : ''),
+  'snr': (v, au) => v + (au ? ' dB' : ''),
+  'angle': (v, au) => v + (au ? '°' : '')
+};
+
+const kFetchers = {
+  'distance': getDistanceInCurrentUnits,
+  'altitude': getAltitudeInCurrentUnits,
+  'speed': getSpeedInCurrentUnits,
+  'vspeed': getVSpeedInCurrentUnits,
+  'temp': getTemperatureInCurrentUnits
+};
+
+function computeDerivedData(spots) {
+  let derived_data = {};
+  for (const field of kDerivedFields) {
+    derived_data[field] = new Array(spots.length).fill(undefined);
+  }
+  let last_altitude_spot = null;
+  let last_grid6_spot = null;
+  for (let i = 0; i < spots.length; i++) {
+    const spot = spots[i];
+    if (params.tracker == 'u4b') {
+      derived_data['power'][i] = spot.slots[0]['power']
+    }
+    if (i > 0) {
+      if (last_altitude_spot && spot.altitude) {
+        // Calculate vspeed
+        derived_data['vspeed'][i] =
+            (spot.altitude - last_altitude_spot.altitude) * 60000 /
+            ((spot.ts - last_altitude_spot.ts) || 1);
+      }
+      if (spot.grid.length == 6) {
+        if (last_grid6_spot) {
+          // Calculate cspeed (computed speed)
+          let dist = L.latLng(last_grid6_spot.lat, last_grid6_spot.lon)
+              .distanceTo([spot.lat, spot.lon]) / 1000;
+          let ts_delta = (spot.ts - last_grid6_spot.ts) || 1;
+          let cspeed = dist * 3600000 / ts_delta;
+          let min_cspeed = Math.max(dist - 4, 0) * 3600000 / ts_delta;
+          let max_cspeed = (dist + 4) * 3600000 / ts_delta;
+          if (cspeed > (max_cspeed - min_cspeed) * 4 ||
+              max_cspeed - min_cspeed <= 10) {
+            // Close enough
+            derived_data['cspeed'][i] = Math.min(350, cspeed);
+            last_grid6_spot = spot;
+          }
+        } else {
+          last_grid6_spot = spot;
+        }
+      }
+    }
+    if (spot.altitude) last_altitude_spot = spot;
+    derived_data['sun_elev'][i] = getSunElevation(spot.ts, spot.lat, spot.lon);
+    [derived_data['num_rx'][i], derived_data['max_rx_dist'][i],
+     derived_data['max_snr'][i]] = getRXStats(spot);
+  }
+  for (const field of kDerivedFields) {
+    if (derived_data[field].every(v => v == undefined)) {
+      delete derived_data[field];
+    }
+  }
+  // Only keep power if some values are different
+  if (derived_data['power'] &&
+      new Set(derived_data['power'].filter(v => v != undefined)).size < 2) {
+    delete derived_data['power'];
+  }
+  return derived_data;
+}
+
+function extractExtendedTelemetryData(spots) {
+  let et_data = [];
+  for (let i = 0; i < spots.length; i++) {
+    const spot = spots[i];
+    if (spot.raw_et) {
+      spot.raw_et.forEach((v, slot) => {
+        let field = `raw_et${slot}`;
+        let field_data = et_data[field];
+        if (!field_data) {
+          field_data = new Array(spots.length).fill(undefined);
+          et_data[field] = field_data;
+        }
+        field_data[i] = v;
+      });
+    }
+    if (spot.et) {
+      spot.et.forEach((v, slot) => {
+        let field = `et${slot}`;
+        let field_data = et_data[field];
+        if (!field_data) {
+          field_data = new Array(spots.length).fill(undefined);
+          et_data[field] = field_data;
+        }
+        field_data[i] = v;
+      });
+    }
+  }
+  return et_data;
+}
 
 function createTableCell(type, content, align = null, color = null) {
   const cell = document.createElement(type);
@@ -1306,7 +1588,33 @@ function clearDataView() {
     }
     delete data_view.u_plots;
   }
+  //data_view.onscrollend = null;  // releases table reference
   data_view.innerHTML = '';
+}
+
+function getExtendedTelemetryAttributes(i) {
+  let label = `ET${i}`;
+  if (params.et_spec['labels'] && params.et_spec['labels'][i]) {
+    label = params.et_spec['labels'][i];
+  }
+  let long_label = label;
+  if (params.et_spec['long_labels'] && params.et_spec['long_labels'][i]) {
+    long_label = params.et_spec['long_labels'][i];
+  }
+  let units;
+  if (params.et_spec['units'] && params.et_spec['units'][i]) {
+    units = params.et_spec['units'][i];
+  }
+  let resolution;
+  if (params.et_spec['resolutions'] && params.et_spec['resolutions']) {
+    resolution = params.et_spec['resolutions'][i];
+  }
+  let formatter = (v, au) => {
+    if (resolution != null) v = v.toFixed(resolution);
+    if (units && au) v += units;
+    return v;
+  };
+  return [label, long_label, units, formatter];
 }
 
 function showDataView() {
@@ -1324,87 +1632,198 @@ function showDataView() {
   let div = document.createElement('div');
   div.id = 'data_view_wrapper';
 
-  if (!mobile) {
+  if (!is_mobile) {
     let notice = document.createElement('div');
-    notice.innerHTML = '&lt-- Click here to close. To <b>zoom in</b>, ' +
-        'click and drag. To <b>zoom out</b>, double click.';
+    notice.innerHTML = '&lt-- Click here to close. To <b>zoom in</b> ' +
+        'on charts, click and drag. To <b>zoom out</b>, double click.';
     notice.classList.add('notice');
     notice.style.marginLeft = '40px';
     div.appendChild(notice);
   }
 
-  let reverse_spots = structuredClone(spots);
-  reverse_spots.sort((spot1, spot2) => spot2.ts - spot1.ts);
+  let supplementary_data =
+      { ...computeDerivedData(spots),
+        ...extractExtendedTelemetryData(spots) };
 
   // Find the union of all present fields
-  const present_fields = reverse_spots.flatMap(Object.keys)
-      .reduce((result, key) => ({...result, [key]: true}), {});
+  const present_spot_fields = Object.fromEntries(
+      [...new Set(spots.flatMap(Object.keys))].map(f => [f, 1]));
+  const present_supplementary_fields = Object.fromEntries(
+      Object.keys(supplementary_data).map(f => [f, 1]));
+  let present_fields = Object.fromEntries(
+      [...Object.entries(present_spot_fields),
+       ...Object.entries(present_supplementary_fields)]);
+
+  // Prefill the table with row numbers
+  let table_headers = ['#'];
+  let long_headers = ['#'];
+  let table_data = [Array.from(
+      { length: spots.length }, (_, i) => i + 1)];
+  let field_specs = [{}];
+  let table_formatters = [null];
+  let table_fetchers = [null];
+
+  let graph_labels = [];
+  let graph_data_indices = [];  // indices into table_data
+  const ts_values = spots.map(spot => spot.ts.getTime() / 1000);
+
+  let can_show_more = false;
+  let can_show_less = false;
+
+  // Add ET to the list of possible fields
+  let data_fields = [...kDataFields];
+  for (let i = 1; i < 5; i++) {
+    if (supplementary_data[`raw_et${i}`]) {
+      data_fields.push(
+          [`raw_et${i}`,
+           { 'color': '#7b5d45', 'label': `Raw ET${i}` }]);
+    }
+  }
+  for (let i = 0; i < 32; i++) {
+    if (supplementary_data[`et${i}`]) {
+      const [label, long_label, units, formatter] =
+          getExtendedTelemetryAttributes(i);
+      data_fields.push([`et${i}`,
+        { 'label': label, 'long_label': long_label, 'units': units,
+          'formatter': formatter, 'graph': {} }]);
+    }
+  }
+
+  // Iterate through possible fields
+  for (const [field, spec] of data_fields) {
+    if (!present_fields[field]) continue;
+    if ((spec.min_detail || 0) > params.detail) {
+      can_show_more = true;
+      continue;
+    }
+
+    if (spec.min_detail || 0) {
+      can_show_less = true;
+    }
+
+    // Attach the correct formatter / fetcher
+    let formatter = null;
+    let fetcher = null;
+    let type = spec.type || field;
+    if (spec.formatter) {
+      formatter = spec.formatter;
+    } else {
+      if (kFormatters[type]) {
+        formatter = kFormatters[type];
+      }
+    }
+    if (spec.fetcher) {
+      fetcher = spec.fetcher;
+    } else {
+      if (kFetchers[type]) {
+        fetcher = kFetchers[type];
+      }
+    }
+    table_formatters.push(formatter);
+    table_fetchers.push(fetcher);
+
+    // Add table / graph labels
+    const default_label = field[0].toUpperCase() + field.slice(1);
+    let table_header = spec['label'] || default_label;
+    let long_label =
+        spec['long_label'] || spec['label'] || default_label;
+    let units = spec['units'] ||
+        (kUnitInfo[type] && kUnitInfo[type][params.units][0]);
+    if (units) {
+      long_label += ' (' + units.trim() + ')';
+      table_header += '\n(' + units.trim() + ')';
+    }
+    table_headers.push(table_header);
+    long_headers.push(long_label);
+    field_specs.push(spec);
+    if (spec.graph) {
+      graph_labels.push(long_label);
+      graph_data_indices.push(table_data.length);
+    }
+
+    // Data for this field
+    let field_data;
+    if (supplementary_data[field]) {
+      field_data = supplementary_data[field];
+    } else {
+      field_data = spots.map(spot =>
+          spot[field] == undefined ?
+              undefined : (spec.fetcher ?
+                  spec.fetcher(spot[field]) : spot[field]));
+    }
+    table_data.push(field_data);
+  }
 
   // Add graphs
   data_view.u_plots = [];  // references to created uPlot instances
-  const x_values = spots.map(spot => spot.ts.getTime() / 1000);
-  for (const [field, spec] of kTableDataFields) {
-    if (!spec.graph || !present_fields[field]) {
-      continue;
-    }
-    const y_values = spots.map(spot => spot[field] != undefined ?
-        (spec.graph.fetcher ? spec.graph.fetcher(spot) : spot[field]) :
-        undefined);
-    let label = spec.graph.label || (field[0].toUpperCase() + field.slice(1));
-    if (spec.graph.units) {
-      label += ' (' + spec.graph.units() + ')';
-    }
+  for (let i = 0; i < graph_data_indices.length; i++) {
+    let index  = graph_data_indices[i];
     const opts = {
       tzDate: ts => uPlot.tzDate(new Date(ts * 1e3), 'Etc/UTC'),
       cursor: {
-        drag: {x: true, y: true, uni: 20},
-        sync: {key: 1, setSeries: true, scales: ['x']}
+        drag: { x: true, y: true, uni: 20 },
+        sync: { key: 1, setSeries: true, scales: ['x'] }
       },
       width: 600,
       height: 300,
       plugins: [touchZoomPlugin()],
-      series: [{label: 'Time UTC'},
+      series: [{ label: 'Time UTC' },
         {
-          label: label,
+          label: graph_labels[i],
           stroke: 'blue',
           value: (self, value) => value
         }
       ],
-      scales: [{label: 'x'}],
-      axes: [{}, {size: 52}]
+      scales: [{ label: 'x' }],
+      axes: [{}, { size: 52 }]
     };
 
-    data_view.u_plots.push(new uPlot(opts, [x_values, y_values], div));
+    const fetcher = table_fetchers[index] || ((v) => v);
+    data_view.u_plots.push(
+        new uPlot(opts, [ts_values, table_data[index].map(
+            (v) => (v == undefined) ? v : fetcher(v))], div));
   }
 
   div.appendChild(document.createElement('br'));
 
   div.appendChild(
       createPrettyButton('Toggle Units', toggleUnits));
+  if (params.detail != null && (can_show_less || can_show_more)) {
+    div.appendChild(
+        createPrettyButton(params.detail ? 'Show Less' : 'Show More',
+                           toggleDataViewDetail));
+  }
   div.appendChild(
-      createPrettyButton('Download JSON', () => downloadJSON(reverse_spots)));
+      createPrettyButton('Export CSV',
+          () => downloadCSV(long_headers, table_data, table_formatters)));
+  div.appendChild(
+      createPrettyButton('Get Raw Data', () => downloadJSON(spots)));
 
+  // Populate the table
   let table = document.createElement('table');
   table.classList.add('data_table');
-  // Populate table's header
+  // Fill the header
   let row = document.createElement('tr');
-  for (const [field, spec] of kTableDataFields) {
-    if (present_fields[field]) {
-      row.appendChild(createTableCell('th',
-          spec['label'] || (field[0].toUpperCase() + field.slice(1))));
-    }
+  for (let i = 0; i < table_headers.length; i++) {
+    let th = createTableCell('th', table_headers[i]);
+    th.title = long_headers[i];
+    row.appendChild(th);
   }
   table.appendChild(row);
-  for (let i = 0; i < reverse_spots.length; i++) {
-    const spot = reverse_spots[i];
+
+  for (let i = table_data[0].length - 1; i >= 0; i--) {
     let row = document.createElement('tr');
-    for ([field, spec] of kTableDataFields) {
-      if (present_fields[field]) {
-        let value = spec.type == 'row_index' ? reverse_spots.length - i :
-            (spot[field] == undefined ?
-                '' : (spec.formatter ? spec.formatter(spot) : spot[field]));
-        row.appendChild(createTableCell('td', value, spec.align, spec.color));
+    for (let j = 0; j < table_data.length; j++) {
+      let value = table_data[j][i];
+      if (value == null) {
+        value = '';
+      } else {
+        if (table_formatters[j]) {
+          value = table_formatters[j](value, false /* append units */);
+        }
       }
+      const spec = field_specs[j];
+      row.appendChild(createTableCell('td', value, spec.align, spec.color));
     }
     table.appendChild(row);
   }
@@ -1420,25 +1839,70 @@ function showDataView() {
   }, 5);
 }
 
+function toggleDataViewDetail() {
+  params.detail ^= 1;
+  showDataView();
+
+  // Remember user preference
+  localStorage.setItem('detail', params.detail);
+}
+
+function getDownloadFilename(ext) {
+  const raw_ch = document.getElementById('ch').value.trim().toUpperCase();
+  return params.cs.toUpperCase().replace(/\//g, '_') + '_' + raw_ch + '_' +
+      formatTimestamp(params.start_date).slice(0, 10).replace(/-/g, '') + '-' +
+      formatTimestamp(params.end_date).slice(0, 10).replace(/-/g, '') +
+      '.' + ext;
+}
+
 function downloadJSON(spots) {
   const json = JSON.stringify(spots,
     (key, value) => (value == undefined ? null : value));
-  const blob = new Blob([json], {type: 'application/json'});
+  downloadFile(json, 'application/json', getDownloadFilename('json'));
+}
+
+function downloadCSV(headers, data, formatters) {
+  let rows = [headers];
+  for (let i = data[0].length - 1; i >= 0; i--) {
+    let row = [];
+    for (let j = 0; j < data.length; j++) {
+      let value = data[j][i];
+      if (value == null) {
+        value = '';
+      } else {
+        if (formatters[j]) {
+          value = formatters[j](value, false /* append_units */);
+        }
+      }
+      row.push(value);
+    }
+    rows.push(row);
+  }
+  let csv = rows.map(row =>
+      row.map(v => {
+        v = String(v).replace(/"/g, '""');
+        return /[",\r\n]/.test(v) ? `"${v}"` : v;
+      }).join(',')
+  ).join('\n');
+  downloadFile(csv, 'text/csv', getDownloadFilename('csv'))
+}
+
+function downloadFile(data, mime_type, filename) {
+  const blob = new Blob([data], { type: mime_type });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = 'wsprtv_export.json';
+  a.download = filename;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
 }
 
-
 function closeDataView() {
   // Hide data view UI
   clearDataView();
-  document.getElementById('data_view').style.display = 'none';
+  data_view.style.display = 'none';
   document.getElementById('close_data_button').style.display = 'none';
   document.getElementById('map').style.display = 'block';
 
@@ -1468,6 +1932,110 @@ function initializeFormFields() {
   document.getElementById('start_date').value = start_date_param;
 }
 
+function parseExtendedTelemetrySpec() {
+  if (!et_dec_param) return null;
+  if (!/^[0-9ets,:_~.-]+$/.test(et_dec_param)) return null;
+  let decoders = [];
+  let num_extractors = 0;
+  for (const decoder_spec of et_dec_param.toLowerCase().split('~')) {
+    let uses_et0 = false;
+    let [filters_spec, extractors_spec] = decoder_spec.split('_');
+    // Parse filters
+    let filters = [];
+    if (filters_spec) {
+      for (const filter_spec of filters_spec.split(',')) {
+        let filter = filter_spec.split(':');
+        if (filter.length == 2 && ['et0', 's'].includes(filter[0])) {
+          filter[1] = Number(filter[1]);
+          if (!Number.isInteger(filter[1]) || filter[1] < 0) return null;
+          if (filter[0] == 'et0') {
+            filters.push([1, 4, 0]);
+            filters.push([4, 16, filter[1]]);
+            filters.push([64, 5, 's']);
+            uses_et0 = true;
+            continue;
+          }
+        } else if (filter.length == 4 && filter[0] == 't') {
+          filter = [filter[0], Number(filter[1]), Number(filter[2]),
+                    Number(filter[3])];
+          if (!filter.slice(1).every(v => Number.isInteger(v)) ||
+              filter[1] <= 0 || filter[2] <= 1 || filter[3] < 0) {
+            return null;
+          }
+        } else if (filter.length == 3) {
+          filter = [Number(filter[0]), Number(filter[1]),
+                    filter[2] == 's' ? 's' : Number(filter[2])];
+          if (!filter.every(v => Number.isInteger(v) || v == 's') ||
+              filter[0] <= 0 || filter[1] <= 1 || filter[2] < 0) {
+            return null;
+          }
+        } else {
+          return null;
+        }
+        filters.push(filter);
+      }
+    }
+    // Parse extractors
+    let extractors = [];
+
+    let next_divisor = uses_et0 ? 320 : 1;  // used for 3-term extractor spec
+    for (const extractor_spec of extractors_spec.split(',')) {
+      let extractor = extractor_spec.split(':').map(Number);
+      if (extractor.length == 3) {
+        extractor.unshift(next_divisor);
+      }
+      if (extractor.length != 4) return null;
+      for (let i = 0; i < extractor.length; i++) {
+        if ((i <= 1) && (!Number.isInteger(extractor[i]) ||
+            extractor[i] < 1)) {
+          return null;
+        }
+        if (Number.isNaN(extractor[2])) return null;
+        if (Number.isNaN(extractor[3]) || extractor[3] <= 0) return null;
+        next_divisor = extractor[0] * extractor[1];
+      }
+      extractors.push(extractor);
+    }
+    decoders.push([filters, extractors]);
+    num_extractors += extractors.length;
+  }
+  if (!decoders) return null;
+  // Parse optional params
+  let labels;
+  let long_labels;
+  let units;
+  let resolutions;
+  if (et_labels_param) {
+    if (!/^[0-9a-z ,#_]+$/i.test(et_labels_param)) return null;
+    labels = et_labels_param.split(',');
+    if (!labels.every(v => v.length < 32)) return null;
+  }
+  if (et_llabels_param) {
+    if (!/^[0-9a-z ,#_]+$/i.test(et_llabels_param)) return null;
+    long_labels = et_llabels_param.split(',');
+    if (!long_labels.every(v => v.length < 64)) return null;
+  }
+  if (et_units_param) {
+    if (!/^[a-z /,]+$/i.test(et_units_param)) return null;
+    units = et_units_param.split(',');
+    if (!units.every(v => v.length < 8)) return null;
+  }
+  if (et_res_param) {
+    resolutions = et_res_param.split(',').map(
+        v => v == '' ? null : Number(v));
+    if (!resolutions.every(
+        v => v == null || (Number.isInteger(v) && v > 0 && v < 4))) {
+      return null;
+    }
+  }
+  let spec = { 'decoders': decoders };
+  if (labels) spec['labels'] = labels;
+  if (long_labels) spec['long_labels'] = long_labels;
+  if (units) spec['units'] = units;
+  if (resolutions) spec['resolutions'] = resolutions;
+  return spec;
+}
+
 // Entry point
 function Run() {
   initializeFormFields();
@@ -1475,6 +2043,11 @@ function Run() {
   end_date_param = getUrlParameter('end_date');
   units_param = getUrlParameter('units');
   dnu_param = getUrlParameter('dnu');
+  et_dec_param = getUrlParameter('et_dec');
+  et_labels_param = getUrlParameter('et_labels');
+  et_llabels_param = getUrlParameter('et_llabels');
+  et_units_param = getUrlParameter('et_units');
+  et_res_param = getUrlParameter('et_res');
 
   // On mobile devices, allow for a larger click area
   let click_tolerance = 0;
@@ -1483,7 +2056,7 @@ function Run() {
       'BlackBerry|BB|PlayBook');
   if (agent_regexp.test(navigator.userAgent)) {
     click_tolerance = 15;
-    mobile = true;
+    is_mobile = true;
   }
 
   // Recall previously stored map location and zoom level
@@ -1496,47 +2069,59 @@ function Run() {
 
   // Initialize the map
   map = L.map('map',
-      {renderer : L.canvas({tolerance: click_tolerance})});
+      { renderer : L.canvas({tolerance: click_tolerance })});
 
   // Use local English-label tiles for lower levels
   L.tileLayer(
       'osm_tiles/{z}/{x}/{y}.png',
-      {maxZoom: 6,
-       attribution:
-           '<a href="https://github.com/wsprtv/wsprtv.github.io">' +
-           'WSPR TV</a> | &copy; <a href="https://www.openstreetmap.org' +
-           '/copyright">OpenStreetMap</a> contributors'
+      { maxZoom: 6,
+        attribution:
+            '<a href="https://github.com/wsprtv/wsprtv.github.io">' +
+            'WSPR TV</a> | &copy; <a href="https://www.openstreetmap.org' +
+            '/copyright">OpenStreetMap</a> contributors'
       }).addTo(map);
 
   // Use OSM-hosted tiles for higher levels
   L.tileLayer(
       'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-      {minZoom: 7, maxZoom: 12,
-       attribution:
-           '<a href="https://github.com/wsprtv/wsprtv.github.io">' +
-           'WSPR TV</a> | &copy; <a href="https://www.openstreetmap.org' +
-           '/copyright">OpenStreetMap</a> contributors'
+      { minZoom: 7, maxZoom: 12,
+        attribution:
+            '<a href="https://github.com/wsprtv/wsprtv.github.io">' +
+            'WSPR TV</a> | &copy; <a href="https://www.openstreetmap.org' +
+            '/copyright">OpenStreetMap</a> contributors'
       }).addTo(map);
 
   map.setView([init_lat, init_lon], init_zoom_level);
 
   // Add day / night visualization and the scale indicator
   let terminator = L.terminator(
-      {opacity : 0, fillOpacity : 0.3, interactive : false,
-       longitudeRange: 360}).addTo(map);
+      { opacity: 0, fillOpacity: 0.3, interactive: false,
+        longitudeRange: 360 }).addTo(map);
   L.control.scale().addTo(map);
 
   // Draw the antimeridian
   L.polyline([[90, 180], [-90, 180]],
-      {color: 'gray', weight: 2, dashArray: '8,5', opacity: 0.4})
+      { color: 'gray', weight: 2, dashArray: '8,5', opacity: 0.4 })
       .addTo(map).bringToBack();
   L.polyline([[90, -180], [-90, -180]],
-      {color: 'gray', weight: 2, dashArray: '8,5', opacity: 0.4 })
+      { color: 'gray', weight: 2, dashArray: '8,5', opacity: 0.4 })
       .addTo(map).bringToBack();
+
+  // Grey out areas beyond the antimeridian to indicate there is no
+  // data there
+  L.polygon([[[-90, -1440], [90, -1440], [90, -180], [-90, -180]]], {
+    fillColor: 'black', fillOpacity: 0.12, stroke: false,
+    interactive: false
+  }).addTo(map);
+
+  L.polygon([[[-90, 180], [90, 180], [90, 1440], [-90, 1440]]], {
+    fillColor: 'black', fillOpacity: 0.12, stroke: false,
+    interactive: false
+  }).addTo(map);
 
   // Draw the equator
   L.polyline([[0, -180], [0, 180]],
-      {color: 'gray', weight: 1, opacity: 0.2})
+      { color: 'gray', weight: 1, opacity: 0.2 })
       .addTo(map).bringToBack();
 
   // On pan / zoom, save map location and zoom level
@@ -1548,7 +2133,7 @@ function Run() {
     // Readjust the map when moving across the antimeridian
     const wrapped_center = map.wrapLatLng(center);
     if (Math.abs(center.lng - wrapped_center.lng) > 1e-8) {
-      map.setView(wrapped_center, map.getZoom(), {animate: false});
+      map.setView(wrapped_center, map.getZoom(), { animate: false });
     }
   });
   map.on('zoomend', function() {
@@ -1562,6 +2147,14 @@ function Run() {
   document.getElementById('go_button').addEventListener(
       'click', processSubmission);
 
+  // Handle special menu selections
+  document.getElementById('band').addEventListener('change', function () {
+    if (this.value == 'help') {
+      window.open('docs/user_guide.html', '_new');
+    }
+    this.value = params.band;
+  });
+
   // Handle clicks on the "Show data" button
   document.getElementById('show_data_button').addEventListener(
       'click', showDataView);
@@ -1572,7 +2165,7 @@ function Run() {
 
   // Submit the form if parameters were provided in the URL
   if (document.getElementById('cs').value) {
-    processSubmission();
+    processSubmission(null, true /* on_load */);
   }
 
   // Update UI elements that change over time (e.g. "X min ago" messages)
@@ -1584,7 +2177,7 @@ function Run() {
     if (last_age && last_marker) {
       last_age.innerHTML = formatDuration(new Date(), last_marker.spot.ts);
     }
-  }, 60 * 1000);
+  }, 20 * 1000);
 
   // Update the terminator (day / night overlay) periodically
   setInterval(() => {
