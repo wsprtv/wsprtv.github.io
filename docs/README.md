@@ -596,11 +596,11 @@ for details.
 Terms of Service:
 
 *You are allowed to use the services provided on wspr.live for your own reasearch and projects, as long as 
-the results are accessable free of charge for everyone. You are not allowed to use this service for any 
+the results are accessible free of charge for everyone. You are not allowed to use this service for any 
 commercial or profit oriented use cases. The complete wspr infrastructure is maintained by volunteers in 
 their spare time, so there are no guarantees on correctness, availability or stability of this service.*
 
-However, the author of WSPR Live has clarified that a vendor providing a link to WSPR TV
+The author of WSPR Live has clarified that a vendor providing a link to WSPR TV
 is fair use and would not be a violation of the TOS.
 
 The source code for WSPR TV is available on [GitHub](https://github.com/wsprtv/wsprtv.github.io).
