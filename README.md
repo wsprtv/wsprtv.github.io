@@ -1,5 +1,6 @@
 # WSPR Telemetry Viewer (WSPR TV)
-WSPR TV is a picoballoon telemetry visualization tool serving a small but growing community of radio amateurs.  
+WSPR TV is a picoballoon telemetry visualization tool serving a small but growing community of radio amateurs.
+
 The live application is available at **https://wsprtv.com**.
 
 ## Features
