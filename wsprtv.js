@@ -1476,7 +1476,7 @@ function computeDerivedData(spots) {
   let last_grid6_spot = null;
   for (let i = 0; i < spots.length; i++) {
     const spot = spots[i];
-    if (params.tracker == 'u4b') {
+    if (['u4b', 'generic1', 'generic2'].includes(params.tracker)) {
       derived_data['power'][i] = spot.slots[0]['power']
     }
     if (i > 0) {
