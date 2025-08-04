@@ -20,7 +20,7 @@ The user interface is powered by the excellent [Leaflet](https://leafletjs.com) 
 
 ## Legal
 
-**WSPR TV** is licensed under the [AGPL-3.0](https://www.gnu.org/licenses/agpl-3.0.html).
+**WSPR TV** is licensed under [AGPL-3.0](https://www.gnu.org/licenses/agpl-3.0.html).
 
 Use of [WSPR Live](https://wspr.live) is subject to additional [Terms of Service](https://wspr.live):
 

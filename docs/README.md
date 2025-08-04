@@ -576,8 +576,9 @@ by hand with some practice.
 
 ## License
 
-WSPR TV is open-source under the AGPL-3.0
-license and can be used freely as long as the license conditions are met.
+WSPR TV is open-source under the
+[AGPL-3.0 license](https://www.gnu.org/licenses/agpl-3.0.en.html#license-text)
+and can be used freely as long as the license conditions are met.
 In particular, the license requires that:
 
 - If any part of your project is derived from WSPR TV in any way, your entire
@@ -589,13 +590,10 @@ under proprietary licenses in recent releases.
 the UI. In the source code, you must clearly state what code was copied and
 how it was modified. All copyright and license notices must be preserved.
 
-See the [AGPL-3.0 license](https://www.gnu.org/licenses/agpl-3.0.en.html#license-text)
-for details.
-
 [WSPR Live](https://wspr.live), which WSPR TV uses, has additional restrictions in its
-Terms of Service:
+[Terms of Service](https://wspr.live):
 
-*You are allowed to use the services provided on wspr.live for your own reasearch and projects, as long as 
+> *You are allowed to use the services provided on wspr.live for your own reasearch and projects, as long as 
 the results are accessible free of charge for everyone. You are not allowed to use this service for any 
 commercial or profit oriented use cases. The complete wspr infrastructure is maintained by volunteers in 
 their spare time, so there are no guarantees on correctness, availability or stability of this service.*
