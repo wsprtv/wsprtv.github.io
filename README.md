@@ -17,3 +17,16 @@ WSPR reports, hosted on [WsprDaemon's](http://wsprdaemon.org) servers.
 
 The user interface is powered by the excellent [Leaflet](https://leafletjs.com) mapping library and the snappy
 [uPlot](https://github.com/leeoniya/uPlot) charts.
+
+## License
+
+WSPR TV is licenced under AGPL-3.0.
+
+[WSPR Live](https://wspr.live), which WSPR TV uses, has additional restrictions in its
+Terms of Service:
+
+*You are allowed to use the services provided on wspr.live for your own reasearch and projects, as long as
+the results are accessible free of charge for everyone. You are not allowed to use this service for any
+commercial or profit oriented use cases. The complete wspr infrastructure is maintained by volunteers in
+their spare time, so there are no guarantees on correctness, availability or stability of this service.*
+
