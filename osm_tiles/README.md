@@ -1,6 +1,6 @@
 ## License and Attribution for Map Tiles
 
-These map tiles are a "Produced Work" derived from OpenStreetMap data. The tiles themselves are provided under a permissive license. However, to comply with the Open Database License (ODbL) of the underlying data, you must provide the following attribution.
+These map tiles are licensed as a "Produced Work" derived from OpenStreetMap data under the Open Database License ([ODbL](https://opendatacommons.org/licenses/odbl/)).
 
 ### Required Attribution
 
