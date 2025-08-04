@@ -7,7 +7,7 @@ The code in this repository is accessible through https://wsprtv.com.
 - Displays extended U4B telemetry.
 - Visualizes real-time flight data on a full-screen map, in a table format, and through interactive charts.
 - Provides data export.
-- Mobile friendly -- works great even on small screens.
+- Mobile friendly -- easy to use even on small screens.
 
 See the [user guide](https://wsprtv.com/docs/user_guide.html) for details.
 
