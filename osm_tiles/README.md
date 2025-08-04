@@ -8,7 +8,7 @@ The following text must be clearly and visibly displayed with the map tiles:
 
 **© OpenStreetMap contributors**
 
-The text "OpenStreetMap contributors" should ideally be a clickable link to: `https://www.openstreetmap.org/copyright`
+The text "OpenStreetMap contributors" should be a clickable link to: `https://www.openstreetmap.org/copyright`
 
 ### Data License Notice
 
