@@ -1,5 +1,5 @@
 # WSPR Telemetry Viewer (WSPR TV)
-WSPR TV is a picoballoon telemetry visualization tool serving a small but growing community of radio amateurs.
+**WSPR TV** is a picoballoon telemetry visualization tool serving a small but growing community of radio amateurs.
 
 The live application is available at **https://wsprtv.com**.
 
@@ -12,21 +12,19 @@ The live application is available at **https://wsprtv.com**.
 For more information, see the [user guide](https://wsprtv.com/docs/user_guide.html).
 
 ## Acknowledgements
-This project utilizes [WSPR Live](https://wspr.live), a free and publicly accessible database of over 10 billion
+This project uses [WSPR Live](https://wspr.live), a free and publicly accessible database of over 10 billion
 WSPR reports, hosted on [WsprDaemon's](http://wsprdaemon.org) servers.
 
 The user interface is powered by the excellent [Leaflet](https://leafletjs.com) mapping library and the snappy
 [uPlot](https://github.com/leeoniya/uPlot) charts.
 
-## License
+## Legal
 
-WSPR TV is licenced under AGPL-3.0.
+**WSPR TV** is licensed under the [AGPL-3.0](https://www.gnu.org/licenses/agpl-3.0.html).
 
-[WSPR Live](https://wspr.live), which WSPR TV uses, has additional restrictions in its
-Terms of Service:
+Use of [WSPR Live](https://wspr.live) is subject to additional [Terms of Service](https://wspr.live):
 
-*You are allowed to use the services provided on wspr.live for your own reasearch and projects, as long as
-the results are accessible free of charge for everyone. You are not allowed to use this service for any
-commercial or profit oriented use cases. The complete wspr infrastructure is maintained by volunteers in
-their spare time, so there are no guarantees on correctness, availability or stability of this service.*
-
+> *You are allowed to use the services provided on wspr.live for your own research and projects, as long as  
+the results are accessible free of charge for everyone. You are not allowed to use this service for any  
+commercial or profit-oriented use cases. The complete WSPR infrastructure is maintained by volunteers in  
+their spare time, so there are no guarantees on correctness, availability, or stability of this service.*
