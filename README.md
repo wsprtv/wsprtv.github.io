@@ -13,7 +13,7 @@ See the [user guide](https://wsprtv.com/docs/user_guide.html) for details.
 
 ## Acknowledgements
 This project relies heavily [WSPR Live](https://wspr.live) -- a free and publicly accessible database of over 10 billion
-WSPR reports. The service is hosted on [WsprDaemon's](http://wsprdaemon.org) servers.
+WSPR reports. WSPR Live is hosted on [WsprDaemon's](http://wsprdaemon.org) servers.
 
 WSPR TV's UI is powered by the excellent [Leaflet](https://leafletjs.com) mapping library and the snappy
 [uPlot](https://github.com/leeoniya/uPlot) charts.
