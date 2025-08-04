@@ -21,7 +21,6 @@
 let map;  // Leaflet map object
 let markers = [];
 let marker_group;
-let segments = [];  // lines between markers
 let segment_group;
 let last_marker;  // last marker in the displayed track
 let selected_marker;  // currently selected (clicked) marker
@@ -107,7 +106,7 @@ function formatTimestamp(ts) {
   return ts.toISOString().slice(0, 16).replace('T', ' ');
 }
 
-// Extract a parameter value from URL
+// Extracts a parameter value from the URL
 function getUrlParameter(name) {
   const regex = new RegExp('[?&]' + name + '(=([^&]*)|(?=[&]|$))');
   const match = regex.exec(location.search);
@@ -145,7 +144,7 @@ function parseParams() {
       }
       // Convert channel to an equivalent u4b one
       ch = ((raw_ch[1] - '0' - starting_minute_offset) / 2 + 5) % 5;
-    } else if (/[WU]/i.test(raw_ch[0])) {
+    } else if (/[UW]/i.test(raw_ch[0])) {
       // Q34 format, where Q and 3 are special callsign ids and 4 is
       // the starting minute
       if (!/^[Q01][0-9][02468]$/i.test(raw_ch.slice(1))) {
@@ -161,6 +160,10 @@ function parseParams() {
       alert('Unknown tracker type: ' + raw_ch[0]);
       return null;
     }
+  } else if (raw_ch == '') {
+    // Showing regular callsign reports from all slots
+    ch = 0;
+    tracker = 'unknown';
   } else {
     // Default: U4B
     const match = raw_ch.match(/^(\d+)(E(\d*))?$/i);
@@ -189,8 +192,8 @@ function parseParams() {
   const detail = localStorage.getItem('detail') == 1 ? 1 : 0;
 
   let cs_regex;
-  if (tracker == 'zachtek2' || tracker == 'generic2') {
-    // Zachtek allows compound callsigns
+  if (['generic2', 'zachtek2', 'unknown'].includes(tracker)) {
+    // Compound callsigns allowed
     cs_regex = /^([A-Z0-9]{1,4}\/)?[A-Z0-9]{4,6}(\/[A-Z0-9]{1,4})?$/i;
   } else {
     cs_regex = /^[A-Z0-9]{4,6}$/i;
@@ -262,9 +265,6 @@ function createQueryDateRange(incremental_update = false) {
 function createWSPRLiveQuery(
     fetch_q01 = false, slots = [0],
     incremental_update = false) {
-  const [_, wspr_live_band] = kWSPRBandInfo[params.band];
-  const slot_minutes = slots.map(slot => getU4BSlotMinute(slot));
-  const date_range = createQueryDateRange(incremental_update);
   let cs_clause;
   if (fetch_q01) {
     // Fetching from the Q/0/1 callsign space
@@ -280,6 +280,11 @@ function createWSPRLiveQuery(
     // Regular callsign query
     cs_clause = `tx_sign = '${params.cs}'`;
   }
+  const [_, wspr_live_band] = kWSPRBandInfo[params.band];
+  const slot_minutes = slots.map(slot => getU4BSlotMinute(slot));
+  const slot_clause = slot_minutes.length < 5 ?
+      `toMinute(time) % 10 IN (${slot_minutes})` : 'true';
+  const date_range = createQueryDateRange(incremental_update);
   return `
     SELECT  /* wsprtv.github.io */
       time, tx_sign, tx_loc, power,
@@ -288,8 +293,8 @@ function createWSPRLiveQuery(
     WHERE
       ${cs_clause} AND
       band = ${wspr_live_band} AND
-      ${date_range} AND
-      toMinute(time) % 10 IN (${slot_minutes})
+      ${slot_clause} AND
+      ${date_range}
     GROUP BY time, tx_sign, tx_loc, power
     FORMAT JSONCompact`;
 }
@@ -387,8 +392,11 @@ function matchTelemetry(data) {
 
   for (let i = 0; i < data.length; i++) {
     row = data[i];
-    slot = (((row.ts.getMinutes() - starting_minute) + 10) % 10) / 2;
-
+    if (params.tracker == 'unknown') {
+      spots.push({ 'slots': [row] });
+      continue;
+    }
+    const slot = (((row.ts.getMinutes() - starting_minute) + 10) % 10) / 2;
     if (slot == 0) {
       if (!last_spot || last_spot.slots[0].ts != row.ts) {
         // New spot
@@ -539,7 +547,8 @@ function decodeSpots() {
 // Note: voltage calculation is documented incorrectly there.
 function decodeSpot(spot) {
   spot.ts = spot.slots[0].ts;
-  spot.grid = spot.slots[0].grid.slice(0, 4);
+  spot.grid = (params.tracker == 'unknown') ?
+      spot.slots[0].grid : spot.slots[0].grid.slice(0, 4);
   if (params.tracker == 'wb8elk') {
     spot.altitude = 1000 * kWSPRPowers.indexOf(spot.slots[0].power);
     if (spot.slots[1]) {
@@ -577,9 +586,6 @@ function decodeSpot(spot) {
         return true;
       }
     }
-  } else {
-    // Unexpected tracker
-    throw new Error('Internal error');
   }
   [spot.lat, spot.lon] = maidenheadToLatLon(spot.grid);
   if (spot.raw_et) decodeExtendedTelemetry(spot);
@@ -803,7 +809,6 @@ function clearTrack() {
     map.removeLayer(marker_group);
     map.removeLayer(segment_group);
     markers = [];
-    segments = [];
     marker_group = null;
     segment_group = null;
   }
@@ -833,7 +838,7 @@ function displayTrack() {
     let spot = spots[i];
     if (spot.lat == undefined || spot.lon == undefined) continue;
 
-    if (last_marker &&
+    if (params.tracker != 'unknown' && last_marker &&
         last_marker.getLatLng().distanceTo(
             [spot.lat, spot.lon]) / 1000 >
         300 * Math.max(1800, (spot.ts - last_marker.spot.ts) / 1000) / 3600) {
@@ -845,7 +850,8 @@ function displayTrack() {
 
     let marker = null;
     if (spot.grid.length < 6) {
-      if (!last_marker ||
+      // Grid4 spot
+      if (params.tracker == 'unknown' || !last_marker ||
           (spot.ts - last_marker.spot.ts > 2 * 3600 * 1000) ||
           (last_marker.getLatLng().distanceTo(
                [spot.lat, spot.lon]) > 200000)) {
@@ -854,7 +860,9 @@ function displayTrack() {
               stroke: true, fillOpacity: 1 });
       }
     } else {
-      if (last_marker && last_marker.spot.grid.length < 6 &&
+      // Grid6 spot
+      if (params.tracker != 'unknown' &&
+          last_marker && last_marker.spot.grid.length < 6 &&
           (spot.ts - last_marker.spot.ts < 2 * 3600 * 1000) &&
           (last_marker.getLatLng().distanceTo(
                [spot.lat, spot.lon]) < 200000)) {
@@ -888,12 +896,14 @@ function displayTrack() {
     const last_spot = last_marker.spot;
     const duration = formatDuration(last_marker.spot.ts, markers[0].spot.ts);
     synopsis.innerHTML = `Duration: <b>${duration}</b>`;
-    // Distance is a clickable link to switch units
-    const dist = computeDistance(markers);
-    synopsis.innerHTML += '<br>Distance: <b>' +
-        '<a href="#" id="unit_switch_link" title="Click to change units" ' +
-        'onclick="toggleUnits(); event.preventDefault()">' +
-        formatDistance(dist) + '</a></b>';
+    if (params.tracker != 'unknown') {
+      // Distance is a clickable link to switch units
+      const dist = computeDistance(markers);
+      synopsis.innerHTML += '<br>Distance: <b>' +
+          '<a href="#" id="unit_switch_link" title="Click to change units" ' +
+          'onclick="toggleUnits(); event.preventDefault()">' +
+          formatDistance(dist) + '</a></b>';
+    }
     synopsis.innerHTML += `<br><b>${markers.length}</b> map spot` +
         ((markers.length > 1) ? 's' : '');
     if ('altitude' in last_spot) {
@@ -920,6 +930,10 @@ function displayTrack() {
   // Add segments between markers
   // Handle segments across map edges
   for (let i = 1; i < markers.length; i++) {
+    if (params.tracker == 'unknown') {
+      // Do not draw lines between markers for 'unknown' trackers
+      continue;
+    }
     let lat1 = markers[i - 1].getLatLng().lat;
     let lon1 = markers[i - 1].getLatLng().lng;
     let lat2 = markers[i].getLatLng().lat;
@@ -1230,8 +1244,8 @@ async function update(incremental_update = false) {
 
     const query = createWSPRLiveQuery(
         false /* fetch_q01 */,
-        (params.tracker == 'zachtek2' || params.tracker == 'generic2') ?
-            [0, 1] : [0] /* slots */,
+        { 'zachtek2': [0, 1], 'generic2': [0, 1],
+          'unknown': [0, 1, 2, 3, 4] }[params.tracker] || [0]  /* slots */,
         incremental_update);
     new_data = importWSPRLiveData(await runQuery(query));
 
@@ -1476,7 +1490,7 @@ function computeDerivedData(spots) {
   let last_grid6_spot = null;
   for (let i = 0; i < spots.length; i++) {
     const spot = spots[i];
-    if (['u4b', 'generic1', 'generic2'].includes(params.tracker)) {
+    if (['u4b', 'generic1', 'generic2', 'unknown'].includes(params.tracker)) {
       derived_data['power'][i] = spot.slots[0]['power']
     }
     if (i > 0) {
@@ -1486,7 +1500,7 @@ function computeDerivedData(spots) {
             (spot.altitude - last_altitude_spot.altitude) * 60000 /
             ((spot.ts - last_altitude_spot.ts) || 1);
       }
-      if (spot.grid.length == 6) {
+      if (params.tracker != 'unknown' && spot.grid.length == 6) {
         if (last_grid6_spot) {
           // Calculate cspeed (computed speed)
           let dist = L.latLng(last_grid6_spot.lat, last_grid6_spot.lon)
@@ -1582,7 +1596,6 @@ function clearDataView() {
     }
     delete data_view.u_plots;
   }
-  //data_view.onscrollend = null;  // releases table reference
   data_view.innerHTML = '';
 }
 

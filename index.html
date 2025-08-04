@@ -18,9 +18,9 @@
   <div id="control_panel">
     <span id="form_line1">
       <input type="text" id="cs" size=6 style="width: 58px"
-       placeholder="Callsign">
+       autocomplete="off" placeholder="Callsign">
       <input type="text" id="ch" size=4 style="width: 42px"
-       placeholder="Ch">
+       autocomplete="off" placeholder="Ch">
       <select id="band">
         <option value="2200m">LF</option>
         <option value="630m">630m</option>
@@ -46,7 +46,8 @@
     <br>
     <span id="form_line2">
       <span style="color: #cefad0">From:</span>
-      <input type="text" id="start_date" size=11 style="width: 75px">
+      <input type="text" id="start_date"
+       autocomplete="off" size=11 style="width: 75px">
       <button id="go_button" style="width: 50px">Go</button>
     </span>
     <span id="synopsis"></span>

@@ -85,6 +85,10 @@ locator (~3x4 mi resolution).
 minute (must be one of 0, 2, 4, 6, or 8). Example: `WQ46` if Q\*4\* special callsigns are used and
 transmissions begin 6 minutes after the start of a 10 minute cycle.
 
+If the channel field is **empty**, all regular callsign messages are displayed. The callsign may be
+compound. Spots are shown without filtering in this mode, and no line segments between
+markers are drawn.
+
 ### Band
 
 Specifies the frequency band for WSPR transmissions. There may be additional,
