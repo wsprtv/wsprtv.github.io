@@ -8,7 +8,7 @@ The live application is available at **https://wsprtv.com**.
 - Visualizes real-time telemetry data on a full-screen map and through interactive charts.
 - Exports decoded telemetry for further analysis.
 - Optimized for use on mobile devices.
-  
+
 For more information, see the [user guide](https://wsprtv.com/docs/user_guide.html).
 
 ## Acknowledgements
@@ -22,9 +22,9 @@ The user interface is powered by the excellent [Leaflet](https://leafletjs.com) 
 
 **WSPR TV** is licensed under [AGPL-3.0](https://www.gnu.org/licenses/agpl-3.0.html).
 
-Use of [WSPR Live](https://wspr.live) is subject to additional [Terms of Service](https://wspr.live):
+Use of WSPR Live is subject to the conditions outlined in its [disclaimer](https://wspr.live):
 
-> *You are allowed to use the services provided on wspr.live for your own research and projects, as long as  
-the results are accessible free of charge for everyone. You are not allowed to use this service for any  
-commercial or profit-oriented use cases. The complete WSPR infrastructure is maintained by volunteers in  
+> *You are allowed to use the services provided on wspr.live for your own research and projects, as long as
+the results are accessible free of charge for everyone. You are not allowed to use this service for any
+commercial or profit-oriented use cases. The complete WSPR infrastructure is maintained by volunteers in
 their spare time, so there are no guarantees on correctness, availability, or stability of this service.*

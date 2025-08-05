@@ -16,6 +16,17 @@
 //
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
+//
+// This program uses WSPR Live, which includes the following
+// disclaimer (see https://wspr.live):
+//
+// "... You are allowed to use the services provided on wspr.live for your
+// own research and projects, as long as the results are accessible free of
+// charge for everyone. You are not allowed to use this service for any
+// commercial or profit-oriented use cases. The complete WSPR
+// infrastructure is maintained by volunteers in their spare time, so
+// there are no guarantees on correctness, availability, or stability of
+// this service."
 
 // Global vars
 let map;  // Leaflet map object
@@ -1639,14 +1650,17 @@ function showDataView() {
   let div = document.createElement('div');
   div.id = 'data_view_wrapper';
 
-  if (!is_mobile) {
-    let notice = document.createElement('div');
-    notice.innerHTML = '&lt-- Click here to close. To <b>zoom in</b> ' +
+  let notice = document.createElement('div');
+  if (is_mobile) {
+    notice.innerHTML = '&lt;-- Tap here to close. ' +
+        'Charts are touch-enabled, supporting pan and zoom gestures.';
+  } else {
+    notice.innerHTML = '⟵ Click here to close. To <b>zoom in</b> ' +
         'on charts, click and drag. To <b>zoom out</b>, double click.';
-    notice.classList.add('notice');
-    notice.style.marginLeft = '40px';
-    div.appendChild(notice);
   }
+  notice.classList.add('notice');
+  notice.style.marginLeft = '40px';
+  div.appendChild(notice);
 
   let supplementary_data =
       { ...computeDerivedData(spots),

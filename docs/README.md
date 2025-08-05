@@ -590,15 +590,15 @@ under proprietary licenses in recent releases.
 the UI. In the source code, you must clearly state what code was copied and
 how it was modified. All copyright and license notices must be preserved.
 
-[WSPR Live](https://wspr.live), which WSPR TV uses, has additional restrictions in its
-[Terms of Service](https://wspr.live):
+[WSPR Live](https://wspr.live), which is used by WSPR TV, has additional requirements in its
+[disclaimer](https://wspr.live):
 
 > *You are allowed to use the services provided on wspr.live for your own reasearch and projects, as long as 
 the results are accessible free of charge for everyone. You are not allowed to use this service for any 
 commercial or profit oriented use cases. The complete wspr infrastructure is maintained by volunteers in 
 their spare time, so there are no guarantees on correctness, availability or stability of this service.*
 
-The author of WSPR Live has clarified that a vendor providing a link to WSPR TV
-is fair use and would not be a violation of the TOS.
+The author of WSPR Live has clarified that *linking* to WSPR TV -- even from a commercial site --
+constitutes fair use and does not violate the TOS.
 
 The source code for WSPR TV is available on [GitHub](https://github.com/wsprtv/wsprtv.github.io).

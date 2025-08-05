@@ -42,8 +42,8 @@ function touchZoomPlugin(opts) {
         t.y = (yMin+yMax)/2;
         t.x = (xMin+xMax)/2;
 
-        t.dx = xMax - xMin;
-        t.dy = yMax - yMin;
+        t.dx = Math.max(50, xMax - xMin);
+        t.dy = Math.max(50, yMax - yMin);
 
         // dist
         t.d = Math.sqrt(t.dx * t.dx + t.dy * t.dy);
@@ -64,18 +64,14 @@ function touchZoomPlugin(opts) {
       let yFactor = fr.dy / to.dy;
       if (yFactor <= 0) yFactor = 1;
 
-      // uniform x/y scaling
-      // let xFactor = fr.d / to.d;
-      // let yFactor = fr.d / to.d;
-
       let leftPct = left/rect.width;
       let btmPct = 1 - top/rect.height;
 
-      let nxRange = oxRange * Math.max(0.5, Math.min(2, xFactor));
+      let nxRange = oxRange * Math.max(0.25, Math.min(4, xFactor));
       let nxMin = xVal - leftPct * nxRange;
       let nxMax = nxMin + nxRange;
 
-      let nyRange = oyRange * Math.max(0.5, Math.min(2, yFactor));
+      let nyRange = oyRange * Math.max(0.25, Math.min(4, yFactor));
       let nyMin = yVal - btmPct * nyRange;
       let nyMax = nyMin + nyRange;
 
