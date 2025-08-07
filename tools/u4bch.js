@@ -140,7 +140,7 @@ function createWSPRLiveQuery() {
         toStartOfHour(time) AS hour,
         substring(tx_sign, 1, 1) AS cs1,
         substring(tx_sign, 3, 1) AS cs3,
-        (toMinute(time) - -8) % 10 AS tx_minute,
+        (toMinute(time) + 8) % 10 AS tx_minute,
         floor((avg_freq - ${start_freq}) / 100) AS freq_lane,
         MAX(time) as last_ts,
         COUNT(*) AS num_tx
@@ -154,8 +154,8 @@ function createWSPRLiveQuery() {
           time > subtractDays(now(), ${params.num_days}) AND
           band = ${wspr_live_band} AND
           (frequency BETWEEN ${start_freq} AND ${start_freq + 200}) AND
-          (toInt8(substring(tx_loc, 4, 1)) -
-           -(power IN (0, 7, 13, 20, 27, 33, 40, 47, 53, 60))) % 2 = 0
+          (toInt8(substring(tx_loc, 4, 1)) +
+           (power IN (0, 7, 13, 20, 27, 33, 40, 47, 53, 60))) % 2 = 0
         GROUP BY time, tx_sign, tx_loc, power
       )
       WHERE
