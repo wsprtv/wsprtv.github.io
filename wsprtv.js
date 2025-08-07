@@ -2170,9 +2170,12 @@ function Run() {
 
   // Handle special menu selections
   document.getElementById('band').addEventListener('change', function () {
-    if (this.value == 'help') {
+    if (this.value == 'user_guide') {
       window.open('docs/user_guide.html', '_new');
-      this.value = params.band;
+      this.value = params ? params.band : "20m";
+    } else if (this.value == 'ch_map') {
+      window.open('tools/u4bch.html', '_new');
+      this.value = params ? params.band : "20m";
     }
   });
 
