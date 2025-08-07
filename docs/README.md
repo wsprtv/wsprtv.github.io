@@ -246,6 +246,8 @@ revert the selection to either a horizontal or vertical slice.
 
 - To zoom out to the original (full) view, double click anywhere on the chart.
 
+On mobile devices, charts support **touch gestures** such as drag-to-pan and pinch-to-zoom.
+
 ### Telemetry Detail
 
 By default, only the core telemetry values are shown in the data view (e.g., speed, altitude,
@@ -576,13 +578,13 @@ by hand with some practice.
 
 ## License
 
-WSPR TV is open-source under the
+WSPR TV is licensed under the
 [AGPL-3.0 license](https://www.gnu.org/licenses/agpl-3.0.en.html#license-text)
 and can be used freely as long as the license conditions are met.
 In particular, the license requires that:
 
 - If any part of your project is derived from WSPR TV in any way, your entire
-project must also be open-source under AGPL-3.0.
+project must also be licensed under AGPL-3.0.
 - All components of your project must be AGPL-3.0 compatible. For example,
 you cannot use MapBox JS mapping libraries because those are only available
 under proprietary licenses in recent releases.

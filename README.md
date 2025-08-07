@@ -1,5 +1,5 @@
 # WSPR Telemetry Viewer (WSPR TV)
-**WSPR TV** is a picoballoon telemetry visualization tool serving a small but growing community of radio amateurs.
+**WSPR TV** is a pico-balloon telemetry visualization tool serving a small but growing community of radio amateurs.
 
 The live application is available at **https://wsprtv.com**.
 
@@ -28,3 +28,6 @@ Use of WSPR Live is subject to the conditions outlined in its [disclaimer](https
 the results are accessible free of charge for everyone. You are not allowed to use this service for any
 commercial or profit-oriented use cases. The complete WSPR infrastructure is maintained by volunteers in
 their spare time, so there are no guarantees on correctness, availability, or stability of this service.*
+
+**WSPR TV** is not affiliated with, nor responsible for, any pico-balloons
+you may see on this site.

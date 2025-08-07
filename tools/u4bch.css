@@ -1,0 +1,131 @@
+html, body {
+  margin: 0;
+  background-color: #f8f8f8;
+  height: 100%;
+  font-family: Roboto, sans-serif;
+  font-size: 14px;
+}
+
+h1 {
+  margin: 0;
+  color: #555;
+  font-size: 25px;
+}
+
+#wrapper {
+  padding: 20px;
+  display: inline-block;
+}
+
+#form_line {
+  display: inline-flex;
+  gap: 8px; padding: 20px 0px;
+  align-items: center;
+}
+
+table.data_table {
+  margin: 0px;
+  font-family: Arial, sans-serif;
+  font-size: 14px;
+  border-collapse: separate;
+  border-spacing: 0;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+  max-width: none;
+  overflow-y: auto;
+}
+
+.data_table tr {
+  background-color: white;
+  cursor: pointer;
+}
+
+.data_table td {
+  padding: 3px 5px;
+  text-align: center;
+  color: #333333;
+  border-bottom: 1px solid #555;
+  border-right: 1px solid #555;
+  white-space: nowrap;
+  min-width: 100px;
+  height: 20px;
+}
+
+.data_table th {
+  padding: 5px;
+  position: sticky;
+  top: 0;
+  text-align: center;
+  background-color: #aaa;
+  color: white;
+  white-space: pre;
+  border-bottom: 1px solid #555;
+  border-right: 1px solid #555;
+  border-top: 1px solid #555;
+  z-index: 100;
+}
+
+.data_table td:first-child {
+  position: sticky;
+  left: 0;
+  color: white;
+  text-align: center;
+  border-left: 1px solid #555;
+  background-color: #aaa;
+  min-width: 50px;
+  font-weight: 600;
+  z-index: 99;
+}
+
+.data_table tr:nth-child(11) td,
+.data_table tr:nth-child(21) td {
+  border-bottom: 2.5px solid #888;
+}
+
+.data_table th:first-child {
+  border-left: 1px solid #555;
+  color: #444;
+  background-color: white;
+}
+
+#go_button {
+  background-color: #7777cc;
+  color: white;
+  border: 1px solid #fff;
+  border-radius: 3px;
+}
+
+#go_button:disabled {
+  background-color: #888;
+  color: #ddd;
+  cursor: not-allowed;
+  border: 1px solid #ddd;
+  border-radius: 3px;
+}
+
+.bucket_span {
+  margin: 3px;
+  display: inline-block;
+  color: black;
+  border: 1px solid #000;
+  border-radius: 3px;
+  min-width: 40px;
+  text_align: center;
+  cursor: pointer;
+  position: relative;
+}
+
+#info {
+  position: absolute;
+  bottom: 150%;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: #555;
+  color: #fff;
+  text-align: left;
+  padding: 10px;
+  white-space: nowrap;
+  border: 1px solid #333;
+  border-radius: 5px;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+  z-index: 101;
+}
