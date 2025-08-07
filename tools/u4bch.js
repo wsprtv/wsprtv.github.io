@@ -32,10 +32,8 @@
 let params;  // form / URL params
 let debug = 0;  // controls console logging
 
-let is_mobile;  // running on a mobile device
-
 // WSPR band info. For each band, the value is
-// [U4B start minute offset, WSPR Live band id].
+// [U4B start minute offset, WSPR Live band id, start freq].
 const kWSPRBandInfo = {
   '2200m': [0, -1, 137400],
   '630m': [4, 0, 475600],
@@ -75,7 +73,7 @@ function parseParams() {
   }
 
   const num_days_param = document.getElementById('num_days').value.trim();
-  if (!num_days) {
+  if (!num_days_param) {
     num_days = 30;
   } else {
     num_days = Number(num_days_param);
@@ -85,8 +83,21 @@ function parseParams() {
     return null;
   }
 
+  const rx_threshold_param =
+      document.getElementById('rx_threshold').value.trim();
+  if (!rx_threshold_param) {
+    rx_threshold = 1;
+  } else {
+    rx_threshold = Number(rx_threshold_param);
+  }
+  if (![1, 2].includes(rx_threshold)) {
+    alert('Invalid rx_threshold');
+    return null;
+  }
+
   // Successful validation
-  return { 'band': band, 'num_days': num_days };
+  return { 'band': band, 'num_days': num_days,
+           'rx_threshold' : rx_threshold };
 }
 
 // Returns 2 U4B channels for given bucket
@@ -147,7 +158,8 @@ function createWSPRLiveQuery() {
       FROM (
         SELECT
           time, tx_sign, tx_loc, power,
-          AVG(frequency) AS avg_freq
+          AVG(frequency) AS avg_freq,
+          COUNT(*) as num_rx
         FROM wspr.rx
         WHERE
           match(tx_sign, '^[Q01]') != 0 AND
@@ -157,6 +169,7 @@ function createWSPRLiveQuery() {
           (toInt8(substring(tx_loc, 4, 1)) +
            (power IN (0, 7, 13, 20, 27, 33, 40, 47, 53, 60))) % 2 = 0
         GROUP BY time, tx_sign, tx_loc, power
+        HAVING num_rx >= ${params.rx_threshold}
       )
       WHERE
         avg_freq <= ${start_freq + 80} OR avg_freq >= ${start_freq + 120}
@@ -206,7 +219,6 @@ async function update() {
     if (debug > 1) console.log(bucket_data);
 
     showTable(bucket_data);
-
   } catch (error) {
     if (error instanceof TypeError) {
       alert('WSPR Live request failed. ' +
@@ -228,6 +240,8 @@ function updateURL() {
         encodeURIComponent(document.getElementById('band').value);
     url += '&num_days=' +
         encodeURIComponent(document.getElementById('num_days').value);
+    url += '&rx_threshold=' +
+        encodeURIComponent(document.getElementById('rx_threshold').value);
     history.replaceState(null, '', url);
   } catch (error) {
     console.log('Security error triggered by history.replaceState()');
@@ -376,6 +390,12 @@ function initializeFormFields() {
     num_days_param = '30';
   }
   document.getElementById('num_days').value = num_days_param;
+
+  let rx_threshold_param = getUrlParameter('rx_threshold');
+  if (!rx_threshold_param || !['1', '2'].includes(rx_threshold_param)) {
+    rx_threshold_param = '1';
+  }
+  document.getElementById('rx_threshold').value = rx_threshold_param;
 }
 
 // Entry point
@@ -393,6 +413,11 @@ function Run() {
   });
 
   document.getElementById('num_days').addEventListener('change', function () {
+    processSubmission();
+  });
+
+  document.getElementById('rx_threshold').addEventListener(
+      'change', function () {
     processSubmission();
   });
 
