@@ -8,7 +8,7 @@ html, body {
 
 h1 {
   margin: 0;
-  color: #555;
+  color: #444;
   font-size: 25px;
 }
 
@@ -19,8 +19,12 @@ h1 {
 
 #form_line {
   display: inline-flex;
-  gap: 8px; padding: 20px 0px;
+  gap: 8px; padding: 10px 10px;
   align-items: center;
+  border: 1px solid #777;
+  border-radius: 5px;
+  margin: 12px 0;
+  background-color: #f4f4f4;
 }
 
 table.data_table {
@@ -55,8 +59,8 @@ table.data_table {
   position: sticky;
   top: 0;
   text-align: center;
-  background-color: #aaa;
-  color: white;
+  color: #333;
+  background-color: #ccc;
   white-space: pre;
   border-bottom: 1px solid #555;
   border-right: 1px solid #555;
@@ -68,9 +72,18 @@ table.data_table {
   position: sticky;
   left: 0;
   color: white;
+  background-color: #888888;
   text-align: center;
   border-left: 1px solid #555;
-  background-color: #aaa;
+  min-width: 30px;
+  font-weight: 600;
+  z-index: 99;
+}
+
+.data_table td:last-child {
+  color: white;
+  background-color: #888888;
+  text-align: center;
   min-width: 50px;
   font-weight: 600;
   z-index: 99;
@@ -78,13 +91,18 @@ table.data_table {
 
 .data_table tr:nth-child(11) td,
 .data_table tr:nth-child(21) td {
-  border-bottom: 2.5px solid #888;
+  border-bottom: 1.8px solid #555;
 }
 
 .data_table th:first-child {
   border-left: 1px solid #555;
-  color: #444;
-  background-color: white;
+  color: #333;
+  background-color: #f0f0f0;
+}
+
+.data_table th:last-child {
+  color: #333;
+  background-color: #f0f0f0;
 }
 
 #go_button {

@@ -19,259 +19,323 @@
 </head>
 <body>
   <article class="markdown-body">
-<h1>WSPR TV User Guide</h1>
-<p>WSPR TV is an open-source telemetry viewer for several WSPR-based protocols. While the user interface is
-designed to be as intuitive as possible, this guide explains some of the site's more advanced features.</p>
-<h2>Returning to This Page</h2>
-<p>If you ever forget something and need to return to this page, the band selection menu
-in the control panel (where you specify the HF band) has a <code class="notranslate">Help</code> option at the bottom.</p>
+<h1 id="wspr-tv-user-guide">WSPR TV User Guide</h1>
+<p><a href="https://wsprtv.com" rel="nofollow"><strong>WSPR TV</strong></a> is an open-source telemetry viewer for
+several WSPR-based protocols. While the user interface is designed to be
+as intuitive as possible, this guide explains some of the site's more
+advanced features.</p>
+<h2 id="returning-to-this-page">Returning to This Page</h2>
+<p>If you ever forget something and need to return to this page, the band
+selection menu in the control panel (where you specify the HF band) has
+a <code class="notranslate">User Guide</code> option at the bottom.</p>
 <p><a target="_blank" rel="noopener noreferrer" href="images/img1.png"><img src="images/img1.png" width="360" style="max-width: 100%;"></a></p>
-<p>Additionally, a small
-WSPR TV <a href="https://github.com/wsprtv/wsprtv.github.io">link</a> next to the OSM attribution in the bottom-right
-corner of the screen links to the project's GitHub repository.</p>
-<h2>Control Panel</h2>
-<p>The control panel in the top-left corner of the screen contains most of the parameters for
-telemetry visualization.</p>
+<p>There are two other links in the band menu:</p>
+<ul>
+<li><code class="notranslate">ET Wizard</code> pointing to the
+<a href="https://wsprtv.com/tools/et_wizard.html" rel="nofollow">U4B Extended Telemetry Wizard</a>.</li>
+<li><code class="notranslate">Channel Map</code> showing <a href="https://wsprtv.com/tools/channel_map.html" rel="nofollow">recent
+activity</a> on U4B channels.</li>
+</ul>
+<p>Additionally, a small WSPR TV
+<a href="https://github.com/wsprtv/wsprtv.github.io">link</a> next to the OSM
+attribution in the bottom-right corner of the screen links to the
+project's GitHub repository.</p>
+<h2 id="control-panel">Control Panel</h2>
+<p>The control panel in the top-left corner of the screen contains most of
+the parameters for telemetry visualization.</p>
 <p><a target="_blank" rel="noopener noreferrer" href="images/img2.png"><img src="images/img2.png" width="360" style="max-width: 100%;"></a></p>
-<h3>Callsign</h3>
-<p>This is typically a 4-6 character callsign such as <code class="notranslate">AB1CDE</code>. However, for protocols
-that use a combination of type 2 / type 3 WSPR messages (see below), a suffix or a prefix can
-also be specified: <code class="notranslate">P/AB1CDE</code> or <code class="notranslate">AB1CDE/S</code>.</p>
-<h3>Channel</h3>
-<p>This field encodes both the protocol and the channel identifier. The following
-formats are supported:</p>
+<h3 id="callsign">Callsign</h3>
+<p>This is typically a 4-6 character callsign such as <code class="notranslate">AB1CDE</code>. However,
+for protocols that use a combination of type 2 / type 3 WSPR messages
+(see below), a suffix or a prefix can also be specified: <code class="notranslate">P/AB1CDE</code> or
+<code class="notranslate">AB1CDE/S</code>.</p>
+<h3 id="channel">Channel</h3>
+<p>This field encodes both the protocol and the channel identifier. The
+following formats are supported:</p>
 <ul>
 <li>
-<p><strong>U4B [<code class="notranslate">&lt;CH&gt;</code>]</strong>. U4B is a commonly used telemetry protocol that encodes 6-character Maidenhead
-grid location, altitude, speed, voltage, and temperature through a pair of sequential type 1 WSPR messages.
-The first message is a "regular" callsign message, while the second message uses unallocated callsign
-space starting with <code class="notranslate">Q</code>, <code class="notranslate">0</code>, or <code class="notranslate">1</code>. <code class="notranslate">&lt;CH&gt;</code> is a number between 0 and 599 representing the first and
-third characters of the special callsign, the starting minute, and one of 4 frequency "lanes". Example:
-<code class="notranslate">459</code> on the 10m band signifies transmissions that use Q*2* special callsigns, begin 2 minutes after
-the start of a 10 minute cycle, and use the last 40 Hz of the frequency band.</p>
-<p>Additional special callsign messages may follow in slots 2-4, representing <strong>extended telemetry (ET)</strong>.
-These are not shown by default for two reasons: to minimize the load on WSPR Live servers
-when only basic telemetry is used, and to update the map as soon as possible,
-without waiting for additional slots to be transmitted.</p>
-<p>To specify extended telemetry, use the <code class="notranslate">E&lt;NUM_ADDITIONAL_SLOTS&gt;</code> suffix. For example, <code class="notranslate">459E2</code> designates
-the channel as before but also instructs WSPR TV to look for two additional extended telemetry messages.
-<code class="notranslate">E</code> used by itself is equivalent to <code class="notranslate">E1</code>. <code class="notranslate">E0</code> is a special designator that allows extended telemetry
-to alternate with basic telemetry in slot 1.</p>
+<p><strong>U4B [<code class="notranslate">&lt;CH&gt;</code>]</strong>. U4B is a commonly used telemetry protocol that
+encodes 6-character Maidenhead grid location, altitude, speed, voltage,
+and temperature through a pair of sequential type 1 WSPR messages. The
+first message is a "regular" callsign message, while the second message
+uses unallocated callsign space starting with <code class="notranslate">Q</code>, <code class="notranslate">0</code>, or <code class="notranslate">1</code>. <code class="notranslate">&lt;CH&gt;</code>
+is a number between 0 and 599 representing the first and third
+characters of the special callsign, the start minute, and one of 4
+frequency "lanes".</p>
+<p>Example: <code class="notranslate">459</code> on the 10m band indicates transmissions that use Q*2*
+special callsigns, begin 2 minutes into the 10-minute cycle, and
+transmit in the last 40 Hz of the band.</p>
+<p>Additional special callsign messages may follow in slots 2-4,
+representing <strong>extended telemetry (ET)</strong>. Extended telemetry is
+discussed in detail <a href="#u4b-extended-telemetry">below</a>.</p>
 </li>
 <li>
-<p><strong>U4B [<code class="notranslate">U&lt;CS1&gt;&lt;CS3&gt;&lt;M&gt;</code>]</strong>. This is an alternative U4B channel representation that specifies the first
-and third characters of the special callsign as well as the starting minute explicitly. Extended telemetry
-(<code class="notranslate">E</code>) suffixes may be appended as before. This format carries no frequency lane information,
-which WSPR TV does not use anyway. Example: <code class="notranslate">UQ22E</code> is equivalent to channel <code class="notranslate">459</code> (but also <code class="notranslate">454</code>, <code class="notranslate">449</code>, etc.)
-on the 10 meter band, corresponding to Q*2* special callsigns, starting minute equal to 2,
-and one additional extended telemetry message.</p>
+<p><strong>U4B [<code class="notranslate">U&lt;CS1&gt;&lt;CS3&gt;&lt;M&gt;</code>]</strong>. This is an alternative U4B channel
+representation that specifies the first and third characters of the
+special callsign (<code class="notranslate">&lt;CS1&gt;</code> and <code class="notranslate">&lt;CS3&gt;</code>) as well as the start minute
+(<code class="notranslate">&lt;M&gt;</code>) explicitly. Unlike the numeric channel format, this
+representation does not include frequency lane information.</p>
+<p>Example: <code class="notranslate">UQ22</code> corresponds to channel 459 (and also 454, 449, etc.)
+on the 10-meter band. It indicates Q*2* special callsigns and a start
+minute of 2.</p>
 </li>
 <li>
-<p><strong>Generic 1 [<code class="notranslate">g&lt;M&gt;</code>]</strong>. This is the simplest type of telemetry, consisting of a single type 1 WSPR message.
-Location is indicated
-by a 4-character Maidenhead grid locator and provides ~70x100 mi spatial resolution. No other attributes, such as
-altitude or speed, are encoded. <code class="notranslate">&lt;M&gt;</code> is the starting minute within a 10-minute cycle (must be one of 0, 2, 4, 6,
-or 8). Example: <code class="notranslate">g2</code> if transmissions begin 2, 12, 22, etc. minutes after the hour.</p>
+<p><strong>Generic 1 [<code class="notranslate">g&lt;M&gt;</code>]</strong>. This is the simplest type of telemetry,
+consisting of a single type 1 WSPR message. Location is indicated by a
+4-character Maidenhead grid locator and provides ~70x100 mi spatial
+resolution. No other attributes, such as altitude or speed, are encoded.
+<code class="notranslate">&lt;M&gt;</code> is the start minute (must be one of 0, 2, 4, 6, or 8).</p>
+<p>Example: <code class="notranslate">g2</code> if transmissions begin 2 minutes into the 10-minute cycle.</p>
 </li>
 <li>
-<p><strong>Zachtek 1 [<code class="notranslate">z&lt;M&gt;</code>]</strong>. This is an older Zachtek protocol that is similar to <code class="notranslate">Generic 1</code> but also coarsely encodes
-altitude in the WSPR message's power field (resolution ~1 km). Example: <code class="notranslate">z8</code>.</p>
+<p><strong>Zachtek 1 [<code class="notranslate">z&lt;M&gt;</code>]</strong>. This is an older Zachtek protocol that is
+similar to <code class="notranslate">Generic 1</code> but also coarsely encodes altitude in the WSPR
+message's power field (resolution ~1 km).</p>
+<p>Example: <code class="notranslate">z8</code>.</p>
 </li>
 <li>
-<p><strong>Generic 2 [<code class="notranslate">G&lt;M&gt;</code>]</strong>. This encoding uses a pair of type 2 / type 3 WSPR messages. The first message
-encodes a compound callsign, while the second message adds a 6-character Maidenhead grid locator, improving
-spatial resolution to ~3x4 mi. No other attributes are encoded. Both messages must be received for a spot to be
-decoded. <code class="notranslate">&lt;M&gt;</code> is the starting minute within a 10-minute cycle
-(must be one of 0, 2, 4, 6, or 8). Example: <code class="notranslate">G4</code> if the first (type 2) message is transmitted
-4, 14, 24, etc. minutes after the hour.</p>
+<p><strong>Generic 2 [<code class="notranslate">G&lt;M&gt;</code>]</strong>. This encoding uses a pair of type 2 / type 3
+WSPR messages. The first message encodes a compound callsign, while the
+second message adds a 6-character Maidenhead grid locator, improving
+spatial resolution to ~3x4 mi. No other attributes are encoded. Both
+messages must be received for a spot to be decoded. <code class="notranslate">&lt;M&gt;</code> is the start
+minute (must be one of 0, 2, 4, 6, or 8).</p>
+<p>Example: <code class="notranslate">G4</code> if the first (type 2) message is transmitted 4 minutes
+into the 10-minute cycle.</p>
 </li>
 <li>
-<p><strong>Zachtek 2 [<code class="notranslate">Z&lt;M&gt;</code>]</strong>. A newer Zachtek protocol that is similar to <code class="notranslate">Generic 2</code>. The power fields of both
-WSPR messages are used to encode the altitude to a resolution of ~60 m. Example: <code class="notranslate">Z6</code>.</p>
+<p><strong>Zachtek 2 [<code class="notranslate">Z&lt;M&gt;</code>]</strong>. A newer Zachtek protocol that is similar to
+<code class="notranslate">Generic 2</code>. The power fields of both WSPR messages are used to encode
+the altitude to a resolution of ~60 m.</p>
+<p>Example: <code class="notranslate">Z6</code>.</p>
 </li>
 <li>
-<p><strong>WB8ELK [<code class="notranslate">W&lt;CS1&gt;&lt;CS3&gt;&lt;M&gt;</code>]</strong>. Transmitted via a pair of type 1 messages.
-The second message uses special <code class="notranslate">Q/0/1</code> callsigns
-similar to <code class="notranslate">U4B</code>, although the encoding is completely different. Provides altitude to ~60 m resolution, voltage,
-and approximate number of GPS satellites (not displayed by WSPR TV). Location is a 6-character Maidenhead grid
-locator (~3x4 mi resolution).
-<code class="notranslate">&lt;CS1&gt;</code> and <code class="notranslate">&lt;CS3&gt;</code> are the first and third characters of the special callsign. <code class="notranslate">&lt;M&gt;</code> is the starting
-minute (must be one of 0, 2, 4, 6, or 8). Example: <code class="notranslate">WQ46</code> if Q*4* special callsigns are used and
-transmissions begin 6 minutes after the start of a 10 minute cycle.</p>
+<p><strong>WB8ELK [<code class="notranslate">W&lt;CS1&gt;&lt;CS3&gt;&lt;M&gt;</code>]</strong>. Transmitted via a pair of type 1
+messages. The second message uses special <code class="notranslate">Q/0/1</code> callsigns similar to
+<code class="notranslate">U4B</code>, although the encoding is completely different. Provides altitude
+to ~60 m resolution, voltage, and approximate number of GPS satellites
+(not displayed by WSPR TV). Location is a 6-character Maidenhead grid
+locator (~3x4 mi resolution). <code class="notranslate">&lt;CS1&gt;</code> and <code class="notranslate">&lt;CS3&gt;</code> are the first and
+third characters of the special callsign. <code class="notranslate">&lt;M&gt;</code> is the start minute
+(must be one of 0, 2, 4, 6, or 8).</p>
+<p>Example: <code class="notranslate">WQ46</code> if Q*4* special callsigns are used and
+transmissions begin 6 minutes into the 10-minute cycle.</p>
 </li>
 </ul>
-<p>If the channel field is <strong>empty</strong>, all regular callsign messages are displayed. The callsign may be
-compound. Spots are shown without filtering in this mode, and no line segments between
-markers are drawn.</p>
-<h3>Band</h3>
-<p>Specifies the frequency band for WSPR transmissions. There may be additional,
-band-unrelated options at the end of this menu, such as a link to this user guide.</p>
-<h3>Start Date</h3>
-<p>The start date is UTC-based and should be in the <code class="notranslate">YYYY-mm-dd</code> format, such as <code class="notranslate">2025-07-15</code>.
-This field defaults to
-30 days before today and is a good choice for minimizing the load on WSPR Live servers and making the WSPR TV
-user interface more responsive. The start date cannot be more than a year before the end date (specified via
-a URL parameter, see below). For historical telemetry, you can specify a start date over a year
-ago by appending the appropriate <code class="notranslate">end_date</code> parameter to the URL.</p>
-<h2>URL Parameters</h2>
-<p>Because WSPR TV is optimized for use on mobile devices with small screens, the control panel includes
-only the most commonly used telemetry parameters. Additional parameters may be specified by appending them
-to the URL using the <code class="notranslate">param1=value1&amp;param2=value2</code> format.</p>
+<p>If the channel field is <strong>empty</strong>, all regular callsign messages are
+displayed. The callsign may be compound. Spots are shown without
+filtering in this mode, and no line segments between markers are drawn.</p>
+<p>For new designs, prefer the U4B protocol. Not only is it well-documented
+and capable of packing more values into two sequential WSPR messages,
+but it also correctly reports TX power in the regular callsign
+transmission (this data is used in radio propagation studies).</p>
+<h3 id="band">Band</h3>
+<p>Specifies the frequency band for WSPR transmissions. There may be
+additional, band-unrelated options at the end of this menu, such as a
+link to this user guide.</p>
+<h3 id="start-date">Start Date</h3>
+<p>The start date is UTC-based and should be in the <code class="notranslate">YYYY-mm-dd</code> format,
+such as <code class="notranslate">2025-07-15</code>. This field defaults to 30 days before today and is
+a good choice for minimizing the load on WSPR Live servers and making
+the WSPR TV user interface more responsive. The start date cannot be
+more than a year before the end date (specified via a URL parameter, see
+below). For historical telemetry, you can specify a start date over a
+year ago by appending the appropriate <code class="notranslate">end_date</code> parameter to the URL.</p>
+<h2 id="url-parameters">URL Parameters</h2>
+<p>Because WSPR TV is optimized for use on mobile devices with small
+screens, the control panel includes only the most commonly used
+telemetry parameters. Additional parameters may be specified by
+appending them to the URL using the <code class="notranslate">param1=value1&amp;param2=value2</code>
+format.</p>
 <ul>
 <li>
-<p><strong>end_date=<code class="notranslate">&lt;YYYY-mm-dd&gt;</code></strong> specifies the end date (up to 23:59:59 in UTC) for a track. <code class="notranslate">end_date</code> defaults to
-today and cannot be less than <code class="notranslate">start_date</code> or more than a year after <code class="notranslate">start_date</code>.</p>
+<p><strong>end_date=<code class="notranslate">&lt;YYYY-mm-dd&gt;</code></strong> specifies the end date (up to 23:59:59 in
+UTC) for a track. <code class="notranslate">end_date</code> defaults to today and cannot be less than
+<code class="notranslate">start_date</code> or more than a year after <code class="notranslate">start_date</code>.</p>
 </li>
 <li>
-<p><strong>units=<code class="notranslate">&lt;metric|imperial&gt;</code></strong> specifies the display units. There are other ways to switch units
-in WSPR TV (see below).</p>
+<p><strong>units=<code class="notranslate">&lt;metric|imperial&gt;</code></strong> specifies the display units. There are
+other ways to switch units in WSPR TV (see below).</p>
 </li>
 <li>
-<p><strong>dnu</strong> (abbreviation for "do not update", no value needed) instructs WSPR TV not to update the track
-every 10 minutes. <code class="notranslate">dnu</code> is implied if <code class="notranslate">end_date</code> is in the past. Adding this parameter may make sense
-when sharing WSPR TV links widely to minimize the additional load on WSPR Live servers.</p>
+<p><strong>dnu</strong> (abbreviation for "do not update", no value needed) instructs
+WSPR TV not to update the track every 10 minutes. <code class="notranslate">dnu</code> is implied if
+<code class="notranslate">end_date</code> is in the past. Adding this parameter may make sense when
+sharing WSPR TV links widely to minimize the additional load on WSPR
+Live servers.</p>
 </li>
 </ul>
-<p>The callsign, channel, start date, and band can be specified as URL parameters as well
-(using <code class="notranslate">cs</code>, <code class="notranslate">ch</code>, <code class="notranslate">start_date</code>, and <code class="notranslate">band</code>
-respectively) and will pre-fill the control panel parameters.
-Example: <code class="notranslate">cs=AB1CDE&amp;ch=321&amp;band=10m&amp;start_date=2025-07-15</code>.</p>
-<p>Extended-telemetry-related URL parameters <code class="notranslate">et_dec</code>, <code class="notranslate">et_labels</code>, <code class="notranslate">et_llabels</code>, <code class="notranslate">et_units</code>, and <code class="notranslate">et_res</code>
-are discussed in the Extended Telemetry section of this guide.</p>
-<h2>Map View</h2>
-<p>A track is rendered as a sequence of small white grid4 markers (low resolution) and larger light blue grid6
-markers (high resolution). Markers are connected by green lines. Not all grid4 markers are shown
-on the map, as that could make tracks look excessively jagged. To see all spots, switch to the data view.</p>
+<p>The callsign, channel, start date, and band can be specified as URL
+parameters as well (using <code class="notranslate">cs</code>, <code class="notranslate">ch</code>, <code class="notranslate">start_date</code>, and <code class="notranslate">band</code>
+respectively) and will pre-fill the control panel parameters. Example:
+<code class="notranslate">cs=AB1CDE&amp;ch=321&amp;band=10m&amp;start_date=2025-07-15</code>.</p>
+<p>Extended-telemetry-related URL parameters <code class="notranslate">et_dec</code>, <code class="notranslate">et_labels</code>,
+<code class="notranslate">et_llabels</code>, <code class="notranslate">et_units</code>, and <code class="notranslate">et_res</code> are discussed in the
+<a href="#u4b-extended-telemetry">Extended Telemetry section</a> of this guide.</p>
+<h2 id="map-view">Map View</h2>
+<p>A track is rendered as a sequence of small white grid4 markers (low
+resolution) and larger light blue grid6 markers (high resolution).
+Markers are connected by green lines. Not all grid4 markers are shown on
+the map, as that could make tracks look excessively jagged. To see all
+spots, switch to the data view.</p>
 <p><a target="_blank" rel="noopener noreferrer" href="images/img3.png"><img src="images/img3.png" width="360" style="max-width: 100%;"></a></p>
-<p>One peculiarity of the mapping framework used by WSPR TV (Leaflet) is that data is not duplicated across
-the antimeridian (i.e., -180/180 longitude). Therefore, as you pan, you may suddenly notice the track
-disappear from view. This is not a bug -- the track is still there, but it's now on the other side of the map
-(zoom out to see it). WSPR TV provides a visual cue when you are close to the antimeridian: the antimeridian
-is shown as a dashed line, and the side of the map that has no data is shaded in grey.</p>
+<p>One peculiarity of the mapping framework used by WSPR TV (Leaflet) is
+that data is not duplicated across the antimeridian (i.e., -180/180
+longitude). Therefore, as you pan, you may suddenly notice the track
+disappear from view. This is not a bug -- the track is still there, but
+it's now on the other side of the map (zoom out to see it). WSPR TV
+provides a visual cue when you are close to the antimeridian: the
+antimeridian is shown as a dashed line, and the side of the map that has
+no data is shaded in grey.</p>
 <p><a target="_blank" rel="noopener noreferrer" href="images/img4.png"><img src="images/img4.png" width="360" style="max-width: 100%;"></a></p>
-<p>The Equator is shown as a grey horizontal line. The first spot in the track (after <code class="notranslate">start_date</code>) is green,
-while the last one is red. Night / day regions are indicated on the map by grey shading.</p>
-<h3>Spot Info</h3>
-<p>Hovering over a spot (or touching it on a mobile device) brings up the Spot Info panel. This displays most of
-the available telemetry, including raw WSPR messages, reception statistics,
-and up to 8 extended telemetry values.</p>
+<p>The Equator is shown as a grey horizontal line. The first spot in the
+track (after <code class="notranslate">start_date</code>) is green, while the last one is red. Night /
+day regions are indicated on the map by grey shading.</p>
+<h3 id="spot-info">Spot Info</h3>
+<p>Hovering over a spot (or touching it on a mobile device) brings up the
+Spot Info panel. This displays most of the available telemetry,
+including raw WSPR messages, reception statistics, and up to 8 extended
+telemetry values.</p>
 <p><a target="_blank" rel="noopener noreferrer" href="images/img5.png"><img src="images/img5.png" width="360" style="max-width: 100%;"></a></p>
-<p><em>Clicking</em> on a spot (vs. hovering) also opens the Spot Info panel, but now the panel remains open when
-you move away from the spot, and additional information is displayed:</p>
+<p><em>Clicking</em> on a spot (vs. hovering) also opens the Spot Info panel, but
+now the panel remains open when you move away from the spot, and
+additional information is displayed:</p>
 <ul>
 <li>
-<p>A Google Earth link to see "what the balloon is seeing", with the camera positioned at the correct latitude,
-longitude, and altitude, and facing East.
-Once in Google Earth, holding <code class="notranslate">CTRL</code> while pressing the arrow keys (left, right, etc.)
-allows you to "look around" without moving the position of the camera.</p>
+<p>A Google Earth link to see "what the balloon is seeing", with the
+camera positioned at the correct latitude, longitude, and altitude, and
+facing East. Once in Google Earth, holding <code class="notranslate">CTRL</code> while pressing the
+arrow keys (left, right, etc.) allows you to "look around" without
+moving the position of the camera.</p>
 </li>
 <li>
-<p>RX stations, shown as yellow dots and connected by blue lines. When hovering over an RX marker, the
-callsign of the receiving station, distance, and signal strength are shown.</p>
+<p>RX stations, shown as yellow dots and connected by blue lines. When
+hovering over an RX marker, the callsign of the receiving station,
+distance, and signal strength are shown.</p>
 </li>
 </ul>
 <p><a target="_blank" rel="noopener noreferrer" href="images/img6.png"><img src="images/img6.png" width="360" style="max-width: 100%;"></a></p>
-<p>To close the Spot Info panel, click or touch anywhere on the map outside of a marker.</p>
-<h3>Flight Synopsis</h3>
-<p>A summary of telemetry is displayed in the control panel below the parameter fields. These should be
-self-explanatory. The track updates automatically every 10 minutes (unless <code class="notranslate">end_date</code> is in the past
-or the <code class="notranslate">dnu</code> URL parameter was used), and the time of the next update is shown in light yellow.</p>
+<p>To close the Spot Info panel, click or touch anywhere on the map outside
+of a marker.</p>
+<h3 id="flight-synopsis">Flight Synopsis</h3>
+<p>A summary of telemetry is displayed in the control panel below the
+parameter fields. These should be self-explanatory. The track updates
+automatically every 10 minutes (unless <code class="notranslate">end_date</code> is in the past or the
+<code class="notranslate">dnu</code> URL parameter was used), and the time of the next update is shown
+in light yellow.</p>
 <p><a target="_blank" rel="noopener noreferrer" href="images/img7.png"><img src="images/img7.png" width="360" style="max-width: 100%;"></a></p>
-<p>There is an easter egg of sorts included in the Flight Synopsis panel -- clicking the distance value
-(25313 mi in the example above) will toggle units from imperial to metric or vice versa. This preference
-will be remembered if you return to the page later.</p>
-<p>Allowing the map to update itself is by far the most efficient way to view real-time data.
-Do not refresh the page via the browser -- doing so results in considerably more load on WSPR Live
-servers. Periodic updates are already timed to occur at the optimal time -- roughly 75 seconds
-after the last message in a TX sequence is received (it takes some time for WSPR messages to trickle
-into the WSPR Live database).</p>
-<h3>Auxiliary Info</h3>
-<p>Clicking anywhere on the map outside of a marker brings up the Auxiliary Info bar in the
-bottom-left corner of the screen.</p>
+<p>There is an easter egg of sorts included in the Flight Synopsis panel --
+clicking the distance value (25313 mi in the example above) will toggle
+units from imperial to metric or vice versa. This preference will be
+remembered if you return to the page later.</p>
+<p>Allowing the map to update itself is by far the most efficient way to
+view real-time data. Do not refresh the page via the browser -- doing so
+results in considerably more load on WSPR Live servers. Periodic updates
+are already timed to occur at the optimal time -- roughly 75 seconds
+after the last message in a TX sequence is received (it takes some time
+for WSPR messages to trickle into the WSPR Live database).</p>
+<h3 id="auxiliary-info">Auxiliary Info</h3>
+<p>Clicking anywhere on the map outside of a marker brings up the Auxiliary
+Info bar in the bottom-left corner of the screen.</p>
 <p><a target="_blank" rel="noopener noreferrer" href="images/img12.png"><img src="images/img12.png" width="360" style="max-width: 100%;"></a></p>
 <p>The displayed values include:</p>
 <ul>
-<li>The latitude and longitude of the clicked location (43.07, -52.78 in the example above)</li>
+<li>The latitude and longitude of the clicked location (43.07, -52.78 in
+the example above)</li>
 <li>Current sun elevation at the clicked spot (20°)</li>
-<li>Time since sunrise at the clicked spot (12.4 hours, can be negative during the night)</li>
-<li>Time until sunset at the clicked spot (2.0 hours, can be negative during the night)</li>
-<li>If a track marker was already selected, the great circle distance between that marker
-and the clicked spot (157 miles)</li>
+<li>Time since sunrise at the clicked spot (12.4 hours, can be negative
+during the night)</li>
+<li>Time until sunset at the clicked spot (2.0 hours, can be negative
+during the night)</li>
+<li>If a track marker was already selected, the great circle distance
+between that marker and the clicked spot (157 miles)</li>
 </ul>
-<h2>Data View</h2>
-<p>Clicking on the chart icon (in the top-left corner, below the map zoom buttons) will close the map view
-and open the data view. The data view contains:</p>
+<h2 id="data-view">Data View</h2>
+<p>Clicking on the chart icon (in the top-left corner, below the map zoom
+buttons) will close the map view and open the data view. The data view
+contains:</p>
 <ul>
-<li>A variety of charts for all tracked telemetry values, including extended telemetry.</li>
-<li>A table showing all received spots, including grid4 spots not displayed on the map.</li>
-<li>Buttons to export spots as a CSV table, all raw data as a JSON file, and to switch units.</li>
-<li>A button to display / graph more data, such as computed speed and vertical speed.</li>
+<li>A variety of charts for all tracked telemetry values, including
+extended telemetry.</li>
+<li>A table showing all received spots, including grid4 spots not
+displayed on the map.</li>
+<li>Buttons to export spots as a CSV table, all raw data as a JSON file,
+and to switch units.</li>
+<li>A button to display / graph more data, such as computed speed and
+vertical speed.</li>
 </ul>
 <p><a target="_blank" rel="noopener noreferrer" href="images/img8.png"><img src="images/img8.png" width="600" style="max-width: 100%;"></a></p>
-<p>To return to the map view, click on the <code class="notranslate">X</code> icon in the top-right corner of the screen.</p>
-<p>The map will continue to update every 10 minutes while the data view is open,
-but the data view currently does not update periodically. To see fresh values, switch to
-the map view and then back to the data view.</p>
-<h3>Chart Controls</h3>
+<p>To return to the map view, click on the <code class="notranslate">X</code> icon in the top-right corner
+of the screen.</p>
+<p>The map will continue to update every 10 minutes while the data view is
+open, but the data view currently does not update periodically. To see
+fresh values, switch to the map view and then back to the data view.</p>
+<h3 id="chart-controls">Chart Controls</h3>
 <p>The charts are interactive and can be zoomed in and out:</p>
 <ul>
-<li>To zoom in on the X-axis: click on a starting point and then drag left or right
-(without changing the Y position by more than 20 pixels). You will see a horizontal
-slice of the chart being selected.</li>
+<li>To zoom in on the X-axis: click on a starting point and then drag left
+or right (without changing the Y position by more than 20 pixels). You
+will see a horizontal slice of the chart being selected.</li>
 </ul>
 <p><a target="_blank" rel="noopener noreferrer" href="images/img9.png"><img src="images/img9.png" width="600" style="max-width: 100%;"></a></p>
 <ul>
-<li>To zoom in on the Y-axis: click on a starting point and then drag up or down
-(without changing the X position by more than 20 pixels). You will see a vertical
-slice of the chart being selected.</li>
+<li>To zoom in on the Y-axis: click on a starting point and then drag up
+or down (without changing the X position by more than 20 pixels). You
+will see a vertical slice of the chart being selected.</li>
 </ul>
 <p><a target="_blank" rel="noopener noreferrer" href="images/img10.png"><img src="images/img10.png" width="600" style="max-width: 100%;"></a></p>
 <ul>
-<li>If you click and drag left or right, and then drag up or down by more than 20 pixels
-(while still clicking), a rectangular area of the chart will be highlighted. If you selected
-a rectangular area by mistake, drag to minimize the unwanted dimension to 0; this will
-revert the selection to either a horizontal or vertical slice.</li>
+<li>If you click and drag left or right, and then drag up or down by more
+than 20 pixels (while still clicking), a rectangular area of the chart
+will be highlighted. If you selected a rectangular area by mistake, drag
+to minimize the unwanted dimension to 0; this will revert the selection
+to either a horizontal or vertical slice.</li>
 </ul>
 <p><a target="_blank" rel="noopener noreferrer" href="images/img11.png"><img src="images/img11.png" width="600" style="max-width: 100%;"></a></p>
 <ul>
-<li>To zoom out to the original (full) view, double click anywhere on the chart.</li>
+<li>To zoom out to the original (full) view, double click anywhere on the
+chart.</li>
 </ul>
-<p>On mobile devices, charts support <strong>touch gestures</strong> such as drag-to-pan and pinch-to-zoom.</p>
-<h3>Telemetry Detail</h3>
-<p>By default, only the core telemetry values are shown in the data view (e.g., speed, altitude,
-temperature, and voltage for U4B). The <code class="notranslate">Show More</code> button can graph / display several
-additional fields:</p>
+<p>On mobile devices, charts support <strong>touch gestures</strong> such as drag-to-pan
+and pinch-to-zoom.</p>
+<h3 id="telemetry-detail">Telemetry Detail</h3>
+<p>By default, only the core telemetry values are shown in the data view
+(e.g., speed, altitude, temperature, and voltage for U4B). The
+<code class="notranslate">Show More</code> button can graph / display several additional fields:</p>
 <ul>
 <li>
-<p>Computed values, such as computed speed (based on location changes over time) and vertical
-speed (i.e., rate of ascent / descent). These may not be available for every spot, due to
-computational uncertainty. Moving from one 6-character grid to the next can
-mean covering a distance of 0.1 miles or 7.9 miles. For this reason, waiting until the
-location has changed over several grids can be necessary for reasonably accurate (+/- ~10%)
-speed estimates.</p>
+<p>Computed values, such as computed speed (based on location changes
+over time) and vertical speed (i.e., rate of ascent / descent). These
+may not be available for every spot, due to computational uncertainty.
+Moving from one 6-character grid to the next can mean covering a
+distance of 0.1 miles or 7.9 miles. For this reason, waiting until the
+location has changed over several grids can be necessary for reasonably
+accurate (+/- ~10%) speed estimates.</p>
 </li>
 <li>
-<p>RX statistics, such as the number of receiving stations for each spot, maximum SNR, and
-maximum RX distance.</p>
+<p>RX statistics, such as the number of receiving stations for each spot,
+maximum SNR, and maximum RX distance.</p>
 </li>
 <li>
-<p>The TX power field reported by WSPR, but only for the U4B protocol and only if the values
-differ from spot to spot.</p>
+<p>The TX power field reported by WSPR, but only for the U4B protocol and
+only if the values differ from spot to spot.</p>
 </li>
 </ul>
-<h3>Unit Conversion</h3>
-<p>The <code class="notranslate">Toggle Units</code> button switches units from metric to imperial and vice versa. The
-preference affects all displayed, charted, and CSV exported values in both the map
-and data views, and is remembered across browser sessions.</p>
-<p>Extended telemetry units are opaque to WSPR TV and are not impacted
-by unit conversion.</p>
-<p>Another way to switch units is to click on the <code class="notranslate">Distance</code> value in the control panel
-of the map view.</p>
-<h3>Data Export</h3>
-<p>The <code class="notranslate">Export CSV</code> button exports the data view table exactly as it is displayed (in currently
-selected units, in the same field order, etc).</p>
-<p>The <code class="notranslate">Get Raw Data</code> button returns the entire telemetry dataset as a tree-like JSON object. This
-includes raw WSPR messages and per-spot RX information.</p>
+<h3 id="unit-conversion">Unit Conversion</h3>
+<p>The <code class="notranslate">Toggle Units</code> button switches units from metric to imperial and
+vice versa. The preference affects all displayed, charted, and CSV
+exported values in both the map and data views, and is remembered across
+browser sessions.</p>
+<p>Extended telemetry units are opaque to WSPR TV and are not impacted by
+unit conversion.</p>
+<p>Another way to switch units is to click on the <code class="notranslate">Distance</code> value in the
+control panel of the map view.</p>
+<h3 id="data-export">Data Export</h3>
+<p>The <code class="notranslate">Export CSV</code> button exports the data view table exactly as it is
+displayed (in currently selected units, in the same field order, etc).</p>
+<p>The <code class="notranslate">Get Raw Data</code> button returns the entire telemetry dataset as a
+tree-like JSON object. This includes raw WSPR messages and per-spot RX
+information.</p>
 <p>Example of a raw record:</p>
 <pre class="notranslate"><code class="notranslate">{ "slots":[
      {"ts":"2025-06-02T05:06:00.000Z",
@@ -290,231 +354,397 @@ includes raw WSPR messages and per-spot RX information.</p>
   "lon":17.041
 }
 </code></pre>
-<p>Raw data is always exported in metric units and does not depend on the current unit
-selection.</p>
+<p>Raw data is always exported in metric units and does not depend on the
+current unit selection.</p>
 <p>The format of raw records may change in future versions of WSPR TV.</p>
-<h2>U4B Extended Telemetry</h2>
-<p>The U4B protocol contains a provision to send extended telemetry as additional
-<code class="notranslate">Q/0/1</code> messages. The informational content of such a message is first
-converted to a so-called <code class="notranslate">BigNumber</code>, which is a value between 0 and
-389512281599 (equivalent to ~38.5 bits). The least significant bit of
-this message (<code class="notranslate">HdrTelemetryType</code>) is 1 for basic U4B telemetry
-and 0 for extended telemetry. Therefore, approximately 37.5 bits are
-available in an extended telemetry message.</p>
-<p>The format of basic telemetry messages is well defined in the U4B protocol.
-For extended telemetry, there is an existing protocol that we will call ET0
-(because the version or <code class="notranslate">HdrRESERVED</code> bits of this protocol are set to 0). This
-protocol contains the following header fields, starting from the least
-significant bit after <code class="notranslate">HdrTelemetryType</code>.</p>
-<pre class="notranslate"><code class="notranslate">HdrRESERVED - 4 values, set to 0 for ET0
+<h2 id="u4b-extended-telemetry">U4B Extended Telemetry</h2>
+<p>The U4B protocol includes a provision for transmitting extended
+telemetry as additional <code class="notranslate">Q/0/1</code> messages. The informational content of
+each WSPR message is first converted to a so-called <code class="notranslate">BigNumber</code> -- a
+value ranging from 0 to 389,512,281,599 (approximately ~38.5 bits). The
+least significant bit of this message (<code class="notranslate">HdrTelemetryType</code>) is set to 1
+for basic U4B telemetry and 0 for extended telemetry. As a result,
+extended telemetry messages provide approximately 37.5 bits of raw
+payload.</p>
+<h3 id="et0">ET0</h3>
+<p>Historically, U4B extended telemetry was unstructured. This changed in
+late 2024, when a new protocol for extended telemetry was proposed and
+later adopted by the pico-ballooning community. The protocol adds the
+following structure on top of <code class="notranslate">BigNumber</code>, starting from the least
+significant bit after <code class="notranslate">HdrTelemetryType</code>:</p>
+<pre class="notranslate"><code class="notranslate">HdrRESERVED - 4 values, set to 0 (used as the protocol version number)
 HdrType - 16 values, of which only 0 (USER_DEFINED) and 15 (VENDOR_DEFINED) are specified
 HdrSlot - 5 values, meant to prevent interference between adjacent U4B channels
 </code></pre>
-<p>This header uses up another ~8.3 bits (320 values), with approximately 29.1 bits
-remaining for user data.</p>
-<p><code class="notranslate">HdrRESERVED</code> values other than 0 are currently not used by any protocols.
-A very lightweight extended telemetry protocol could therefore be constructed
-as follows:</p>
+<p>This header uses up another ~8.3 bits (320 values), with approximately
+29.1 bits remaining for user data. The protocol allows extended
+telemetry to be transmitted in all five slots -- including the regular
+callsign slot -- without causing interference to nearby channels.</p>
+<p>This protocol is known simply as "U4B Extended Telemetry". However, a
+more descriptive name for it might be ET0, as it sets the two
+<code class="notranslate">HdrRESERVED</code> bits to <code class="notranslate">0b00</code>.</p>
+<h3 id="et3">ET3</h3>
+<p>Other encodings of extended telemetry can coexist with ET0 without
+conflict, as long as the <code class="notranslate">HdrRESERVED</code> bits are set to values other than
+<code class="notranslate">0b00</code>.</p>
+<p>We propose a new lightweight protocol, identified by <code class="notranslate">HdrRESERVED</code> =
+<code class="notranslate">0b11</code> and referred to as ET3. This protocol is restricted to slot 2
+(immediately following basic telemetry) and therefore does not require a
+<code class="notranslate">HdrSlot</code> field. Aside from <code class="notranslate">HdrRESERVED</code>, it contains no additional
+headers, leaving the full remaining 35.5 bits available for user
+payload.</p>
+<p>Despite having no defined structure, ET3 can be used to transmit
+multiple message types, multiplexed into the same slot, as demonstrated
+later in this section.</p>
+<p>Note that unlike ET0, ET3 has not been standardized. Others may use
+<code class="notranslate">HdrRESERVED</code> bits in different -- and potentially conflicting -- ways.</p>
+<h3 id="value-packing-/-unpacking">Value Packing / Unpacking</h3>
+<p>First, let’s review how values are packed into a message. To append a
+value in the range [0, n), we multiply the existing message by n, then
+add the new value. The multiplication shifts the current message left,
+creating space, while the addition inserts the new value at the end.</p>
+<p>The inverse process -- unpacking -- uses <strong>division</strong> and <strong>modulus</strong>.
+The modulus (i.e., the remainder from division) extracts the value from
+the end of the message, while the division shifts the message right,
+effectively removing the extracted value.</p>
+<p>As an example, suppose a message ends with three packed values:
+<code class="notranslate">value3</code>, <code class="notranslate">value5</code>, and <code class="notranslate">value7</code>, where each spans a specific range --
+<code class="notranslate">value3</code> in [0, 3), <code class="notranslate">value5</code> in [0, 5), and so on.</p>
+<p>To unpack <code class="notranslate">value3</code>, we first shift the message right by dividing it by
+5 * 7, which removes <code class="notranslate">value5</code> and <code class="notranslate">value7</code>, and moves <code class="notranslate">value3</code> to the end.
+Then, we apply a modulus of 3 (i.e., take the remainder after dividing
+by 3) to extract the value of <code class="notranslate">value3</code>.</p>
+<h3 id="extended-telemetry-message-definition">Extended Telemetry Message Definition</h3>
+<p>WSPR TV has an extremely flexible extended telemetry definition
+mechanism that is able to decode ET0, ET3, or any past or future
+protocols that pack values into contiguous (but possibly fractional)
+bits of the U4B <code class="notranslate">BigNumber</code>.</p>
+<p>More precisely, WSPR TV operates on <code class="notranslate">BigNumber / 2</code>, with the least
+significant bit (<code class="notranslate">HdrTelemetryType</code>) removed since it is always 0. When
+<code class="notranslate">BigNumber</code> is mentioned later in this section, it will always be this
+truncated, 37.5 bit version.</p>
+<p>The basic building block of WSPR TV's extended telemetry specification
+is the <strong>message definition</strong>. A message definition includes:</p>
 <ul>
-<li>Setting the LSB of <code class="notranslate">HdrRESERVED</code> to 1. This eliminates interference with ET0,
-where messages with <code class="notranslate">HdrRESERVED</code> != 0 are filtered out.</li>
-<li>Sending only 1 extended telemetry message per TX cycle in slot 2. This eliminates
-interference with other uses of this lightweight protocol in adjacent U4B channels.</li>
-<li>Using the remaining ~36.5 bits for user data.</li>
+<li>A set of <strong>filters</strong> that define the conditions a message must meet in
+order to be decoded.</li>
+<li>A set of <strong>extractors</strong> that specify how individual values should be
+extracted from <code class="notranslate">BigNumber</code>, linearly transformed, and annotated.</li>
 </ul>
-<p>Note: there is currently no community agreement on such <code class="notranslate">HdrRESERVED</code>
-bit usage. While most likely OK for one-off uses, this lightweight protocol
-should not be deployed at scale (use ET0 instead).</p>
-<h3>Decoding</h3>
-<p>WSPR TV has an extremely flexible extended telemetry specification that is able to
-handle ET0, the lightweight protocol proposed above, or any past or future protocols
-that pack values into contiguous (but possibly fractional) bits of the U4B <code class="notranslate">BigNumber</code>.</p>
-<p>More precisely, WSPR TV operates on <code class="notranslate">BigNumber / 2</code>, with the least significant bit
-(<code class="notranslate">HdrTelemetryType</code>) removed since it is always 0. When <code class="notranslate">BigNumber</code> is mentioned later
-in this section, it will always be this truncated, 37.5 bit version.</p>
-<p>The basic building block of WSPR TV's extended telemetry specification is the <strong>decoder</strong>.
-A decoder contains a set of rules on what conditions a message must pass to be
-decoded (aka filters), plus a set of rules on how individual values should be
-extracted from <code class="notranslate">BigNumber</code> (aka extractors). The <code class="notranslate">et_dec</code> URL parameters consists
-of one or more <em>decoders</em>, separated by the <code class="notranslate">~</code> character:</p>
-<pre class="notranslate"><code class="notranslate">et_dec=&lt;decoder1_spec&gt;~&lt;decoder2_spec&gt;~...
-</code></pre>
-<p>Each decoder in turn consists of zero or more filters and one or more extractors. The
-filters are separated from the extractors with underscores (<code class="notranslate">_</code>), whereas individual
-filters and extractors are separated from each other with commas (<code class="notranslate">,</code>):</p>
-<pre class="notranslate"><code class="notranslate">decoder_spec: &lt;filter1&gt;,&lt;filter2&gt;..._&lt;extractor1&gt;,&lt;extractor2&gt;...
-</code></pre>
-<h3>Filter Specification</h3>
-<p>All filters in a decoder must pass for value extraction to happen. Filters express
-conditions on snippets of the <code class="notranslate">BigNumber</code>, which are usually headers or message type
-selectors. For example, in the ET0 protocol, the following conditions should be
-true for a message to be accepted:</p>
+<h3 id="filter-specification">Filter Specification</h3>
+<p>All filters in a message definition must pass for value extraction to
+happen. Filters normally express conditions on snippets of <code class="notranslate">BigNumber</code>,
+which are usually headers or message type selectors. For example, in the
+ET0 protocol, the following conditions should be true for a message to
+be accepted:</p>
 <ul>
 <li><code class="notranslate">HdrRESERVED</code> (4 values) is set to 0</li>
-<li><code class="notranslate">HdrType</code> (16 values) is set to the desired type (e.g., 0 for USER_DEFINED)</li>
-<li><code class="notranslate">HdrSlot</code> is set to the slot in which the ET message was received</li>
+<li><code class="notranslate">HdrType</code> (16 values) is set to the desired type (e.g., 0 for
+USER_DEFINED)</li>
+<li><code class="notranslate">HdrSlot</code> (5 values) is set to the slot in which the ET message was
+received</li>
 </ul>
-<p>The basic filter definition in WSPR TV is</p>
-<pre class="notranslate"><code class="notranslate">&lt;divisor&gt;:&lt;modulus&gt;:&lt;expected_value&gt;
+<p>The basic filter definition in WSPR TV is the tuple
+<code class="notranslate">(divisor, modulus, expected_value)</code>
+expressing the following condition:</p>
+<pre class="notranslate"><code class="notranslate">(BigNumber / divisor) % modulus = expected_value
 </code></pre>
-<p>expressing the following condition:</p>
-<pre class="notranslate"><code class="notranslate">(BigNumber / divisor) % modulus == expected_value
+<p>To support ET0, a special variable <code class="notranslate">slot</code> is available to represent the
+TX slot in which the extended telemetry message was received. This
+allows us to express the filter set for ET0 as follows:</p>
+<pre class="notranslate"><code class="notranslate">(BigNumber / 1) % 4 = 0
+(BigNumber / 4) % 16 = 0
+(BigNumber / 64) % 4 = slot
 </code></pre>
-<p>To support ET0, a special variable <code class="notranslate">s</code> is available to represent the TX slot in which the
-extended telemetry message was received. This allows us to express the filter set for
-ET0 as follows:</p>
-<pre class="notranslate"><code class="notranslate">1:4:0,4:16:0,64:5:s
-</code></pre>
-<p>To explain, we first check that the truncated <code class="notranslate">BigNumber</code> (here again we refer to our version of
-<code class="notranslate">BigNumber</code> with the <code class="notranslate">HdrTelemetryType</code> bit removed)
-has 0 in its least significant 2 bits. To do this, we divide <code class="notranslate">BigNumber</code> by 1 and then extract
-the 4 possible values of the <code class="notranslate">HdrRESERVED</code> field using a modulus of 4. This value has to be equal to 0.
-Hence the first filter is <code class="notranslate">1:4:0</code>.</p>
-<p>We then access the adjacent <code class="notranslate">HdrType</code> field by dividing <code class="notranslate">BigNumber</code> by 4 (this skips over <code class="notranslate">HdrRESERVED</code>)
-and extracting 1 of 16 possible values using a modulus of 16. This value also has to be equal to 0
-(for USER_DEFINED). Hence the second filter is <code class="notranslate">4:16:0</code>.</p>
-<p>Finally, we check that <code class="notranslate">HdrSlot</code> matches the slot in which the message was received. Now we have to skip
-over both the <code class="notranslate">HdrRESERVED</code> and <code class="notranslate">HdrType</code> fields, hence the division is by 4 * 16 = 64. We use a modulus of 5
-to extract the 5 possible values. The expected value is the variable <code class="notranslate">s</code>. The third filter is therefore
-<code class="notranslate">64:5:s</code>.</p>
-<p>If this is confusing, there is a built-in <strong>shorthand for ET0 telemetry</strong>: <code class="notranslate">et0:&lt;type&gt;</code>. This allows us to
-replace <code class="notranslate">1:4:0,4:16:0,64:5:s</code> with simply <code class="notranslate">et0:0</code> for USER_DEFINED messages.</p>
-<h3>Time-Dependent Filters</h3>
-<p>WSPR TV has a powerful mechanism for multiplexing multiple message types in the same slot, without
-using any additional bits to specify which schema is used -- the variable <code class="notranslate">t</code>. This variable is set to the
-TX sequence number, which starts at 0 at UTC midnight and then increments every 2 minutes (e.g., at 6:30 UTC
-the value is (6 * 60 + 30) / 2 = 195). The counter resets at 00:00 UTC every day. Note: <code class="notranslate">t</code> refers to the
-time of the regular callsign message in the current TX sequence (slot 0), not the slot of the extended
-telemetry message.</p>
+<p>To explain, we first check that the truncated <code class="notranslate">BigNumber</code> (here again we
+refer to our version of <code class="notranslate">BigNumber</code> with the <code class="notranslate">HdrTelemetryType</code> bit
+removed) has 0 in its least significant 2 bits. To do this, we divide
+<code class="notranslate">BigNumber</code> by 1 and then extract the 4 possible values of the
+<code class="notranslate">HdrRESERVED</code> field using a modulus of 4. This value has to be equal to
+0.</p>
+<p>We then access the adjacent <code class="notranslate">HdrType</code> field by dividing <code class="notranslate">BigNumber</code> by 4
+(this skips over <code class="notranslate">HdrRESERVED</code>) and extracting 1 of 16 possible values
+using a modulus of 16. This value also has to be equal to 0 (for
+USER_DEFINED).</p>
+<p>Finally, we check that <code class="notranslate">HdrSlot</code> matches the slot in which the message
+was received. Now we have to skip over both the <code class="notranslate">HdrRESERVED</code> and
+<code class="notranslate">HdrType</code> fields, hence the division is by 4 * 16 = 64. We use a modulus
+of 5 to extract the 5 possible values. The expected value is the
+variable <code class="notranslate">slot</code>.</p>
+<h3 id="temporal-filters">Temporal Filters</h3>
+<p>WSPR TV provides a powerful mechanism for multiplexing multiple message
+types within the same slot -- without using any extra bits to indicate
+which schema is in use -- via the <code class="notranslate">tx_seq</code> variable.</p>
+<p><code class="notranslate">tx_seq</code> represents the transmission sequence number, which starts at 0
+at 00:00 UTC and increments every 2 minutes. For example, at 06:30 UTC,
+the value is calculated as (6 * 60 + 30) / 2 = 195. The counter resets
+at midnight UTC each day.</p>
+<p>Note: <code class="notranslate">tx_seq</code> corresponds to the time of the regular callsign message
+in the current transmission sequence (i.e., slot 0), not the slot of the
+extended telemetry message.</p>
 <p>This variable can be used instead of <code class="notranslate">BigNumber</code> in filters:</p>
-<pre class="notranslate"><code class="notranslate">t:&lt;divisor&gt;:&lt;modulus&gt;:&lt;expected_value&gt;
+<pre class="notranslate"><code class="notranslate">(tx_seq / divisor) % modulus = expected_value
 </code></pre>
-<p>expressing the condition</p>
-<pre class="notranslate"><code class="notranslate">(TX_sequence_num / divisor) % modulus == expected_value
+<p>This allows WSPR TV to decode messages differently based on transmission
+time -- for example, alternating behavior every other transmission,
+during odd-numbered hours, and so on. Multiple message types can be
+multiplexed into the same ET slot.</p>
+<p>Another time-dependent filter uses the variable <code class="notranslate">slot</code> and expresses the
+condition:</p>
+<pre class="notranslate"><code class="notranslate">slot = value
 </code></pre>
-<p>This allows WSPR TV to decode messages differently every other transmission,
-during odd hours of the day, etc. Several message types can be multiplexed
-into the same ET slot.</p>
-<p>Another time-dependent filter uses the variable <code class="notranslate">s</code> and has the format <code class="notranslate">s:&lt;slot&gt;</code>,
-such as <code class="notranslate">s:2</code>. This allows, for example, different handling of messages in slot 2
-vs slot 3.</p>
-<h3>Value Extraction</h3>
-<p>Once all filters in a decoder pass, a set of values are extracted. Generally,
-extraction is specified using the following tuple of parameters:</p>
-<pre class="notranslate"><code class="notranslate">&lt;divisor&gt;:&lt;modulus&gt;:&lt;offset&gt;:&lt;slope&gt;
+<p>This enables different handling of messages in, for example, slot 2
+versus slot 3.</p>
+<h3 id="value-extraction">Value Extraction</h3>
+<p>Once all filters in a message definition pass, a set of values are
+extracted. Generally, extraction is specified using the following tuple
+of parameters:</p>
+<pre class="notranslate"><code class="notranslate">(divisor, modulus, offset, slope)
 </code></pre>
-<p><code class="notranslate">divisor</code> and <code class="notranslate">modulus</code> here specify how to extract the raw value from <code class="notranslate">BigNum</code>,
-while <code class="notranslate">offset</code> and <code class="notranslate">slope</code> are used to linearly transform the raw value into its
-decoded form:</p>
+<p><code class="notranslate">divisor</code> and <code class="notranslate">modulus</code> here specify how to extract the raw value from
+<code class="notranslate">BigNum</code>, while <code class="notranslate">offset</code> and <code class="notranslate">slope</code> are used to linearly transform the
+raw value into its decoded form:</p>
 <pre class="notranslate"><code class="notranslate">raw_value = (BigNumber / divisor) % modulus
 value = offset + raw_value * slope
 </code></pre>
-<p>As an example, suppose an ET0 message has 110 values of <code class="notranslate">Pressure</code> in its least
-significant bits, and then 90 values of <code class="notranslate">Heading</code> immediately after. <code class="notranslate">Pressure</code>
-starts at 0 and increments 0.001 Bar with every step, while <code class="notranslate">Heading</code> starts
-at 0 and increments by 4 degrees. These values can then be extracted as follows:</p>
-<pre class="notranslate"><code class="notranslate">320:110:0:0.001,35200:90:0:4
+<p>As an example, suppose an ET0 message has 110 values of <code class="notranslate">Pressure</code> in
+its least significant bits, and then 90 values of <code class="notranslate">Heading</code> immediately
+after. <code class="notranslate">Pressure</code> starts at 0.1 and increments 0.001 Bar with every step,
+while <code class="notranslate">Heading</code> starts at 0 and increments by 4 degrees. These values
+can then be extracted as follows:</p>
+<pre class="notranslate"><code class="notranslate">[divisor, modulus, offset, slope]
+
+(320, 110, 0.1, 0.001)
+(35200, 90, 0, 4)
 </code></pre>
-<p>The divisor here starts at 320 because we need to skip over the ET0 header (which has 320 values).
-35200 is 320 * 110 -- we are skipping over both the header and the <code class="notranslate">Pressure</code> value.</p>
-<p>Because extracted values are often contiguous, a <strong>simplified</strong> 3-term extractor
-specification is also available:</p>
-<pre class="notranslate"><code class="notranslate">&lt;modulus&gt;:&lt;offset&gt;:&lt;slope&gt;
+<p>The divisor here starts at 320 because we need to skip over the ET0
+header (which has 320 values). 35200 is 320 * 110 -- we are skipping
+over both the header and the <code class="notranslate">Pressure</code> value.</p>
+<p>Because extracted values are often contiguous, a <strong>simplified 3-term
+extractor</strong> specification is also available:</p>
+<pre class="notranslate"><code class="notranslate">(modulus, offset, slope)
 </code></pre>
-<p>The divisor here is implied by taking the last divisor and multiplying it by the modulus
-of the previous extractor. If no initial divisor is specified anywhere (i.e., all extractors
-are 3-term), the divisor starts at 1 for unspecified protocols and at the end of headers
-for known protocols (e.g., initial_divisor = 320 when one of the filters in the decoder
-specification is of the <code class="notranslate">et0:&lt;slot&gt;</code> form).</p>
-<p>For the previous Pressure / Heading example, the extractor specification becomes:</p>
-<pre class="notranslate"><code class="notranslate">110:0:0.001,90:0:4
+<p>The divisor here is <strong>implied</strong> by taking the previous divisor and
+multiplying it by the modulus of the previous extractor. In other words,
+the divisor is set to the end of the previous value. If no initial
+divisor is specified anywhere (i.e., all extractors are 3-term), the
+first divisor starts at 1 for unspecified protocols and at the end of
+the headers for known protocols (e.g., initial_divisor = 320 when one of
+the filters in the message definition is <code class="notranslate">et0</code>).</p>
+<p>For the previous Pressure / Heading example, the extractor specification
+becomes:</p>
+<pre class="notranslate"><code class="notranslate">[modulus, offset, slope]
+
+(110, 0.1, 0.001)
+(90, 0, 4)
 </code></pre>
-<p>and the full decoder may look as follows:</p>
-<pre class="notranslate"><code class="notranslate">et0:0,s:2_110:0:0.001,90:0:4
-</code></pre>
-<p>Note that the <code class="notranslate">&lt;modulus aka num_values&gt;:&lt;offset&gt;:&lt;slope&gt;</code> format is different from Traquito's
-<code class="notranslate">&lt;min_value&gt;:&lt;high_value&gt;:&lt;step_size&gt;</code>. However, there is a trivial mapping between the two:</p>
+<p>Note that the <code class="notranslate">(modulus aka num_values, offset, slope)</code> format differs
+from Traquito's <code class="notranslate">(min_value, high_value, step_size)</code>. However, there is
+a straightforward mapping between the two:</p>
 <pre class="notranslate"><code class="notranslate">num_values = 1 + (max_value - min_value) / step_size
 offset = min_value
 slope = step_size
 </code></pre>
-<h3>Extended Telemetry Annotation</h3>
-<p>With just an <code class="notranslate">et_dec</code> specification, all available extended telemetry values will
-be extracted, displayed, and graphed. However, they will be assigned default names
-such as <code class="notranslate">ET0</code>, <code class="notranslate">ET1</code>, etc., will have no units attached, and will be displayed as
-integers.</p>
-<p>WSPR TV offers a set of extended telemetry annotation parameters --
-<code class="notranslate">et_labels</code>, <code class="notranslate">et_llabels</code>, <code class="notranslate">et_units</code>, and <code class="notranslate">et_res</code> to customize the display
-of ET values. All of these are a comma-separated list of parameters, with
-one value per extractor specification. For example, if there are 2 decoders
-containing 4 and 5 extractors respectively, then the 7th item in <code class="notranslate">et_units</code>
-corresponds to the 3rd extractor of the second decoder.</p>
-<p>Only non-default values need to be specified in the above URL parameters.
-For example, here is how to assign units to the 4th extractor while keeping
-all the other values unitless.</p>
+<h3 id="value-annotation">Value Annotation</h3>
+<p>Extracted values can optionally be annotated with a
+<strong>short label</strong>, <strong>long label</strong>, <strong>units</strong>, and <strong>resolution</strong>:</p>
+<ul>
+<li>
+<p><strong>Short label</strong> is a brief, descriptive identifier -- e.g., <code class="notranslate">VSpeed</code>
+for "Vertical Speed". It can be up to 32 characters long and may only
+contain alphanumeric characters, spaces, <code class="notranslate">#</code>, and <code class="notranslate">_</code>. Short labels are
+shown in space-constrained areas, such as Spot Info panels and table
+headers. If not specified, they default to <code class="notranslate">ET0</code>, <code class="notranslate">ET1</code>, etc.</p>
+</li>
+<li>
+<p><strong>Long label</strong> is a full descriptive name, such as <code class="notranslate">Vertical Speed</code>.
+It can be up to 64 characters long and may only contain alphanumeric
+characters, spaces, and the characters <code class="notranslate">#</code> and <code class="notranslate">_</code>. Long labels are
+shown where more space is available, such as in chart legends. If not
+specified, long labels default to short labels, or to <code class="notranslate">ET0</code>, <code class="notranslate">ET1</code>, etc.
+if short labels are also missing.</p>
+</li>
+<li>
+<p><strong>Units</strong> indicate the measurement associated with a value (e.g.
+<code class="notranslate">135 km/h</code>). The leading space in units is preserved (e.g. to specify
+<code class="notranslate">9 V</code> vs. <code class="notranslate">9V</code>). Units can be up to 8 characters long and may only contain
+letters, spaces, and the characters <code class="notranslate">/</code> and <code class="notranslate">°</code>. Countable values often
+don't require units: <code class="notranslate">NumSats: 5</code> is typically clearer than
+<code class="notranslate">NumSats: 5 sats</code>.</p>
+</li>
+<li>
+<p><strong>Resolution</strong> specifies the number of digits to show after the
+decimal point. By default, values are displayed as integers (resolution
+= 0). The maximum allowed resolution is 6.</p>
+</li>
+</ul>
+<h3 id="extended-telemetry-wizard">Extended Telemetry Wizard</h3>
+<p>WSPR TV provides a <a href="https://wsprtv.com/tools/et_wizard.html" rel="nofollow">wizard</a> to
+create new extended telemetry specifications or to import existing ones
+from other formats.</p>
+<p><a target="_blank" rel="noopener noreferrer" href="images/img14.png"><img src="images/img14.png" width="900" style="max-width: 100%;"></a></p>
+<p>In this example, a single message is defined based on ET0 in slot 2. Two
+additional filters are applied: a temporal filter, which restricts the
+message to even <code class="notranslate">tx_seq</code> slots, and a custom selector, which checks that
+the first bit after the ET0 header is 0 (perhaps because the message
+format changes when the bit is 1).</p>
+<p>The message contains two values -- Temperature and Voltage -- which
+follow immediately after the selector bit. The first divisor is 640,
+accounting for the ET0 header (320 values) plus the selector bit (2
+values). The second divisor is implied from the location of the previous
+field; if specified explicitly, it would be 640 * 100 = 64000.</p>
+<p>Note that if not for the selector bit, the first divisor could be left
+blank as well. It would then default to 320, or the end of the headers
+for the ET0 protocol.</p>
+<p>When you click "Generate URL", WSPR TV displays a preview of how the
+extracted values will appear:</p>
+<p><a target="_blank" rel="noopener noreferrer" href="images/img15.png"><img src="images/img15.png" width="700" style="max-width: 100%;"></a></p>
+<p>You can create as many message definitions as needed, as long as the
+total number of extractors does not exceed 32. Once your message
+definitions are finalized, click "Generate URL" to create the WSPR TV
+link for your extended telemetry specification.</p>
+<h3 id="exteded-telemetry-url-parameters">Exteded Telemetry URL Parameters</h3>
+<p>While most extended telemetry definitions should be generated using the
+<a href="https://wsprtv.com/tools/et_wizard.html" rel="nofollow">ET Wizard</a>, it can be useful
+to understand how the extended telemetry URL parameters are constructed
+from a specification.</p>
+<p>The <code class="notranslate">et_dec</code> URL parameters consists of one or more <em>decoders</em>,
+separated by the <code class="notranslate">~</code> character:</p>
+<pre class="notranslate"><code class="notranslate">et_dec=&lt;decoder1_spec&gt;~&lt;decoder2_spec&gt;~...
+</code></pre>
+<p>Each decoder in turn consists of zero or more filters and one or more
+extractors. The filters are separated from the extractors with
+underscores (<code class="notranslate">_</code>), whereas individual filters and extractors are
+separated from each other with commas (<code class="notranslate">,</code>):</p>
+<pre class="notranslate"><code class="notranslate">decoder_spec: &lt;filter1&gt;,&lt;filter2&gt;..._&lt;extractor1&gt;,&lt;extractor2&gt;...
+</code></pre>
+<p>A filter can have one of the following forms:</p>
+<pre class="notranslate"><code class="notranslate">&lt;divisor&gt;:&lt;modulus&gt;:&lt;expected_value&gt;
+t:&lt;divisor&gt;:&lt;modulus&gt;:&lt;expected_value&gt;
+s:&lt;slot&gt;
+
+</code></pre>
+<p>with the latter two representing temporal conditions. Shortcuts for ET0
+user-defined telemetry and ET3 are also available:</p>
+<pre class="notranslate"><code class="notranslate">et0:0
+et3
+</code></pre>
+<p>Hence the filter specification for ET0 user-defined telemetry in slot 2
+may be expressed as follows:</p>
+<pre class="notranslate"><code class="notranslate">et0:0,slot:2
+</code></pre>
+<p>An extractor can have either a 3-term or 4-term format, depending on
+whether the divisor is explicit or implicit:</p>
+<pre class="notranslate"><code class="notranslate">&lt;modulus&gt;:&lt;offset&gt;:&lt;slope&gt;
+&lt;divisor&gt;:&lt;modulus&gt;:&lt;offset&gt;:&lt;slope&gt;
+</code></pre>
+<p>Finally, a set of annotation parameters -- <code class="notranslate">et_labels</code>, <code class="notranslate">et_llabels</code>,
+<code class="notranslate">et_units</code>, and <code class="notranslate">et_res</code> -- can be used to customize the display of ET
+values. All of these are a comma-separated list of parameters, with one
+value per extractor specification. For example, if there are 2 decoders
+containing 4 and 5 extractors respectively, then the 7th item in
+<code class="notranslate">et_units</code> corresponds to the 3rd extractor of the second decoder.</p>
+<p>Only non-default values need to be specified in the above URL
+parameters. Here is how to assign units to the 4th extractor while
+keeping all the other values unitless.</p>
 <pre class="notranslate"><code class="notranslate">et_units=,,,mph
 </code></pre>
-<p>The following is a brief summary of ET annotation parameters:</p>
+<h2 id="u4b-channel-map">U4B Channel Map</h2>
+<p>WSPR TV provides a channel map to help users gauge U4B channel activity.
+This map is particularly well-suited for identifying unused channels.</p>
+<p><a target="_blank" rel="noopener noreferrer" href="images/img13.png"><img src="images/img13.png" width="700" style="max-width: 100%;"></a></p>
+<p>In the table, the columns represent the start minute of the regular
+callsign transmission, while the rows correspond to the first and third
+characters of the special callsign (such as Q1 in QB1ERZ). Each cell
+contains two colored buckets, and each bucket in turn represents two
+nearby U4B channels in adjacent frequency lanes (i.e. one bucket covers
+0-80 Hz while the other 120-200 Hz). Binning of nearby channels is
+necessary because RX frequency errors can easily exceed the 40 Hz width
+of a single U4B channel.</p>
+<p>The rightmost column of the table displays the range of U4B channels for
+each row. To locate a specific U4B channel, first identify the row
+containing the range, then scan across that row to find the channel.</p>
+<p><strong>The number in each bucket</strong> indicates how many <strong>unique 1-hour slots</strong>
+contained basic telemetry for that channel during the specified period
+(extended telemetry is excluded). For a slot to be counted, at least two
+basic telemetry transmissions must occur within the hour. This threshold
+helps eliminate noise caused by corrupt messages, non-U4B use of special
+Q/0/1 callsigns, and various other corner cases.</p>
+<p>Additionally, an <code class="notranslate">RX Threshold</code> setting is available to
+<strong>filter out single-receiver reports</strong> when set to 2. Basic telemetry
+reported by only one receiver is more likely to have an inaccurate
+frequency, as frequency values are averaged across multiple receivers.
+In some cases, single-receiver reports are also associated with
+incorrectly set receiver clocks, which can result in telemetry being
+assigned to the wrong time slot.</p>
+<p>Buckets are color-coded based on their count: <strong>green</strong> indicates that
+no basic telemetry has been observed in any 1-hour slots, while <strong>red</strong>
+represents multiple hours of daily use over an extended period. For
+example, a tracker that transmits for 10 hours every day will show a
+count of about 300 after 30 days. <strong>Yellow and orange</strong> fall in between,
+with yellow in particular sometimes reflecting leakage from a nearby
+busy channel due to RX frequency errors.</p>
+<p>While the map may display <strong>some false positives</strong>, it is highly
+sensitive to channel activity and should therefore produce <strong>virtually
+no false negatives</strong>. A transmitter operating for as little as 20
+minutes and detected by a single receiver will change a bucket’s color
+from green to yellow.</p>
+<p>This makes the map potentially suitable as a <strong>robust reservation
+mechanism</strong> for U4B channels. Below is a proposed procedure for
+reserving a U4B channel using the map:</p>
 <ul>
-<li>
-<p><strong>et_labels</strong> contains <em>short</em> labels (one label per extractor) that will
-be shown instead of the default <code class="notranslate">ET0</code>, <code class="notranslate">ET1</code>, etc., field names.
-Short labels are used in table headers and in the Spot Info panel.
-These are typically abbreviations, such as "VSpeed" for "Vertical Speed".
-The labels should be no longer than 32 characters and contain only
-alphanumeric characters, spaces, and the characters <code class="notranslate">#</code> and <code class="notranslate">_</code>.</p>
-</li>
-<li>
-<p><strong>et_llabels</strong> is for specifying <em>long</em> labels that will be shown instead
-of the default <code class="notranslate">ET0</code>, <code class="notranslate">ET1</code>, etc., field names.
-Long labels are used in chart titles and in CSV file headers.
-These are typically descriptive names such as "Vertical Speed".
-The labels should be no longer than 64 characters and contain only
-alphanumeric characters, spaces, and the characters <code class="notranslate">#</code> and <code class="notranslate">_</code>.</p>
-</li>
-<li>
-<p><strong>et_units</strong> contains units that will be attached to extracted values
-where appropriate. These should be at most 8 character long and contain
-only alphanumeric characters, spaces, and the character <code class="notranslate">/</code>. Spaces before
-units are significant: 23.2 + ' F' will display as '23.2 F', whereas
-23.2 + 'F' will show as '23.2F'.</p>
-</li>
-<li>
-<p><strong>et_res</strong> specifies resolution for ET values, which are shown as
-integers by default. A resolution of 2 means that 2 digits will be
-displayed after the decimal point (e.g., 3.14 instead of 3).</p>
-</li>
+<li>Set the time range to 30 days and set <code class="notranslate">TX Threshold</code> to 1.</li>
+<li>Select a random green bucket (or better yet, a cell containing two
+green buckets).</li>
+<li>If you already have an active tracker using your callsign, ensure the
+new bucket has a different start minute. In other words, <strong>you cannot have
+two trackers in the same column of the table</strong>.</li>
+<li>The green bucket will show 2 U4B channels, with the preferred channel
+-- the one that is farther away from the adjacent bucket -- highlighted
+with an asterisk (*).</li>
+<li>Program the selected channel into your tracker and launch it. The
+bucket should turn from green to yellow shortly afterward, signaling to
+others that the channel is now in use.</li>
+<li>If you’re not ready to launch yet, but want to reserve the channel,
+perform a few test transmissions. You can self-report using an SDR
+dongle with WSJT-X or WsprDaemon software. This will mark the channel as
+active for the next 30 days.</li>
+<li>After a tracker stops transmitting, the channel will automatically
+revert to green after 30 days.</li>
 </ul>
-<h3>Extended Telemetry URL Generation</h3>
-<p>In a future version of WSPR TV, a wizard will be available to generate
-ET URL parameters automatically. For now, these parameters can be constructed
-by hand with some practice.</p>
-<h2>License</h2>
+<p>Note that this is just a proposal at this time. Other reservation
+mechanisms -- such as databases maintained by Traquito, lu7aa and QRP Labs
+-- remain in active use. You should not use the channel map for
+reservations unless your only alternative is selecting a channel at random.</p>
+<h2 id="license">License</h2>
 <p>WSPR TV is licensed under the
-<a href="https://www.gnu.org/licenses/agpl-3.0.en.html#license-text" rel="nofollow">AGPL-3.0 license</a>
-and can be used freely as long as the license conditions are met.
-In particular, the license requires that:</p>
+<a href="https://www.gnu.org/licenses/agpl-3.0.en.html#license-text" rel="nofollow">AGPL-3.0 license</a> and
+can be used freely as long as the license conditions are met. In
+particular, the license requires that:</p>
 <ul>
-<li>If any part of your project is derived from WSPR TV in any way, your entire
-project must also be licensed under AGPL-3.0.</li>
-<li>All components of your project must be AGPL-3.0 compatible. For example,
-you cannot use MapBox JS mapping libraries because those are only available
-under proprietary licenses in recent releases.</li>
-<li>Proper attribution to WSPR TV must be provided both in your source code and in
-the UI. In the source code, you must clearly state what code was copied and
-how it was modified. All copyright and license notices must be preserved.</li>
+<li>If any part of your project is derived from WSPR TV in any way, your
+entire project must also be licensed under AGPL-3.0.</li>
+<li>All components of your project must be AGPL-3.0 compatible. For
+example, you cannot use MapBox JS mapping libraries because those are
+only available under proprietary licenses in recent releases.</li>
+<li>Proper attribution to WSPR TV must be provided both in your source
+code and in the UI. In the source code, you must clearly state what code
+was used and how it was modified. All copyright and license notices must
+be preserved.</li>
 </ul>
-<p><a href="https://wspr.live" rel="nofollow">WSPR Live</a>, which is used by WSPR TV, has additional requirements in its
-<a href="https://wspr.live" rel="nofollow">disclaimer</a>:</p>
+<p><a href="https://wspr.live" rel="nofollow">WSPR Live</a>, which is used by WSPR TV, has additional
+requirements in its <a href="https://wspr.live" rel="nofollow">disclaimer</a>:</p>
 <blockquote>
-<p><em>You are allowed to use the services provided on wspr.live for your own reasearch and projects, as long as
-the results are accessible free of charge for everyone. You are not allowed to use this service for any
-commercial or profit oriented use cases. The complete wspr infrastructure is maintained by volunteers in
-their spare time, so there are no guarantees on correctness, availability or stability of this service.</em></p>
+<p><em>You are allowed to use the services provided on wspr.live for your own
+reasearch and projects, as long as the results are accessible free of
+charge for everyone. You are not allowed to use this service for any
+commercial or profit oriented use cases. The complete wspr
+infrastructure is maintained by volunteers in their spare time, so there
+are no guarantees on correctness, availability or stability of this
+service.</em></p>
 </blockquote>
-<p>The author of WSPR Live has clarified that <em>linking</em> to WSPR TV -- even from a commercial site --
-constitutes fair use and does not violate the TOS.</p>
-<p>The source code for WSPR TV is available on <a href="https://github.com/wsprtv/wsprtv.github.io">GitHub</a>.</p>
+<p>The source code for WSPR TV is available on
+<a href="https://github.com/wsprtv/wsprtv.github.io">GitHub</a>.</p>
   </article>
 </body>
 </html>

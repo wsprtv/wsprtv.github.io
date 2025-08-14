@@ -1,15 +1,15 @@
 <html><head>
-  <title>U4B Channel Activity Map</title>
+  <title>U4B Channel Map</title>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <link rel="stylesheet" href="u4bch.css?3">
+  <link rel="stylesheet" href="channel_map.css?4">
 </head>
 
 <body>
   <div id="wrapper">
-    <h1 style="margin: 0; color: #555; font-size: 28px">U4B Channel Activity Map</h1>
+    <h1 style="margin: 0; color: #555; font-size: 28px">U4B Channel Map</h1>
     <span id="form_line">
-      Band: <select id="band">
+      Band: <select id="band" style="width: 55px">
         <option value="2200m">LF</option>
         <option value="630m">630m</option>
         <option value="160m">160m</option>
@@ -28,7 +28,7 @@
         <option value="70cm">70cm</option>
         <option value="23cm">23cm</option>
         <option disabled="">───</option>
-        <option value="help">Help</option>
+        <option value="user_guide">User Guide &nbsp;</option>
       </select>
       Last:
       <select id="num_days">
@@ -45,6 +45,12 @@
       <button id="go_button" style="width: 50px">Go</button>
     </span>
     <div id="table"></div>
+    <div id="help" style="display: none">
+      <br>This table shows the number of unique hourly slots that contained
+      U4B basic telemetry for each channel<br> during the specified period.
+      See the <a href="../docs/user_guide.html#u4b-channel-map"
+          target="_new">user guide</a> for more info.
+    </div>
   </div>
-  <script src="u4bch.js?4"></script>
+  <script src="channel_map.js?5"></script>
 </body></html>

@@ -1,0 +1,44 @@
+<html><head>
+  <title>Extended Telemetry Wizard</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <link rel="stylesheet" href="et_wizard.css?4">
+</head>
+
+<body>
+  <div id="wrapper">
+    <h1 style="margin: 0; color: #555; font-size: 28px">Extended Telemetry Wizard</h1><br>
+    <div id="wizard"></div>
+  </div>
+  <template id="main_params_template">
+    <div class="box" style="background-color: #ddd">
+      <input type="text" id="cs" size=6 style="width: 58px"
+       autocomplete="off" placeholder="Callsign">
+      <input type="text" id="ch" size=4 style="width: 42px"
+       autocomplete="off" placeholder="Ch">
+      <select id="band" style="width: 55px">
+        <option value="2200m">LF</option>
+        <option value="630m">630m</option>
+        <option value="160m">160m</option>
+        <option value="80m">80m</option>
+        <option value="60m">60m</option>
+        <option value="40m">40m</option>
+        <option value="30m">30m</option>
+        <option value="20m" selected>20m</option>
+        <option value="17m">17m</option>
+        <option value="15m">15m</option>
+        <option value="12m">12m</option>
+        <option value="10m">10m</option>
+        <option value="6m">6m</option>
+        <option value="4m">4m</option>
+        <option value="2m">2m</option>
+        <option value="70cm">70cm</option>
+        <option value="23cm">23cm</option>
+      </select> Start date: 
+      <input type="text" id="start_date"
+       autocomplete="off" size=11 style="width: 90px"
+       placeholder='YYYY-mm-dd'>
+    </div>
+  </template>
+  <script src="et_wizard.js?2"></script>
+</body></html>

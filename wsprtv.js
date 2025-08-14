@@ -47,11 +47,11 @@ let end_date_param;
 let dnu_param;  // dnu = do not update
 
 // Extended telemetry URL params
-let et_dec_param;
+let et_decoders_param;
 let et_labels_param;
-let et_llabels_param;
+let et_long_labels_param;
 let et_units_param;
-let et_res_param;
+let et_resolutions_param;
 
 let last_update_ts;
 let next_update_ts;
@@ -118,7 +118,7 @@ function formatTimestamp(ts) {
 }
 
 // Extracts a parameter value from the URL
-function getUrlParameter(name) {
+function getURLParameter(name) {
   const regex = new RegExp('[?&]' + name + '(=([^&]*)|(?=[&]|$))');
   const match = regex.exec(location.search);
   if (!match) return null;
@@ -128,7 +128,7 @@ function getUrlParameter(name) {
 
 // Parses and validates input params, returning them as a dictionary.
 // Alerts the user and returns null if validation failed.
-function parseParams() {
+function parseParameters() {
   const cs = document.getElementById('cs').value.trim().toUpperCase();
   const band = document.getElementById('band').value.trim();
   if (!(band in kWSPRBandInfo)) {
@@ -139,7 +139,6 @@ function parseParams() {
   const raw_ch = document.getElementById('ch').value.trim();
   let ch;
   let tracker;
-  let fetch_et;
   const [starting_minute_offset, _] = kWSPRBandInfo[band];
   if (raw_ch.length > 1 && /^[A-Z]$/i.test(raw_ch[0])) {
     if (/[GZ]/i.test(raw_ch[0])) {
@@ -177,16 +176,12 @@ function parseParams() {
     tracker = 'unknown';
   } else {
     // Default: U4B
-    const match = raw_ch.match(/^(\d+)(E(\d*))?$/i);
-    if (!match) {
+    if (!/^\d+$/i.test(raw_ch)) {
       alert('Invalid U4B channel');
       return null;
     }
-    ch = Number(match[1]);
-    fetch_et = match[2] ? (match[3] ? Number(match[3]) : 1) : null;
-    if (ch < 0 || ch > 599 ||
-        (fetch_et != null &&
-         (fetch_et < 0 || fetch_et > 3))) {
+    ch = Number(raw_ch);
+    if (ch < 0 || ch > 599) {
       alert('Invalid U4B channel');
       return null;
     }
@@ -236,17 +231,35 @@ function parseParams() {
     return null;
   }
 
-  const et_spec = et_dec_param ? parseExtendedTelemetrySpec() : null;
-  if (et_dec_param && !et_spec) {
+  const et_spec = et_decoders_param ? parseExtendedTelemetrySpec() : null;
+  if (et_decoders_param && !et_spec) {
     alert('Invalid ET spec');
     return null;
   }
 
+  const et_slots = getExtendedTelemetrySlots(et_spec);
+
   // Successful validation
   return { 'cs': cs, 'ch': ch, 'band': band, 'tracker': tracker,
            'start_date': start_date, 'end_date': end_date,
-           'fetch_et' : fetch_et, 'units' : units,
+           'et_slots' : et_slots, 'units' : units,
            'detail': detail, 'et_spec': et_spec };
+}
+
+// Returns the list of slots that may have U4B extended telemetry
+function getExtendedTelemetrySlots(et_spec) {
+  if (!et_spec) return [];
+  let slots = new Set();
+  for (const decoder of et_spec.decoders) {
+    for (const filter of decoder[0]) {
+      if (filter[0] == 's') {
+        slots.add(filter[1]);
+        found_slot = true;
+        break;
+      }
+    }
+  }
+  return slots.size ? [...slots] : [2];
 }
 
 // Returns TX minute for given slot in the U4B protocol
@@ -494,9 +507,9 @@ function processU4BSlot1Message(spot) {
   // Extract values from callsign
   const [m, n] = extractU4BQ01Payload(spot.slots[1]);
   if (!(n % 2)) {
-    if (params.fetch_et == 0) {
+    if (params.et_slots.includes(1)) {
       // Possible extended telemetry in slot1
-      return processU4BExtendedTelemetryMessage(spot, 1);
+      return processExtendedTelemetryMessage(spot, 1);
     }
     return false;
   }
@@ -507,6 +520,7 @@ function processU4BSlot1Message(spot) {
 
   if (!(Math.floor(n / 2) % 2)) {
     // Invalid GPS bit
+    spot.slots[1].is_invalid_gps = true;
     return false;
   }
   // Fill values
@@ -518,8 +532,8 @@ function processU4BSlot1Message(spot) {
   return true;
 }
 
-function processU4BExtendedTelemetryMessage(spot, i) {
-  const [m, n] = extractU4BQ01Payload(spot.slots[i]);
+function processExtendedTelemetryMessage(spot, slot) {
+  const [m, n] = extractU4BQ01Payload(spot.slots[slot]);
   if (n % 2) {
     // Not an extended telemetry message
     return false;
@@ -528,7 +542,7 @@ function processU4BExtendedTelemetryMessage(spot, i) {
   if (!spot.raw_et) {
     spot.raw_et = [];
   }
-  spot.raw_et[i] = v;
+  spot.raw_et[slot] = v;
   return true;
 }
 
@@ -592,13 +606,15 @@ function decodeSpot(spot) {
     }
     // Process extended telemetry, if any
     for (let i = 2; i < spot.slots.length; i++) {
-      if (spot.slots[i] && !processU4BExtendedTelemetryMessage(spot, i)) {
+      if (spot.slots[i] && !processExtendedTelemetryMessage(spot, i)) {
         spot.slots[i].is_invalid = true;
         return true;
       }
     }
   }
-  [spot.lat, spot.lon] = maidenheadToLatLon(spot.grid);
+  if (!spot.slots[1] || !spot.slots[1].is_invalid_gps) {
+    [spot.lat, spot.lon] = maidenheadToLatLon(spot.grid);
+  }
   if (spot.raw_et) decodeExtendedTelemetry(spot);
   return true;
 }
@@ -647,7 +663,7 @@ function decodeExtendedTelemetry(spot) {
       }
     }
   }
-  if (et) spot.et = et;
+  if (et.length) spot.et = et;
   return data;
 }
 
@@ -758,9 +774,12 @@ function getRXStats(spot) {
       }
     }
   }
-  const lat_lon = L.latLng([spot.lat, spot.lon]);
-  const max_rx_dist = Math.max(...Object.keys(grids).map(grid =>
-      lat_lon.distanceTo(maidenheadToLatLon(grid))));
+  let max_rx_dist = undefined;
+  if (spot.lat) {
+    const lat_lon = L.latLng([spot.lat, spot.lon]);
+    max_rx_dist = Math.max(...Object.keys(grids).map(grid =>
+        lat_lon.distanceTo(maidenheadToLatLon(grid))));
+  }
   return [Object.keys(cs).length, max_rx_dist, max_snr];
 }
 
@@ -847,7 +866,9 @@ function displayTrack() {
   // instead.
   for (let i = 0; i < spots.length; i++) {
     let spot = spots[i];
-    if (spot.lat == undefined || spot.lon == undefined) continue;
+    if (spot.lat == undefined || spot.lon == undefined) {
+      continue;
+    }
 
     if (params.tracker != 'unknown' && last_marker &&
         last_marker.getLatLng().distanceTo(
@@ -1114,7 +1135,7 @@ function displaySpotInfo(marker, point) {
   if ('voltage' in spot) {
     spot_info.innerHTML += `<br>Voltage: ${formatVoltage(spot.voltage)}`;
   }
-  if (spot.raw_et) {
+  if (spot.raw_et && !spot.et) {
     // Display opaque extended telemetry
     spot.raw_et.forEach((v, i) =>
         spot_info.innerHTML += `<br>Raw ET${i}: ${v}`);
@@ -1202,8 +1223,9 @@ function scheduleNextUpdate() {
   cancelPendingUpdate();
 
   // Number of slots in telemetry sequence
-  const num_slots = (params.tracker == 'zachtek1' ? 1 : 2) +
-      (params.fetch_et || 0);
+  const num_slots = Math.max(
+      ['zachtek1', 'generic1'].includes(params.tracker) ? 0 : 1,
+      ...params.et_slots) + 1;
   const tx_end_minute = getU4BSlotMinute(num_slots);
 
   const now = new Date();
@@ -1264,9 +1286,7 @@ async function update(incremental_update = false) {
 
     if (params.tracker == 'u4b' || params.tracker == 'wb8elk') {
       // Fetch Q/0/1 callsign telemetry
-      const slots = params.fetch_et ?
-          Array.from({length: params.fetch_et + 1}, (_, i) => i + 1) :
-          [1];
+      const slots = [...new Set([1, ...params.et_slots])];
       const q01_query = createWSPRLiveQuery(
           true /* fetch_q01 */, slots, incremental_update);
       new_data.push(...importWSPRLiveData(await runQuery(q01_query)));
@@ -1345,20 +1365,20 @@ function updateURL() {
     if (units_param) {
       url += '&units=' + encodeURIComponent(units_param);
     }
-    if (et_dec_param) {
-      url += '&et_dec=' + encodeURLParam(et_dec_param);
+    if (et_decoders_param) {
+      url += '&et_dec=' + encodeURLParameter(et_decoders_param);
     }
     if (et_labels_param) {
-      url += '&et_labels=' + encodeURLParam(et_labels_param);
+      url += '&et_labels=' + encodeURLParameter(et_labels_param);
     }
-    if (et_llabels_param) {
-      url += '&et_llabels=' + encodeURLParam(et_llabels_param);
+    if (et_long_labels_param) {
+      url += '&et_llabels=' + encodeURLParameter(et_long_labels_param);
     }
     if (et_units_param) {
-      url += '&et_units=' + encodeURLParam(et_units_param);
+      url += '&et_units=' + encodeURLParameter(et_units_param);
     }
-    if (et_res_param) {
-      url += '&et_res=' + encodeURLParam(et_res_param);
+    if (et_resolutions_param) {
+      url += '&et_res=' + encodeURLParameter(et_resolutions_param);
     }
     history.replaceState(null, '', url);
   } catch (error) {
@@ -1368,9 +1388,9 @@ function updateURL() {
 
 // Similar to encodeURIComponent but does not escape ',' and ':', and
 // escapes ' ' as '+'
-function encodeURLParam(param) {
-  return Array.from(param.replace(/\s/g, '+')).map(c =>
-      ',:'.includes(c) ? c : encodeURIComponent(c)
+function encodeURLParameter(param) {
+  return Array.from(param).map(c =>
+      (',: '.includes(c) ? c : encodeURIComponent(c)).replace(/\s/g, '+')
   ).join('');
 }
 
@@ -1379,7 +1399,7 @@ function encodeURLParam(param) {
 function processSubmission(e, on_load = false) {
   last_data_view_scroll_pos = 0;
   cancelPendingUpdate();
-  params = parseParams();
+  params = parseParameters();
   if (params) {
     if (debug > 0) console.log(params);
     if (!on_load) {
@@ -1532,7 +1552,10 @@ function computeDerivedData(spots) {
       }
     }
     if (spot.altitude) last_altitude_spot = spot;
-    derived_data['sun_elev'][i] = getSunElevation(spot.ts, spot.lat, spot.lon);
+    if (spot.lat) {
+      derived_data['sun_elev'][i] =
+          getSunElevation(spot.ts, spot.lat, spot.lon);
+    }
     [derived_data['num_rx'][i], derived_data['max_rx_dist'][i],
      derived_data['max_snr'][i]] = getRXStats(spot);
   }
@@ -1936,14 +1959,14 @@ function closeDataView() {
 
 // Prefills form fields from URL decorators
 function initializeFormFields() {
-  document.getElementById('cs').value = getUrlParameter('cs');
-  document.getElementById('ch').value = getUrlParameter('ch');
-  let band_param = getUrlParameter('band');
+  document.getElementById('cs').value = getURLParameter('cs');
+  document.getElementById('ch').value = getURLParameter('ch');
+  let band_param = getURLParameter('band');
   if (!band_param || !(band_param in kWSPRBandInfo)) {
     band_param = '20m';
   }
   document.getElementById('band').value = band_param;
-  let start_date_param = getUrlParameter('start_date');
+  let start_date_param = getURLParameter('start_date');
   if (!start_date_param) {
     // Prefill to a date 1 month in the past
     start_date_param = formatTimestamp(
@@ -1954,26 +1977,33 @@ function initializeFormFields() {
 }
 
 function parseExtendedTelemetrySpec() {
-  if (!et_dec_param) return null;
-  if (!/^[0-9ets,:_~.-]+$/.test(et_dec_param)) return null;
+  if (!et_decoders_param) return null;
+  if (!/^[0-9ets,:_~.-]+$/.test(et_decoders_param)) return null;
   let decoders = [];
   let num_extractors = 0;
-  for (const decoder_spec of et_dec_param.toLowerCase().split('~')) {
-    let uses_et0 = false;
+  for (const decoder_spec of et_decoders_param.toLowerCase().split('~')) {
+    let header_divisor = 1;
     let [filters_spec, extractors_spec] = decoder_spec.split('_');
     // Parse filters
     let filters = [];
     if (filters_spec) {
       for (const filter_spec of filters_spec.split(',')) {
         let filter = filter_spec.split(':');
-        if (filter.length == 2 && ['et0', 's'].includes(filter[0])) {
+        if (filter.length == 1 && filter[0] == 'et3') {
+          if (header_divisor != 1) return null;
+          filters.push([1, 4, 3]);
+          filters.push(['s', 2]);
+          header_divisor = 4;
+          continue;
+        } else if (filter.length == 2 && ['et0', 's'].includes(filter[0])) {
           filter[1] = Number(filter[1]);
           if (!Number.isInteger(filter[1]) || filter[1] < 0) return null;
           if (filter[0] == 'et0') {
+            if (header_divisor != 1) return null;
             filters.push([1, 4, 0]);
             filters.push([4, 16, filter[1]]);
             filters.push([64, 5, 's']);
-            uses_et0 = true;
+            header_divisor = 320;
             continue;
           }
         } else if (filter.length == 4 && filter[0] == 't') {
@@ -1998,24 +2028,25 @@ function parseExtendedTelemetrySpec() {
     }
     // Parse extractors
     let extractors = [];
-
-    let next_divisor = uses_et0 ? 320 : 1;  // used for 3-term extractor spec
-    for (const extractor_spec of extractors_spec.split(',')) {
-      let extractor = extractor_spec.split(':').map(Number);
-      if (extractor.length == 3) {
-        extractor.unshift(next_divisor);
-      }
-      if (extractor.length != 4) return null;
-      for (let i = 0; i < extractor.length; i++) {
-        if ((i <= 1) && (!Number.isInteger(extractor[i]) ||
-            extractor[i] < 1)) {
-          return null;
+    let next_divisor = header_divisor;
+    if (extractors_spec) {
+      for (const extractor_spec of extractors_spec.split(',')) {
+        let extractor = extractor_spec.split(':').map(Number);
+        if (extractor.length == 3) {
+          extractor.unshift(next_divisor);
         }
-        if (Number.isNaN(extractor[2])) return null;
-        if (Number.isNaN(extractor[3]) || extractor[3] <= 0) return null;
-        next_divisor = extractor[0] * extractor[1];
+        if (extractor.length != 4) return null;
+        for (let i = 0; i < extractor.length; i++) {
+          if ((i <= 1) && (!Number.isInteger(extractor[i]) ||
+              extractor[i] < 1)) {
+            return null;
+          }
+          if (Number.isNaN(extractor[2])) return null;
+          if (Number.isNaN(extractor[3]) || extractor[3] <= 0) return null;
+          next_divisor = extractor[0] * extractor[1];
+        }
+        extractors.push(extractor);
       }
-      extractors.push(extractor);
     }
     decoders.push([filters, extractors]);
     num_extractors += extractors.length;
@@ -2029,23 +2060,23 @@ function parseExtendedTelemetrySpec() {
   if (et_labels_param) {
     if (!/^[0-9a-z ,#_]+$/i.test(et_labels_param)) return null;
     labels = et_labels_param.split(',');
-    if (!labels.every(v => v.length < 32)) return null;
+    if (!labels.every(v => v.length <= 32)) return null;
   }
-  if (et_llabels_param) {
-    if (!/^[0-9a-z ,#_]+$/i.test(et_llabels_param)) return null;
-    long_labels = et_llabels_param.split(',');
-    if (!long_labels.every(v => v.length < 64)) return null;
+  if (et_long_labels_param) {
+    if (!/^[0-9a-z ,#_]+$/i.test(et_long_labels_param)) return null;
+    long_labels = et_long_labels_param.split(',');
+    if (!long_labels.every(v => v.length <= 64)) return null;
   }
   if (et_units_param) {
-    if (!/^[a-z /,]+$/i.test(et_units_param)) return null;
+    if (!/^[a-z ,/°]+$/i.test(et_units_param)) return null;
     units = et_units_param.split(',');
-    if (!units.every(v => v.length < 8)) return null;
+    if (!units.every(v => v.length <= 8)) return null;
   }
-  if (et_res_param) {
-    resolutions = et_res_param.split(',').map(
+  if (et_resolutions_param) {
+    resolutions = et_resolutions_param.split(',').map(
         v => v == '' ? null : Number(v));
     if (!resolutions.every(
-        v => v == null || (Number.isInteger(v) && v > 0 && v < 4))) {
+        v => v == null || (Number.isInteger(v) && v >= 0 && v <= 6))) {
       return null;
     }
   }
@@ -2058,17 +2089,17 @@ function parseExtendedTelemetrySpec() {
 }
 
 // Entry point
-function Run() {
+function start() {
   initializeFormFields();
 
-  end_date_param = getUrlParameter('end_date');
-  units_param = getUrlParameter('units');
-  dnu_param = getUrlParameter('dnu');
-  et_dec_param = getUrlParameter('et_dec');
-  et_labels_param = getUrlParameter('et_labels');
-  et_llabels_param = getUrlParameter('et_llabels');
-  et_units_param = getUrlParameter('et_units');
-  et_res_param = getUrlParameter('et_res');
+  end_date_param = getURLParameter('end_date');
+  units_param = getURLParameter('units');
+  dnu_param = getURLParameter('dnu');
+  et_decoders_param = getURLParameter('et_dec');
+  et_labels_param = getURLParameter('et_labels');
+  et_long_labels_param = getURLParameter('et_llabels');
+  et_units_param = getURLParameter('et_units');
+  et_resolutions_param = getURLParameter('et_res');
 
   // On mobile devices, allow for a larger click area
   let click_tolerance = 0;
@@ -2173,8 +2204,11 @@ function Run() {
     if (this.value == 'user_guide') {
       window.open('docs/user_guide.html', '_new');
       this.value = params ? params.band : "20m";
-    } else if (this.value == 'ch_map') {
-      window.open('tools/u4bch.html', '_new');
+    } else if (this.value == 'channel_map') {
+      window.open('tools/channel_map.html', '_new');
+      this.value = params ? params.band : "20m";
+    } else if (this.value == 'et_wizard') {
+      window.open('tools/et_wizard.html', '_new');
       this.value = params ? params.band : "20m";
     }
   });
@@ -2209,4 +2243,4 @@ function Run() {
   }, 120 * 1000);
 }
 
-Run();
+start();

@@ -55,7 +55,7 @@ const kWSPRBandInfo = {
 }
 
 // Extracts a parameter value from the URL
-function getUrlParameter(name) {
+function getURLParameter(name) {
   const regex = new RegExp('[?&]' + name + '(=([^&]*)|(?=[&]|$))');
   const match = regex.exec(location.search);
   if (!match) return null;
@@ -65,7 +65,7 @@ function getUrlParameter(name) {
 
 // Parses and validates input params, returning them as a dictionary.
 // Alerts the user and returns null if validation failed.
-function parseParams() {
+function parseParameters() {
   const band = document.getElementById('band').value.trim();
   if (!(band in kWSPRBandInfo)) {
     alert('Invalid band');
@@ -145,7 +145,8 @@ function createWSPRLiveQuery() {
   return `
     SELECT /* wsprtv.github.io */
       concat(cs1, cs3, tx_minute, freq_lane) AS bucket,
-      COUNT(*) AS num_hours, MAX(last_ts) AS last_ts
+      COUNT(*) AS num_hours,
+      MIN(first_ts) AS first_ts, MAX(last_ts) AS last_ts
     FROM (
       SELECT
         toStartOfHour(time) AS hour,
@@ -153,6 +154,7 @@ function createWSPRLiveQuery() {
         substring(tx_sign, 3, 1) AS cs3,
         (toMinute(time) + 8) % 10 AS tx_minute,
         floor((avg_freq - ${start_freq}) / 100) AS freq_lane,
+        MIN(time) as first_ts,
         MAX(time) as last_ts,
         COUNT(*) AS num_tx
       FROM (
@@ -196,7 +198,8 @@ function importWSPRLiveData(data) {
   let bucket_data = {};
   for (let i = 0; i < data.length; i++) {
     let row = data[i];
-    bucket_data[row[0]] = [row[1], parseTimestamp(row[2])];
+    bucket_data[row[0]] =
+        [row[1], parseTimestamp(row[2]), parseTimestamp(row[3])];
   }
   return bucket_data;
 }
@@ -251,7 +254,7 @@ function updateURL() {
 // Invoked when the "Go" button is pressed or when URL params are provided
 // on load
 function processSubmission(e, on_load = false) {
-  params = parseParams();
+  params = parseParameters();
   if (params) {
     if (debug > 0) console.log(params);
     if (!on_load) {
@@ -270,7 +273,7 @@ function createTableCell(type, content) {
 }
 
 function createBucketSpan(bucket, data) {
-  const [count, last_ts] = data;
+  const [count, first_ts, last_ts] = data;
   const span = document.createElement('span');
   span.classList.add('bucket_span');
   span.textContent = count;
@@ -278,8 +281,10 @@ function createBucketSpan(bucket, data) {
     span.style.backgroundColor = '#00ab66';
   } else if (count < 5) {
     span.style.backgroundColor = '#ffffb0';
-  } else if (count < 15) {
+  } else if (count < 10) {
     span.style.backgroundColor = '#ffff80';
+  } else if (count < 15) {
+    span.style.backgroundColor = '#ffbc66';
   } else if (count < 40) {
     span.style.backgroundColor = 'salmon';
   } else {
@@ -291,7 +296,15 @@ function createBucketSpan(bucket, data) {
   span.addEventListener('mouseenter', () => {
     info = document.createElement('div');
     info.id = 'info';
-    const [ch1, ch2] = getU4BChannels(bucket);
+    let [ch1, ch2] = getU4BChannels(bucket);
+    if (count == 0) {
+      // Channel recommendations
+      if (bucket[3] == 0) {
+        ch1 += '*';
+      } else {
+        ch2 += '*';
+      }
+    }
     info.innerHTML = `<b>U4B Ch</b>: ${ch1}, ${ch2}`;
     info.innerHTML +=
         `<br><b>Special CS</b>: ${bucket[0].toUpperCase()}*${bucket[1]}*`;
@@ -299,12 +312,14 @@ function createBucketSpan(bucket, data) {
     info.innerHTML += '<br><b>Freq</b>: ' +
         (bucket[3] == '1' ? '&gt;=120' : '&lt;= 80');
     if (count == 0) {
-      info.innerHTML += '<br><span style="color: #cefad0">Free Channel</span>';
+      info.innerHTML += '<br><span style="color: #cefad0">Unused Channel</span>';
     } else {
-      info.innerHTML += `<br><b>Use:</b> ${count} hour` +
+      info.innerHTML += '<br><b>First use</b>: ' +
+          formatDuration(new Date(), first_ts) + ' ago';
+      info.innerHTML += '<br><b>Last use</b>: ' +
+          formatDuration(new Date(), last_ts) + ' ago';
+      info.innerHTML += `<br><b>Total use:</b> ${count} hour` +
           ((count > 1) ? 's' : '');
-      const duration = formatDuration(new Date(), last_ts);
-      info.innerHTML += '<br><b>Last</b>: ' + duration + ' ago';
     }
     span.appendChild(info);
   });
@@ -322,6 +337,7 @@ function createBucketSpan(bucket, data) {
 function clearTable() {
   let table = document.getElementById('table');
   table.innerHTML = '';
+  document.getElementById('help').style.display = 'none';
 }
 
 function showTable(bucket_data) {
@@ -329,7 +345,7 @@ function showTable(bucket_data) {
   let div = document.getElementById('table');
 
   // Prefill the table with row numbers
-  let table_headers = ['⬇️ CS1/3', ':00', ':02', ':04', ':06', ':08'];
+  let table_headers = ['CS', ':00', ':02', ':04', ':06', ':08', 'Ch'];
 
   // Populate the table
   let table = document.createElement('table');
@@ -348,11 +364,13 @@ function showTable(bucket_data) {
   for (let i = 0; i < 30; i++) {
     let row = document.createElement('tr');
     const cs13 = ['0', '1', 'Q'][Math.floor(i / 10)] + String(i % 10);
-    for (let j = 0; j < 6; j++) {
+    for (let j = 0; j < 7; j++) {
       let cell = document.createElement('td');
       if (j == 0) {
         cell.textContent = cs13;
         cell.title = 'Special Callsign 1st / 3rd Characters';
+      } else if (j == 6) {
+        cell.textContent = `${i * 20}-${i * 20 + 19}`;
       } else {
         const start_minute = (j - 1) * 2;
         const key = cs13 + start_minute;
@@ -371,27 +389,26 @@ function showTable(bucket_data) {
   div.appendChild(document.createElement('br'));
   let span = document.createElement('span');
   span.innerHTML = `${300 - Object.keys(bucket_data).length} of 300 ` +
-      'channels are free' +
-      '<br><br>This table shows how many unique hourly slots ' +
-      'contained U4B basic telemetry for each channel.';
+      'channels appear to be unused.';
   div.appendChild(span);
+  document.getElementById('help').style.display = 'block';
 }
 
 // Prefills form fields from URL decorators
 function initializeFormFields() {
-  let band_param = getUrlParameter('band');
+  let band_param = getURLParameter('band');
   if (!band_param || !(band_param in kWSPRBandInfo)) {
     band_param = '20m';
   }
   document.getElementById('band').value = band_param;
 
-  let num_days_param = getUrlParameter('num_days');
+  let num_days_param = getURLParameter('num_days');
   if (!num_days_param || !['3', '7', '14', '30'].includes(num_days_param)) {
     num_days_param = '30';
   }
   document.getElementById('num_days').value = num_days_param;
 
-  let rx_threshold_param = getUrlParameter('rx_threshold');
+  let rx_threshold_param = getURLParameter('rx_threshold');
   if (!rx_threshold_param || !['1', '2'].includes(rx_threshold_param)) {
     rx_threshold_param = '1';
   }
@@ -399,14 +416,14 @@ function initializeFormFields() {
 }
 
 // Entry point
-function Run() {
+function start() {
   initializeFormFields();
 
   // Handle special menu selections
   document.getElementById('band').addEventListener('change', function () {
-    if (this.value == 'help') {
-      window.open('/docs/user_guide.html', '_new');
-      this.value = params.band;
+    if (this.value == 'user_guide') {
+      window.open('../docs/user_guide.html#u4b-channel-map', '_new2');
+      this.value = params ? params.band : "20m";
     } else {
       processSubmission();
     }
@@ -431,4 +448,4 @@ function Run() {
       'click', processSubmission);
 }
 
-Run();
+start();
