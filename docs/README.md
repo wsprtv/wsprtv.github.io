@@ -535,14 +535,17 @@ WSPR TV provides a powerful mechanism for multiplexing multiple message
 types within the same slot -- without using any extra bits to indicate 
 which schema is in use -- via the `tx_seq` variable.
 
-`tx_seq` represents the transmission sequence number, which starts at 0 
-at 00:00 UTC and increments every 2 minutes. For example, at 06:30 UTC, 
-the value is calculated as (6 * 60 + 30) / 2 = 195. The counter resets 
-at midnight UTC each day.
+`tx_seq` represents the transmission slot sequence number, which starts 
+at 0 at 00:00 UTC and increments every 10 minutes. If the GPS UTC time of 
+the regular callsign transmission preceding an extended telemetry 
+message is `HH:MM`, `tx_seq` is calculated as follows:
 
-Note: `tx_seq` corresponds to the time of the regular callsign message 
-in the current transmission sequence (i.e., slot 0), not the slot of the 
-extended telemetry message.
+```
+tx_seq = (HH * 6) + (MM / 10)
+```
+
+For example, at 06:32 UTC, `tx_seq = (6 * 6) + (32 / 10) = 39`. The 
+counter resets at midnight UTC each day.
 
 This variable can be used instead of `BigNumber` in filters:
 

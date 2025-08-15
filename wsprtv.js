@@ -623,7 +623,8 @@ function decodeExtendedTelemetry(spot) {
   if (!params.et_spec || !spot.raw_et) return null;
   let et = [];
   let index = 0;  // index within data
-  let ts_seq = spot.ts.getUTCHours() * 30 + spot.ts.getUTCMinutes() / 2;
+  let tx_seq = spot.ts.getUTCHours() * 6 +
+      Math.floor(spot.ts.getUTCMinutes() / 10);
   for (let i = 0; i < spot.raw_et.length; i++) {
     const raw_et = spot.raw_et[i];
     if (raw_et == undefined) continue;
@@ -633,7 +634,7 @@ function decodeExtendedTelemetry(spot) {
       let matched = true;
       for (let filter of filters) {
         if (filter.length == 4 && filter[0] == 't' &&
-            Math.trunc(ts_seq / filter[1]) % filter[2] != filter[3]) {
+            Math.trunc(tx_seq / filter[1]) % filter[2] != filter[3]) {
           matched = false;
           break;
         }
