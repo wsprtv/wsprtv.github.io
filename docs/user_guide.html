@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>WSPR TV User Guide</title>
+  <title></title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/github-markdown-css/5.5.1/github-markdown-light.min.css">
   <style>
     body {
@@ -476,12 +476,12 @@ variable <code class="notranslate">slot</code>.</p>
 types within the same slot -- without using any extra bits to indicate
 which schema is in use -- via the <code class="notranslate">tx_seq</code> variable.</p>
 <p><code class="notranslate">tx_seq</code> represents the transmission slot sequence number, which starts
-at 0 at 00:00 UTC and increments every 10 minutes. If the GPS UTC time of
-the regular callsign transmission preceding an extended telemetry
+at 0 at 00:00 UTC and increments every 2 minutes. If the GPS UTC time of
+the <strong>regular callsign</strong> transmission preceding an extended telemetry
 message is <code class="notranslate">HH:MM</code>, <code class="notranslate">tx_seq</code> is calculated as follows:</p>
-<pre class="notranslate"><code class="notranslate">tx_seq = (HH * 6) + (MM / 10)
+<pre class="notranslate"><code class="notranslate">tx_seq = (HH * 30) + (MM / 2)
 </code></pre>
-<p>For example, at 06:32 UTC, <code class="notranslate">tx_seq = (6 * 6) + (32 / 10) = 39</code>. The
+<p>For example, at 06:32 UTC, <code class="notranslate">tx_seq = (6 * 30) + (32 / 2) = 196</code>. The
 counter resets at midnight UTC each day.</p>
 <p>This variable can be used instead of <code class="notranslate">BigNumber</code> in filters:</p>
 <pre class="notranslate"><code class="notranslate">(tx_seq / divisor) % modulus = expected_value

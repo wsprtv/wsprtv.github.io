@@ -536,15 +536,15 @@ types within the same slot -- without using any extra bits to indicate
 which schema is in use -- via the `tx_seq` variable.
 
 `tx_seq` represents the transmission slot sequence number, which starts 
-at 0 at 00:00 UTC and increments every 10 minutes. If the GPS UTC time of 
-the regular callsign transmission preceding an extended telemetry 
+at 0 at 00:00 UTC and increments every 2 minutes. If the GPS UTC time of 
+the **regular callsign** transmission preceding an extended telemetry 
 message is `HH:MM`, `tx_seq` is calculated as follows:
 
 ```
-tx_seq = (HH * 6) + (MM / 10)
+tx_seq = (HH * 30) + (MM / 2)
 ```
 
-For example, at 06:32 UTC, `tx_seq = (6 * 6) + (32 / 10) = 39`. The 
+For example, at 06:32 UTC, `tx_seq = (6 * 30) + (32 / 2) = 196`. The 
 counter resets at midnight UTC each day.
 
 This variable can be used instead of `BigNumber` in filters:
