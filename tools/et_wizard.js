@@ -740,7 +740,7 @@ function displayURL(url, extractors, labels, long_labels, units, resolutions) {
           `</b></font>: ${value.toFixed(resolution)}<br>`;
     }
     span2.innerHTML += `<br>If this doesn't look right, adjust the message ` +
-        `defintions and then click the Update URL button below.`;
+        `defintions and then click the "Update URL" button below.`;
   }
 
   addButton(tail, 'Update URL', generateURL);
@@ -760,6 +760,14 @@ function start() {
        'Import a Traquito URL',
        'Import a Traquito JSON file'
       ], handleRootAction);
+  // Add the user guide link
+  const link = document.createElement('a');
+  link.href =
+      'https://wsprtv.com/docs/user_guide.html#u4b-extended-telemetry';
+  link.textContent = 'ℹ️';
+  link.style.textDecoration = 'none';
+  link.target = '_new3';
+  wizard.appendChild(link);
 }
 
 start();
