@@ -686,7 +686,7 @@ function generateURL() {
     url += 'et_labels=' + encodeURLParameter(labels.join(',')) + '&';
   }
   if (long_labels.length) {
-    url += 'et_long_labels=' + encodeURLParameter(long_labels.join(',')) + '&';
+    url += 'et_llabels=' + encodeURLParameter(long_labels.join(',')) + '&';
   }
   if (units.length) {
     url += 'et_units=' + encodeURLParameter(units.join(',')) + '&';
