@@ -961,7 +961,8 @@ function displayTrack() {
   for (let i = 0; i < spots.length; i++) {
     let spot = spots[i];
     if (spot.lat == undefined || spot.lon == undefined ||
-        (spot.is_unattached && !params.detail)) {
+        (spot.is_unattached &&
+         !params.detail && params.tracker != 'unknown')) {
       continue;
     }
 
