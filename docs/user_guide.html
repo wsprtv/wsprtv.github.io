@@ -167,6 +167,10 @@ WSPR TV not to update the track every 10 minutes. <code class="notranslate">dnu<
 sharing WSPR TV links widely to minimize the additional load on WSPR
 Live servers.</p>
 </li>
+<li>
+<p><strong>show_unattached</strong> (no value needed) causes WSPR TV to display
+spots that are not attached to the track.</p>
+</li>
 </ul>
 <p>The callsign, channel, start date, and band can be specified as URL
 parameters as well (using <code class="notranslate">cs</code>, <code class="notranslate">ch</code>, <code class="notranslate">start_date</code>, and <code class="notranslate">band</code>
@@ -191,9 +195,9 @@ these spots are colored light red.</li>
 relative to adjacent spots.</li>
 <li>The channel field is blank (unknown telemetry protocol).</li>
 </ul>
-<p>Unattached spots are always shown in the data view. They also appear
-on the map if the "Show More" option is enabled in the data view,
-but they are rendered outside the track and are typically colored white.</p>
+<p>Unattached spots are always displayed in the data view. They are also
+shown on the map when the <code class="notranslate">show_unattached</code>
+<a href="#url-parameters">URL parameter</a> is set.</p>
 <p><a target="_blank" rel="noopener noreferrer" href="images/img16.png"><img src="images/img16.png" width="360" style="max-width: 100%;"></a></p>
 <p>One peculiarity of the mapping framework used by WSPR TV (Leaflet) is
 that data is not duplicated across the antimeridian (i.e., -180/180

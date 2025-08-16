@@ -163,6 +163,9 @@ WSPR TV not to update the track every 10 minutes. `dnu` is implied if
 sharing WSPR TV links widely to minimize the additional load on WSPR 
 Live servers.
 
+- **show_unattached** (no value needed) causes WSPR TV to display
+spots that are not attached to the track.
+
 The callsign, channel, start date, and band can be specified as URL 
 parameters as well (using `cs`, `ch`, `start_date`, and `band` 
 respectively) and will pre-fill the control panel parameters. Example: 
@@ -191,9 +194,9 @@ these spots are colored light red.
 relative to adjacent spots.
 - The channel field is blank (unknown telemetry protocol).
 
-Unattached spots are always shown in the data view. They also appear
-on the map if the "Show More" option is enabled in the data view,
-but they are rendered outside the track and are typically colored white.
+Unattached spots are always displayed in the data view. They are also
+shown on the map when the `show_unattached`
+[URL parameter](#url-parameters) is set.
 
 <img src="images/img16.png" width=360>
 

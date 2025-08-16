@@ -45,6 +45,7 @@ let debug = 0;  // controls console logging
 // URL-only parameters
 let end_date_param;
 let dnu_param;  // dnu = do not update
+let show_unattached_param;
 
 // Extended telemetry URL params
 let et_decoders_param;
@@ -960,7 +961,7 @@ function displayTrack() {
   for (let i = 0; i < spots.length; i++) {
     let spot = spots[i];
     if (spot.is_unattached &&
-        !params.detail && params.tracker != 'unknown') {
+        show_unattached_param == null && params.tracker != 'unknown') {
       continue;
     }
 
@@ -1429,7 +1430,7 @@ async function update(incremental_update = false) {
     last_update_ts = now;
 
     if (incremental_update ||
-        (!dnu_param && now - params.end_date < 86400 * 1000)) {
+        ((dnu_param == null) && now - params.end_date < 86400 * 1000)) {
       // Only schedule updates for current flights
       scheduleNextUpdate();
     }
@@ -1465,6 +1466,9 @@ function updateURL() {
     }
     if (units_param) {
       url += '&units=' + encodeURIComponent(units_param);
+    }
+    if (show_unattached_param != null) {
+      url += '&show_unattached';
     }
     if (et_decoders_param) {
       url += '&et_dec=' + encodeURLParameter(et_decoders_param);
@@ -1521,14 +1525,13 @@ const kDataFields = [
     'type': 'timestamp'
   }],
   ['grid', { 'align': 'left' }],
-  ['track_attachment', {
-    'min_detail': 1,
-    'label': 'Track',
-    'long_label': 'Track Attachment'
-  }],
   ['gps_lock', {
     'label': 'GPS',
     'long_label': 'GPS Fix Validity'
+  }],
+  ['track_attachment', {
+    'label': 'Track',
+    'long_label': 'Track Attachment'
   }],
   ['lat', {
     'label': 'Lat',
@@ -1682,6 +1685,11 @@ function computeDerivedData(spots) {
         new Set(derived_data[field].filter(v => v != undefined)).size < 2) {
       delete derived_data[field];
     }
+  }
+  // Only keep track attachment in detailed view or if the
+  // show_unattached parameter is used
+  if (!params.detail && show_unattached_param == null) {
+    delete derived_data['track_attachment'];
   }
   // Only keep gps_lock if some values are set to 0
   if (derived_data['gps_lock'] &&
@@ -2215,6 +2223,7 @@ function start() {
   end_date_param = getURLParameter('end_date');
   units_param = getURLParameter('units');
   dnu_param = getURLParameter('dnu');
+  show_unattached_param = getURLParameter('show_unattached');
   et_decoders_param = getURLParameter('et_dec');
   et_labels_param = getURLParameter('et_labels');
   et_long_labels_param = getURLParameter('et_llabels');
