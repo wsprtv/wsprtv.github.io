@@ -651,7 +651,6 @@ function decodeSpot(spot) {
     for (let i = 2; i < spot.slots.length; i++) {
       if (spot.slots[i] && !processExtendedTelemetryMessage(spot, i)) {
         spot.slots[i].is_invalid = true;
-        return true;
       }
     }
   }
@@ -1632,7 +1631,8 @@ function computeDerivedData(spots) {
       derived_data['power'][i] = spot.slots[0]['power']
     }
     derived_data['gps_lock'][i] = spot.is_invalid_gps ? 0 : 1;
-    if (i > 0) {
+    if (spot.is_invalid_gps) continue;
+    if (!spot.is_unattached) {
       if (last_altitude_spot && spot.altitude) {
         // Calculate vspeed
         derived_data['vspeed'][i] =
@@ -1642,8 +1642,7 @@ function computeDerivedData(spots) {
       if (params.tracker != 'unknown' && spot.grid.length == 6) {
         if (last_grid6_spot) {
           // Calculate cspeed (computed speed)
-          let dist = L.latLng(last_grid6_spot.lat, last_grid6_spot.lon)
-              .distanceTo([spot.lat, spot.lon]) / 1000;
+          let dist = getDistance(last_grid6_spot, spot) / 1000;
           let ts_delta = (spot.ts - last_grid6_spot.ts) || 1;
           let cspeed = dist * 3600000 / ts_delta;
           let min_cspeed = Math.max(dist - 4, 0) * 3600000 / ts_delta;
@@ -1658,8 +1657,8 @@ function computeDerivedData(spots) {
           last_grid6_spot = spot;
         }
       }
+      if (spot.altitude) last_altitude_spot = spot;
     }
-    if (spot.altitude) last_altitude_spot = spot;
     if (spot.lat) {
       derived_data['sun_elev'][i] =
           getSunElevation(spot.ts, spot.lat, spot.lon);
