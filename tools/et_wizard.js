@@ -659,7 +659,7 @@ function generateURL() {
     url += 'cs=' + encodeURLParameter(cs) + '&';
   }
   if (ch) {
-    if (!/^(\d{3}|u[q01]\d{2})$/i.test(ch)) {
+    if (!/^(\d{1,3}|u[q01]\d{2})$/i.test(ch)) {
       alert(`Invalid channel: ${ch}`);
       return;
     }
