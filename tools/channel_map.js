@@ -168,8 +168,8 @@ function createWSPRLiveQuery() {
           time > subtractDays(now(), ${params.num_days}) AND
           band = ${wspr_live_band} AND
           (frequency BETWEEN ${start_freq} AND ${start_freq + 200}) AND
-          (toInt8(substring(tx_loc, 4, 1)) +
-           (power IN (0, 7, 13, 20, 27, 33, 40, 47, 53, 60))) % 2 = 0
+          (toInt8(substring(tx_loc, 4, 1)) * 19 +
+           round(power / 3.33)) % 2 == 1
         GROUP BY time, tx_sign, tx_loc, power
         HAVING num_rx >= ${params.rx_threshold}
       )

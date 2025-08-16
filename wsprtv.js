@@ -33,7 +33,7 @@ let map;  // Leaflet map object
 let markers = [];
 let marker_group;
 let segment_group;
-let last_marker;  // last marker in the displayed track
+let last_marker;  // used to periodically update the 'last ago' message
 let selected_marker;  // currently selected (clicked) marker
 
 let data = [];  // raw wspr.live telemetry data
@@ -126,6 +126,13 @@ function getURLParameter(name) {
       decodeURIComponent(match[2].replace(/\+/g, ' ')) : '';
 }
 
+// Parses a versioned parameter such as fooV12 into its prefix
+// and the version number (or 0 if not present)
+function parseVersionedParameter(param) {
+  const match = param.match(/^(.*?)(?:V(\d+))?$/i);
+  return [match[1], match[2] ? Number(match[2]) : 0];
+}
+
 // Parses and validates input params, returning them as a dictionary.
 // Alerts the user and returns null if validation failed.
 function parseParameters() {
@@ -136,7 +143,8 @@ function parseParameters() {
     return null;
   }
   // Channel may also encode tracker type, such as Z4 for Zachtek
-  const raw_ch = document.getElementById('ch').value.trim();
+  const [raw_ch, version] =
+      parseVersionedParameter(document.getElementById('ch').value.trim());
   let ch;
   let tracker;
   const [starting_minute_offset, _] = kWSPRBandInfo[band];
@@ -242,8 +250,9 @@ function parseParameters() {
   // Successful validation
   return { 'cs': cs, 'ch': ch, 'band': band, 'tracker': tracker,
            'start_date': start_date, 'end_date': end_date,
-           'et_slots' : et_slots, 'units' : units,
-           'detail': detail, 'et_spec': et_spec };
+           'et_slots': et_slots, 'units': units,
+           'detail': detail, 'et_spec': et_spec,
+           'version': version };
 }
 
 // Returns the list of slots that may have U4B extended telemetry
@@ -518,9 +527,10 @@ function processU4BSlot1Message(spot) {
       String.fromCharCode(97 + (p % 24));
   let altitude = (m % 1068) * 20;
 
-  if (!(Math.floor(n / 2) % 2)) {
+  const is_valid_gps = Math.floor(n / 2) % 2;
+  if (!is_valid_gps && params.version < 100) {
     // Invalid GPS bit
-    spot.slots[1].is_invalid_gps = true;
+    spot.is_invalid_gps = true;
     return false;
   }
   // Fill values
@@ -529,7 +539,40 @@ function processU4BSlot1Message(spot) {
   spot.temp = (Math.floor(n / 6720) % 90) - 50;
   spot.grid = grid;
   spot.altitude = altitude;
+
+  if (params.version >= 100) {
+    handleU4BVariants(spot, is_valid_gps);
+  }
   return true;
+}
+
+// Handles U4B variants where a different meaning is assigned to
+// the gps_valid flag
+function handleU4BVariants(spot, flag) {
+  switch (params.version) {
+    case 100: {
+      // Increased speed range
+      if (!flag) spot.speed += 42 * 2 * 1.852;
+      break;
+    }
+    case 101: {
+      // Improved altitude resolution
+      if (!flag) spot.altitude += 10;
+      break;
+    }
+    case 102: {
+      // Improved longitude resolution
+      [spot.lat, spot.lon] = maidenheadToLatLon(spot.grid);
+      spot.lon += flag ? (-1 / 48) : (1 / 48);
+      break;
+    }
+    case 103: {
+      // Improved latitude resolution
+      [spot.lat, spot.lon] = maidenheadToLatLon(spot.grid);
+      spot.lat += flag ? (-1 / 96) : (1 / 96);
+      break;
+    }
+  }
 }
 
 function processExtendedTelemetryMessage(spot, slot) {
@@ -612,7 +655,7 @@ function decodeSpot(spot) {
       }
     }
   }
-  if (!spot.slots[1] || !spot.slots[1].is_invalid_gps) {
+  if (spot.lat == undefined) {
     [spot.lat, spot.lon] = maidenheadToLatLon(spot.grid);
   }
   if (spot.raw_et) decodeExtendedTelemetry(spot);
@@ -623,7 +666,8 @@ function decodeExtendedTelemetry(spot) {
   if (!params.et_spec || !spot.raw_et) return null;
   let et = [];
   let index = 0;  // index within data
-  let tx_seq = spot.ts.getUTCHours() * 30 +
+  let tx_seq = (spot.ts.getUTCDate() - 1) * 720 +
+      spot.ts.getUTCHours() * 30 +
       Math.floor(spot.ts.getUTCMinutes() / 2);
   for (let i = 0; i < spot.raw_et.length; i++) {
     const raw_et = spot.raw_et[i];
@@ -666,6 +710,50 @@ function decodeExtendedTelemetry(spot) {
   }
   if (et.length) spot.et = et;
   return data;
+}
+
+// Categorizes spots on whether they should be part of the track
+function categorizeSpots() {
+  let last_attached_spot;
+  for (let i = 0; i < spots.length; i++) {
+    const spot = spots[i];
+    if (spot.lat == undefined || spot.lon == undefined ||
+        spot.is_invalid_gps || params.tracker == 'unknown') {
+      spot.is_unattached = true;
+      continue;
+    }
+
+    if (last_attached_spot) {
+      if (getDistance(last_attached_spot, spot) / 1000 >
+          300 * Math.max(1800,
+              (spot.ts - last_attached_spot.ts) / 1000) / 3600) {
+        // Spot is too far from previous marker to be feasible (over 300 km/h
+        // speed needed to connect).
+        if (debug > 0) console.log('Unattaching an impossible spot');
+        spot.is_unattached = true;
+        continue;
+      }
+
+      if (spot.grid.length < 6) {
+        // Grid4 spot
+        if (((spot.ts - last_attached_spot.ts) < 2 * 3600 * 1000) &&
+            (getDistance(last_attached_spot, spot) < 200000)) {
+          // Do not attach grid4 spots unless there are no other spots nearby
+          spot.is_unattached = true;
+          continue;
+        }
+      } else {
+        // Grid6 spot
+        if ((last_attached_spot.grid.length < 6) &&
+            (spot.ts - last_attached_spot.ts < 2 * 3600 * 1000) &&
+            (getDistance(last_attached_spot, spot) < 200000)) {
+          // Unattach last grid4 marker
+          last_attached_spot.is_unattached = true;
+        }
+      }
+    }
+    last_attached_spot = spot;
+  }
 }
 
 // Value formatting
@@ -815,18 +903,28 @@ function toggleUnits() {
   localStorage.setItem('units', params.units);
 }
 
+// Returns the distance between two spots in meters
+function getDistance(spot1, spot2) {
+  return L.latLng([spot1.lat, spot1.lon]).distanceTo([spot2.lat, spot2.lon]);
+}
+
 // Only count distance between points at least 100km apart.
 // This improves accuracy when there are zig-zags.
-function computeDistance(markers) {
-  if (!markers) return 0;
+function computeTrackDistance(spots) {
+  if (!spots) return 0;
   let dist = 0;
-  let last_marker = markers[0];
-  for (let i = 1; i < markers.length; i++) {
-    const segment_dist = markers[i].getLatLng().distanceTo(
-        last_marker.getLatLng());
-    if (segment_dist > 100000 || i == markers.length - 1) {
-      dist += segment_dist;
-      last_marker = markers[i];
+  let last_spot;
+  for (let i = 0; i < spots.length; i++) {
+    const spot = spots[i];
+    if (spot.is_unattached) continue;
+    if (!last_spot) {
+      last_spot = spot;
+    } else {
+      const segment_dist = getDistance(spot, last_spot);
+      if (segment_dist > 100000 || i == spots.length - 1) {
+        dist += segment_dist;
+        last_spot = spot;
+      }
     }
   }
   return dist;
@@ -852,7 +950,7 @@ function clearTrack() {
     hideMarkerRXInfo(selected_marker);
   }
   selected_marker = null;
-  last_marker = null;
+  last_attached_marker = null;
 }
 
 // Draws the track on the map
@@ -861,84 +959,112 @@ function displayTrack() {
   marker_group = L.featureGroup();
   segment_group = L.featureGroup();
 
-  // To reduce clutter, we only show grid4 markers if they are more than
-  // 200km and/or 2 hours from adjacent grid6 markers. In other words, we only
-  // display grid4 markers if there are no good adjacent grid6 markers to show
-  // instead.
   for (let i = 0; i < spots.length; i++) {
     let spot = spots[i];
-    if (spot.lat == undefined || spot.lon == undefined) {
-      continue;
-    }
-
-    if (params.tracker != 'unknown' && last_marker &&
-        last_marker.getLatLng().distanceTo(
-            [spot.lat, spot.lon]) / 1000 >
-        300 * Math.max(1800, (spot.ts - last_marker.spot.ts) / 1000) / 3600) {
-      // Spot is too far from previous marker to be feasible (over 300 km/h
-      // speed needed to connect). Ignore.
-      if (debug > 0) console.log('Filtering out an impossible spot');
+    if (spot.lat == undefined || spot.lon == undefined ||
+        (spot.is_unattached && !params.detail)) {
       continue;
     }
 
     let marker = null;
     if (spot.grid.length < 6) {
-      // Grid4 spot
-      if (params.tracker == 'unknown' || !last_marker ||
-          (spot.ts - last_marker.spot.ts > 2 * 3600 * 1000) ||
-          (last_marker.getLatLng().distanceTo(
-               [spot.lat, spot.lon]) > 200000)) {
-        marker = L.circleMarker([spot.lat, spot.lon],
-            { radius: 5, color: 'black', fillColor: 'white', weight: 1,
-              stroke: true, fillOpacity: 1 });
-      }
-    } else {
-      // Grid6 spot
-      if (params.tracker != 'unknown' &&
-          last_marker && last_marker.spot.grid.length < 6 &&
-          (spot.ts - last_marker.spot.ts < 2 * 3600 * 1000) &&
-          (last_marker.getLatLng().distanceTo(
-               [spot.lat, spot.lon]) < 200000)) {
-        // Remove last grid4 marker
-        marker_group.removeLayer(last_marker);
-        markers.pop();
-      }
+      // Grid4
       marker = L.circleMarker([spot.lat, spot.lon],
-          { radius: 7, color: 'black', fillColor: '#add8e6', weight: 1,
+          { radius: 5, color: 'black',
+            fillColor: spot.is_invalid_gps ? '#fbb' : 'white',
+            weight: 1,
+            stroke: true, fillOpacity: 1 });
+    } else {
+      // Grid6
+      marker = L.circleMarker([spot.lat, spot.lon],
+          { radius: 7, color: 'black',
+            fillColor: spot.is_unattached ? 'white' : '#add8e6',
+            weight: 1,
             stroke: true, fillOpacity: 1 });
     }
-    if (marker) {
-      last_marker = marker;
-      marker.spot = spot;
-      marker.addTo(marker_group);
-      markers.push(marker);
-    }
+    marker.spot = spot;
+    marker.addTo(marker_group);
+    markers.push(marker);
   }
 
-  // Highlight the first and last marker
-  if (markers.length > 0) {
+  // Add segments between markers. Handle segments across map edges.
+  let first_attached_marker;
+  let last_attached_marker;
+  for (let i = 0; i < markers.length; i++) {
+    const marker = markers[i];
+    if (marker.spot.is_unattached) continue;
+    if (last_attached_marker) {
+      let lat1 = last_attached_marker.getLatLng().lat;
+      let lon1 = last_attached_marker.getLatLng().lng;
+      let lat2 = marker.getLatLng().lat;
+      let lon2 = marker.getLatLng().lng;
+      if (lon1 < lon2) {
+        // Reorder so that lon1 is east of lon2 when crossing the antimeridian
+        [[lat1, lon1], [lat2, lon2]] = [[lat2, lon2], [lat1, lon1]];
+      }
+      if (lon1 - lon2 > 180) {
+        // The segment crosses the antimeridian (lon=180 line). Leaflet doesn't
+        // display these correctly. Instead, we will display 2 segments -- from
+        // marker1 to antimeridian and from antimeridian to marker2. For this
+        // to work, the latitude at which the segment crosses antimeridian
+        // needs to be calculated.
+        const lat180 = lat1 + (lat2 - lat1) * (180 - lon1) /
+            (lon2 - lon1 + 360);
+        L.polyline([[lat1, lon1], [lat180, 180]],
+            { color: '#00cc00' }).addTo(segment_group);
+        L.polyline([[lat2, lon2], [lat180, -180]],
+            { color: '#00cc00' }).addTo(segment_group);
+      } else {
+        // Regular segment, no antimeridian crossing
+        L.polyline(
+          [last_attached_marker.getLatLng(), marker.getLatLng()],
+          { color: '#00cc00' }).addTo(segment_group);
+      }
+    } else {
+      first_attached_marker = marker;
+    }
+    last_attached_marker = marker;
+  }
+
+  // Highlight first / last markers
+  if (first_attached_marker) {
+    first_attached_marker.setStyle({ fillColor: '#3cb371' });
+  } else if (markers.length > 0) {
     markers[0].setStyle({ fillColor: '#3cb371' });
   }
-  if (last_marker) {
-    last_marker.setStyle({ fillColor: 'red' });
+  if (last_attached_marker) {
+    last_attached_marker.setStyle({ fillColor: 'red' });
+  } else if (markers.length > 0) {
+    markers[markers.length - 1].setStyle({ fillColor: 'red' });
   }
+
+  segment_group.addTo(map);
+  marker_group.addTo(map);
 
   // Populate flight synopsis
   let synopsis = document.getElementById('synopsis');
-  if (markers.length > 0) {
-    const last_spot = last_marker.spot;
-    const duration = formatDuration(last_marker.spot.ts, markers[0].spot.ts);
+  if (last_attached_marker) {
+    const last_spot = last_attached_marker.spot;
+    const first_spot = first_attached_marker.spot;
+    const duration = formatDuration(last_spot.ts, first_spot.ts);
     synopsis.innerHTML = `Duration: <b>${duration}</b>`;
     if (params.tracker != 'unknown') {
       // Distance is a clickable link to switch units
-      const dist = computeDistance(markers);
+      const dist = computeTrackDistance(spots);
       synopsis.innerHTML += '<br>Distance: <b>' +
           '<a href="#" id="unit_switch_link" title="Click to change units" ' +
           'onclick="toggleUnits(); event.preventDefault()">' +
           formatDistance(dist) + '</a></b>';
     }
-    synopsis.innerHTML += `<br><b>${markers.length}</b> map spot` +
-        ((markers.length > 1) ? 's' : '');
+    const num_track_spots = markers.filter(m => !m.spot.is_unattached).length;
+    synopsis.innerHTML += `<br><b>${num_track_spots}</b> track spot` +
+        ((num_track_spots > 1) ? 's' : '');
+    if (num_track_spots != markers.length) {
+      const num_unattached_spots = markers.length - num_track_spots;
+      synopsis.innerHTML +=
+          `<br><b>${num_unattached_spots}</b> unattached spot` +
+          ((num_unattached_spots > 1) ? 's' : '');
+    }
     if ('altitude' in last_spot) {
       synopsis.innerHTML += '<br>Last altitude: <b>' +
           formatAltitude(last_spot.altitude) + '</b>';
@@ -954,52 +1080,23 @@ function displayTrack() {
     const last_age = formatDuration(new Date(), last_spot.ts);
     synopsis.innerHTML += `<br><b>(<span id='last_age'>${last_age}` +
         `</span> ago)</b>`;
+    last_marker = last_attached_marker;
   } else {
-    synopsis.innerHTML = '<b>0</b> spots';
+    // No markers in the track
+    synopsis.innerHTML = `<b>${markers.length}</b> spot` +
+        ((markers.length != 1) ? 's' : '');
+    if (markers.length > 0) {
+      last_marker = markers[markers.length - 1];
+      const last_age = formatDuration(new Date(), last_marker.spot.ts);
+      synopsis.innerHTML += `<br><b>(<span id='last_age'>${last_age}` +
+          `</span> ago)</b>`;
+    }
   }
 
   displayNextUpdateCountdown();
 
-  // Add segments between markers
-  // Handle segments across map edges
-  for (let i = 1; i < markers.length; i++) {
-    if (params.tracker == 'unknown') {
-      // Do not draw lines between markers for 'unknown' trackers
-      continue;
-    }
-    let lat1 = markers[i - 1].getLatLng().lat;
-    let lon1 = markers[i - 1].getLatLng().lng;
-    let lat2 = markers[i].getLatLng().lat;
-    let lon2 = markers[i].getLatLng().lng;
-    if (lon1 < lon2) {
-      // Reorder so that lon1 is east of lon2 when crossing the antimeridian
-      [[lat1, lon1], [lat2, lon2]] = [[lat2, lon2], [lat1, lon1]];
-    }
-    if (lon1 - lon2 > 180) {
-      // The segment crosses the antimeridian (lon=180 line). Leaflet doesn't
-      // display these correctly. Instead, we will display 2 segments -- from
-      // marker1 to antimeridian and from antimeridian to marker2. For this to
-      // work, the latitude at which the segment crosses antimeridian needs to
-      // be calculated.
-      let lat180 = lat1 + (lat2 - lat1) * (180 - lon1) /
-          (lon2 - lon1 + 360);
-      L.polyline([[lat1, lon1], [lat180, 180]],
-          { color: '#00cc00' }).addTo(segment_group);
-      L.polyline([[lat2, lon2], [lat180, -180]],
-          { color: '#00cc00' }).addTo(segment_group);
-    } else {
-      // Regular segment, no antimeridian crossing
-      L.polyline(
-        [markers[i - 1].getLatLng(), markers[i].getLatLng()],
-        { color: '#00cc00' }).addTo(segment_group);
-    }
-  }
-
-  segment_group.addTo(map);
-  marker_group.addTo(map);
-
   if (spots) {
-    // Display the data view button if the map is visible
+    // Display the data view button if there are any spots
     document.getElementById('show_data_button').style.display =
         document.getElementById('map').style.display;
   }
@@ -1121,6 +1218,10 @@ function displaySpotInfo(marker, point) {
       spot_info.innerHTML +=
           `<br>${i}: ${slot.cs} ${slot.grid} ${slot.power}`;
     }
+  }
+  if (spot.is_invalid_gps) {
+    spot_info.innerHTML +=
+        '<br><span style="color: red">Invalid GPS fix</span>';
   }
   spot_info.innerHTML +=
       `<br>${spot.lat.toFixed(2)}°, ${spot.lon.toFixed(2)}°`;
@@ -1312,6 +1413,7 @@ async function update(incremental_update = false) {
     if (debug > 2) console.log(spots);
 
     decodeSpots();
+    categorizeSpots();
 
     if (document.getElementById('map').style.display == 'block') {
       // Map view active
@@ -1421,6 +1523,10 @@ const kDataFields = [
     'type': 'timestamp'
   }],
   ['grid', { 'align': 'left' }],
+  ['gps_lock', {
+    'label': 'GPS',
+    'long_label': 'Valid GPS Fix'
+  }],
   ['lat', {
     'label': 'Lat',
     'color': '#0066cc',
@@ -1489,7 +1595,7 @@ const kDataFields = [
 ];
 
 const kDerivedFields = [
-  'power', 'sun_elev', 'cspeed', 'vspeed', 'sun_elev', 'num_rx',
+  'gps_lock', 'power', 'sun_elev', 'cspeed', 'vspeed', 'sun_elev', 'num_rx',
   'max_rx_dist', 'max_snr'];
 
 const kFormatters = {
@@ -1525,6 +1631,7 @@ function computeDerivedData(spots) {
     if (['u4b', 'generic1', 'generic2', 'unknown'].includes(params.tracker)) {
       derived_data['power'][i] = spot.slots[0]['power']
     }
+    derived_data['gps_lock'][i] = spot.is_invalid_gps ? 0 : 1;
     if (i > 0) {
       if (last_altitude_spot && spot.altitude) {
         // Calculate vspeed
@@ -1570,6 +1677,12 @@ function computeDerivedData(spots) {
       new Set(derived_data['power'].filter(v => v != undefined)).size < 2) {
     delete derived_data['power'];
   }
+  // Only keep gps_lock if some values are set to 0
+  if (derived_data['gps_lock'] &&
+      derived_data['gps_lock'].every(v => v == 1)) {
+    delete derived_data['gps_lock'];
+  }
+
   return derived_data;
 }
 
@@ -2233,8 +2346,9 @@ function start() {
 
     // Update the "Last ago" timestamp
     let last_age = document.getElementById('last_age');
-    if (last_age && last_marker) {
-      last_age.innerHTML = formatDuration(new Date(), last_marker.spot.ts);
+    if (last_age && last_attached_marker) {
+      last_age.innerHTML =
+          formatDuration(new Date(), last_attached_marker.spot.ts);
     }
   }, 20 * 1000);
 

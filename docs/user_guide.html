@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title></title>
+  <title>WSPR TV User Guide</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/github-markdown-css/5.5.1/github-markdown-light.min.css">
   <style>
     body {
@@ -27,7 +27,7 @@ advanced features.</p>
 <h2 id="returning-to-this-page">Returning to This Page</h2>
 <p>If you ever forget something and need to return to this page, the band
 selection menu in the control panel (where you specify the HF band) has
-a <code class="notranslate">User Guide</code> option at the bottom.</p>
+a <code class="notranslate">User Guide</code> option at the top.</p>
 <p><a target="_blank" rel="noopener noreferrer" href="images/img1.png"><img src="images/img1.png" width="360" style="max-width: 100%;"></a></p>
 <p>There are two other links in the band menu:</p>
 <ul>
@@ -68,6 +68,9 @@ transmit in the last 40 Hz of the band.</p>
 <p>Additional special callsign messages may follow in slots 2-4,
 representing <strong>extended telemetry (ET)</strong>. Extended telemetry is
 discussed in detail <a href="#u4b-extended-telemetry">below</a>.</p>
+<p>U4B channels are allowed to have a <code class="notranslate">V&lt;variant&gt;</code> suffix, such as
+<code class="notranslate">321V100</code>, to enable
+<a href="#u4b-experimental-extensions">certain experimental extensions</a>.</p>
 </li>
 <li>
 <p><strong>U4B [<code class="notranslate">U&lt;CS1&gt;&lt;CS3&gt;&lt;M&gt;</code>]</strong>. This is an alternative U4B channel
@@ -175,10 +178,23 @@ respectively) and will pre-fill the control panel parameters. Example:
 <h2 id="map-view">Map View</h2>
 <p>A track is rendered as a sequence of small white grid4 markers (low
 resolution) and larger light blue grid6 markers (high resolution).
-Markers are connected by green lines. Not all grid4 markers are shown on
-the map, as that could make tracks look excessively jagged. To see all
-spots, switch to the data view.</p>
+Markers are connected by green lines.</p>
 <p><a target="_blank" rel="noopener noreferrer" href="images/img3.png"><img src="images/img3.png" width="360" style="max-width: 100%;"></a></p>
+<p>Note that some spots may be <strong>unattached</strong> (i.e., not shown as
+part of the track) for one of the following reasons:</p>
+<ul>
+<li>A U4B spot has the <code class="notranslate">gps_valid</code> bit set to 0. If shown on the map,
+these spots are colored light red.</li>
+<li>A grid4 (low-resolution) spot is located near a grid6
+(high-resolution) spot.</li>
+<li>A spot has unusual characteristics, such as an improbable location
+relative to adjacent spots.</li>
+<li>The channel field is blank (unknown telemetry protocol).</li>
+</ul>
+<p>Unattached spots are always shown in the data view. They also appear
+on the map if the "Show More" option is enabled in the data view,
+but they are rendered outside the track and are typically colored white.</p>
+<p><a target="_blank" rel="noopener noreferrer" href="images/img16.png"><img src="images/img16.png" width="360" style="max-width: 100%;"></a></p>
 <p>One peculiarity of the mapping framework used by WSPR TV (Leaflet) is
 that data is not duplicated across the antimeridian (i.e., -180/180
 longitude). Therefore, as you pan, you may suddenly notice the track
@@ -475,20 +491,21 @@ variable <code class="notranslate">slot</code>.</p>
 <p>WSPR TV provides a powerful mechanism for multiplexing multiple message
 types within the same slot -- without using any extra bits to indicate
 which schema is in use -- via the <code class="notranslate">tx_seq</code> variable.</p>
-<p><code class="notranslate">tx_seq</code> represents the transmission slot sequence number, which starts
-at 0 at 00:00 UTC and increments every 2 minutes. If the GPS UTC time of
-the <strong>regular callsign</strong> transmission preceding an extended telemetry
-message is <code class="notranslate">HH:MM</code>, <code class="notranslate">tx_seq</code> is calculated as follows:</p>
-<pre class="notranslate"><code class="notranslate">tx_seq = (HH * 30) + (MM / 2)
+<p><code class="notranslate">tx_seq</code> represents the transmission slot sequence number, which
+increments every 2 minutes and resets every month. If the GPS <strong>UTC</strong>
+time of the <strong>regular callsign</strong> transmission preceding an extended
+telemetry message is <code class="notranslate">YYY-MM-DD HH:MM</code>, <code class="notranslate">tx_seq</code> is calculated as
+follows:</p>
+<pre class="notranslate"><code class="notranslate">tx_seq = ((DD - 1) * 720) + (HH * 30) + (MM / 2)
 </code></pre>
-<p>For example, at 06:32 UTC, <code class="notranslate">tx_seq = (6 * 30) + (32 / 2) = 196</code>. The
-counter resets at midnight UTC each day.</p>
+<p>For example, on May 3rd at 06:32 UTC,
+<code class="notranslate">tx_seq = (2 * 720) + (6 * 30) + (32 / 2) = 1636</code>.</p>
 <p>This variable can be used instead of <code class="notranslate">BigNumber</code> in filters:</p>
 <pre class="notranslate"><code class="notranslate">(tx_seq / divisor) % modulus = expected_value
 </code></pre>
 <p>This allows WSPR TV to decode messages differently based on transmission
-time -- for example, alternating behavior every other transmission,
-during odd-numbered hours, and so on. Multiple message types can be
+time -- for example, every other transmission, during odd-numbered
+hours, or on even-numbered days. Multiple message types can be
 multiplexed into the same ET slot.</p>
 <p>Another time-dependent filter uses the variable <code class="notranslate">slot</code> and expresses the
 condition:</p>
@@ -650,6 +667,29 @@ parameters. Here is how to assign units to the 4th extractor while
 keeping all the other values unitless.</p>
 <pre class="notranslate"><code class="notranslate">et_units=,,,mph
 </code></pre>
+<h2 id="u4b-experimental-extensions">U4B Experimental Extensions</h2>
+<p>U4B messages include a <code class="notranslate">gps_valid</code> bit, which many trackers always
+set to 1. WSPR TV allows this bit to be repurposed for other uses by
+specifying a version (or variant) in the channel parameter, such as
+<code class="notranslate">321V100</code>. The following variants are currently supported:</p>
+<ul>
+<li>
+<p><strong>100</strong> [increased speed range] - add 84 knots (156 km/h) to speed
+if <code class="notranslate">gps_valid = 0</code></p>
+</li>
+<li>
+<p><strong>101</strong> [increased altitude resolution] - add 10 meters to
+altitude if <code class="notranslate">gps_valid = 0</code></p>
+</li>
+<li>
+<p><strong>102</strong> [increased longitude resolution] - add 2.5 arcminutes to
+longitude if <code class="notranslate">gps_valid = 0</code></p>
+</li>
+<li>
+<p><strong>103</strong> [increased latitude resolution] - add 1.25 arcminutes to
+latitude if <code class="notranslate">gps_valid = 0</code></p>
+</li>
+</ul>
 <h2 id="u4b-channel-map">U4B Channel Map</h2>
 <p>WSPR TV provides a channel map to help users gauge U4B channel activity.
 This map is particularly well-suited for identifying unused channels.</p>

@@ -9,7 +9,7 @@ advanced features.
 
 If you ever forget something and need to return to this page, the band 
 selection menu in the control panel (where you specify the HF band) has 
-a `User Guide` option at the bottom.
+a `User Guide` option at the top.
 
 <img src="images/img1.png" width=360>
 
@@ -60,6 +60,10 @@ transmit in the last 40 Hz of the band.
   Additional special callsign messages may follow in slots 2-4, 
 representing **extended telemetry (ET)**. Extended telemetry is 
 discussed in detail [below](#u4b-extended-telemetry).
+
+  U4B channels are allowed to have a `V<variant>` suffix, such as 
+`321V100`, to enable
+[certain experimental extensions](#u4b-experimental-extensions).
 
 - **U4B [`U<CS1><CS3><M>`]**. This is an alternative U4B channel 
 representation that specifies the first and third characters of the 
@@ -171,12 +175,27 @@ Extended-telemetry-related URL parameters `et_dec`, `et_labels`,
 ## Map View
 
 A track is rendered as a sequence of small white grid4 markers (low 
-resolution) and larger light blue grid6 markers (high resolution). 
-Markers are connected by green lines. Not all grid4 markers are shown on 
-the map, as that could make tracks look excessively jagged. To see all 
-spots, switch to the data view.
+resolution) and larger light blue grid6 markers (high resolution).
+Markers are connected by green lines.
 
 <img src="images/img3.png" width=360>
+
+Note that some spots may be **unattached** (i.e., not shown as
+part of the track) for one of the following reasons:
+
+- A U4B spot has the `gps_valid` bit set to 0. If shown on the map, 
+these spots are colored light red.
+- A grid4 (low-resolution) spot is located near a grid6 
+(high-resolution) spot.
+- A spot has unusual characteristics, such as an improbable location 
+relative to adjacent spots.
+- The channel field is blank (unknown telemetry protocol).
+
+Unattached spots are always shown in the data view. They also appear
+on the map if the "Show More" option is enabled in the data view,
+but they are rendered outside the track and are typically colored white.
+
+<img src="images/img16.png" width=360>
 
 One peculiarity of the mapping framework used by WSPR TV (Leaflet) is 
 that data is not duplicated across the antimeridian (i.e., -180/180 
@@ -535,17 +554,18 @@ WSPR TV provides a powerful mechanism for multiplexing multiple message
 types within the same slot -- without using any extra bits to indicate 
 which schema is in use -- via the `tx_seq` variable.
 
-`tx_seq` represents the transmission slot sequence number, which starts 
-at 0 at 00:00 UTC and increments every 2 minutes. If the GPS UTC time of 
-the **regular callsign** transmission preceding an extended telemetry 
-message is `HH:MM`, `tx_seq` is calculated as follows:
+`tx_seq` represents the transmission slot sequence number, which 
+increments every 2 minutes and resets every month. If the GPS **UTC** 
+time of the **regular callsign** transmission preceding an extended 
+telemetry message is `YYY-MM-DD HH:MM`, `tx_seq` is calculated as 
+follows:
 
 ```
-tx_seq = (HH * 30) + (MM / 2)
+tx_seq = ((DD - 1) * 720) + (HH * 30) + (MM / 2)
 ```
 
-For example, at 06:32 UTC, `tx_seq = (6 * 30) + (32 / 2) = 196`. The 
-counter resets at midnight UTC each day.
+For example, on May 3rd at 06:32 UTC,
+`tx_seq = (2 * 720) + (6 * 30) + (32 / 2) = 1636`.
 
 This variable can be used instead of `BigNumber` in filters:
 
@@ -554,8 +574,8 @@ This variable can be used instead of `BigNumber` in filters:
 ```
 
 This allows WSPR TV to decode messages differently based on transmission 
-time -- for example, alternating behavior every other transmission, 
-during odd-numbered hours, and so on. Multiple message types can be 
+time -- for example, every other transmission, during odd-numbered 
+hours, or on even-numbered days. Multiple message types can be 
 multiplexed into the same ET slot.
 
 Another time-dependent filter uses the variable `slot` and expresses the 
@@ -772,6 +792,25 @@ keeping all the other values unitless.
 ```
 et_units=,,,mph
 ```
+
+## U4B Experimental Extensions
+
+U4B messages include a `gps_valid` bit, which many trackers always 
+set to 1. WSPR TV allows this bit to be repurposed for other uses by 
+specifying a version (or variant) in the channel parameter, such as 
+`321V100`. The following variants are currently supported:
+
+- **100** [increased speed range] - add 84 knots (156 km/h) to speed 
+if `gps_valid = 0`
+
+- **101** [increased altitude resolution] - add 10 meters to 
+altitude if `gps_valid = 0`
+
+- **102** [increased longitude resolution] - add 2.5 arcminutes to 
+longitude if `gps_valid = 0`
+
+- **103** [increased latitude resolution] - add 1.25 arcminutes to 
+latitude if `gps_valid = 0`
 
 ## U4B Channel Map
 
