@@ -161,6 +161,9 @@ UTC) for a track. <code class="notranslate">end_date</code> defaults to today an
 other ways to switch units in WSPR TV (see below).</p>
 </li>
 <li>
+<p><strong>detail=<code class="notranslate">&lt;0|1&gt;</code></strong> controls the amount of detail shown in the data view.</p>
+</li>
+<li>
 <p><strong>dnu</strong> (abbreviation for "do not update", no value needed) instructs
 WSPR TV not to update the track every 10 minutes. <code class="notranslate">dnu</code> is implied if
 <code class="notranslate">end_date</code> is in the past. Adding this parameter may make sense when
@@ -341,6 +344,8 @@ maximum SNR, and maximum RX distance.</p>
 only if the values differ from spot to spot.</p>
 </li>
 </ul>
+<p>Telemetry detail can also be set with the <code class="notranslate">detail</code>
+<a href="#url-parameters">URL parameter</a>.</p>
 <h3 id="unit-conversion">Unit Conversion</h3>
 <p>The <code class="notranslate">Toggle Units</code> button switches units from metric to imperial and
 vice versa. The preference affects all displayed, charted, and CSV

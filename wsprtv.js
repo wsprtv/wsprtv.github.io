@@ -54,6 +54,10 @@ let et_long_labels_param;
 let et_units_param;
 let et_resolutions_param;
 
+// Other URL parameters
+let units_param;
+let detail_param;
+
 let last_update_ts;
 let next_update_ts;
 
@@ -204,7 +208,9 @@ function parseParameters() {
   const units = (units_param == null) ?
       (localStorage.getItem('units') == 1 ? 1 : 0) :
       (units_param == 'imperial' ? 1 : 0);
-  const detail = localStorage.getItem('detail') == 1 ? 1 : 0;
+  const detail = (detail_param == null) ?
+      (localStorage.getItem('detail') == 1 ? 1 : 0) :
+      (detail_param == '1' ? 1 : 0);
 
   let cs_regex;
   if (['generic2', 'zachtek2', 'unknown'].includes(tracker)) {
@@ -900,6 +906,8 @@ function toggleUnits() {
 
   // Remember units preference
   localStorage.setItem('units', params.units);
+
+  updateURL();
 }
 
 // Returns the distance between two spots in meters
@@ -1465,7 +1473,11 @@ function updateURL() {
       url += '&end_date=' + encodeURIComponent(end_date_param);
     }
     if (units_param) {
-      url += '&units=' + encodeURIComponent(units_param);
+      url += '&units=' + encodeURIComponent(
+          params.units ? 'imperial' : 'metric');
+    }
+    if (detail_param) {
+      url += '&detail=' + encodeURIComponent(params.detail);
     }
     if (show_unattached_param != null) {
       url += '&show_unattached';
@@ -1602,7 +1614,7 @@ const kDataFields = [
 
 const kDerivedFields = [
   'track_attachment', 'gps_lock', 'power', 'sun_elev', 'cspeed',
-  'vspeed', 'sun_elev', 'num_rx', 'max_rx_dist', 'max_snr'];
+  'vspeed', 'num_rx', 'max_rx_dist', 'max_snr'];
 
 const kFormatters = {
   'timestamp': (v, au) => formatTimestamp(v),
@@ -2017,6 +2029,8 @@ function toggleDataViewDetail() {
 
   // Remember user preference
   localStorage.setItem('detail', params.detail);
+
+  updateURL();
 }
 
 function getDownloadFilename(ext) {
@@ -2221,9 +2235,10 @@ function start() {
   initializeFormFields();
 
   end_date_param = getURLParameter('end_date');
-  units_param = getURLParameter('units');
   dnu_param = getURLParameter('dnu');
   show_unattached_param = getURLParameter('show_unattached');
+  units_param = getURLParameter('units');
+  detail_param = getURLParameter('detail');
   et_decoders_param = getURLParameter('et_dec');
   et_labels_param = getURLParameter('et_labels');
   et_long_labels_param = getURLParameter('et_llabels');

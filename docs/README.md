@@ -157,6 +157,8 @@ UTC) for a track. `end_date` defaults to today and cannot be less than
 - **units=`<metric|imperial>`** specifies the display units. There are 
 other ways to switch units in WSPR TV (see below).
 
+- **detail=`<0|1>`** controls the amount of detail shown in the data view.
+
 - **dnu** (abbreviation for "do not update", no value needed) instructs 
 WSPR TV not to update the track every 10 minutes. `dnu` is implied if 
 `end_date` is in the past. Adding this parameter may make sense when 
@@ -357,6 +359,9 @@ maximum SNR, and maximum RX distance.
 
 - The TX power field reported by WSPR, but only for the U4B protocol and 
 only if the values differ from spot to spot.
+
+Telemetry detail can also be set with the `detail`
+[URL parameter](#url-parameters).
 
 ### Unit Conversion
 
