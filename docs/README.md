@@ -795,7 +795,7 @@ et_units=,,,mph
 
 ## U4B Experimental Extensions
 
-U4B messages include a `gps_valid` bit, which many trackers always 
+U4B messages include the `gps_valid` bit, which many trackers always 
 set to 1. WSPR TV allows this bit to be repurposed for other uses by 
 specifying a version (or variant) in the channel parameter, such as 
 `321V100`. The following variants are currently supported:

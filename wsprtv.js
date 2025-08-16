@@ -716,16 +716,17 @@ function categorizeSpots() {
   let last_attached_spot;
   for (let i = 0; i < spots.length; i++) {
     const spot = spots[i];
-    if (spot.lat == undefined || spot.lon == undefined ||
-        spot.is_invalid_gps || params.tracker == 'unknown') {
+    if (spot.is_invalid_gps || params.tracker == 'unknown') {
       spot.is_unattached = true;
       continue;
     }
 
     if (last_attached_spot) {
-      if (getDistance(last_attached_spot, spot) / 1000 >
-          300 * Math.max(1800,
-              (spot.ts - last_attached_spot.ts) / 1000) / 3600) {
+      let dist = getDistance(last_attached_spot, spot) / 1000;
+      dist -= spot.grid.length < 6 ? 125 : 5.2;
+      dist -= last_attached_spot.grid.length < 6 ? 125 : 5.2;
+      const delta_ts = Math.max(1, (spot.ts - last_attached_spot.ts) / 1000);
+      if (dist > 300 * delta_ts / 3600) {
         // Spot is too far from previous marker to be feasible (over 300 km/h
         // speed needed to connect).
         if (debug > 0) console.log('Unattaching an impossible spot');
@@ -735,7 +736,8 @@ function categorizeSpots() {
 
       if (spot.grid.length < 6) {
         // Grid4 spot
-        if (((spot.ts - last_attached_spot.ts) < 2 * 3600 * 1000) &&
+        if (!['zachtek1', 'generic1'].includes(params.tracker) &&
+            ((spot.ts - last_attached_spot.ts) < 2 * 3600 * 1000) &&
             (getDistance(last_attached_spot, spot) < 200000)) {
           // Do not attach grid4 spots unless there are no other spots nearby
           spot.is_unattached = true;
@@ -862,12 +864,9 @@ function getRXStats(spot) {
       }
     }
   }
-  let max_rx_dist = undefined;
-  if (spot.lat) {
-    const lat_lon = L.latLng([spot.lat, spot.lon]);
-    max_rx_dist = Math.max(...Object.keys(grids).map(grid =>
-        lat_lon.distanceTo(maidenheadToLatLon(grid))));
-  }
+  const lat_lon = L.latLng([spot.lat, spot.lon]);
+  const max_rx_dist = Math.max(...Object.keys(grids).map(grid =>
+      lat_lon.distanceTo(maidenheadToLatLon(grid))));
   return [Object.keys(cs).length, max_rx_dist, max_snr];
 }
 
@@ -960,9 +959,8 @@ function displayTrack() {
 
   for (let i = 0; i < spots.length; i++) {
     let spot = spots[i];
-    if (spot.lat == undefined || spot.lon == undefined ||
-        (spot.is_unattached &&
-         !params.detail && params.tracker != 'unknown')) {
+    if (spot.is_unattached &&
+        !params.detail && params.tracker != 'unknown') {
       continue;
     }
 
@@ -1523,9 +1521,14 @@ const kDataFields = [
     'type': 'timestamp'
   }],
   ['grid', { 'align': 'left' }],
+  ['track_attachment', {
+    'min_detail': 1,
+    'label': 'Track',
+    'long_label': 'Track Attachment'
+  }],
   ['gps_lock', {
     'label': 'GPS',
-    'long_label': 'Valid GPS Fix'
+    'long_label': 'GPS Fix Validity'
   }],
   ['lat', {
     'label': 'Lat',
@@ -1595,8 +1598,8 @@ const kDataFields = [
 ];
 
 const kDerivedFields = [
-  'gps_lock', 'power', 'sun_elev', 'cspeed', 'vspeed', 'sun_elev', 'num_rx',
-  'max_rx_dist', 'max_snr'];
+  'track_attachment', 'gps_lock', 'power', 'sun_elev', 'cspeed',
+  'vspeed', 'sun_elev', 'num_rx', 'max_rx_dist', 'max_snr'];
 
 const kFormatters = {
   'timestamp': (v, au) => formatTimestamp(v),
@@ -1632,7 +1635,7 @@ function computeDerivedData(spots) {
       derived_data['power'][i] = spot.slots[0]['power']
     }
     derived_data['gps_lock'][i] = spot.is_invalid_gps ? 0 : 1;
-    if (spot.is_invalid_gps) continue;
+    derived_data['track_attachment'][i] = spot.is_unattached ? 0 : 1;
     if (!spot.is_unattached) {
       if (last_altitude_spot && spot.altitude) {
         // Calculate vspeed
@@ -1640,7 +1643,7 @@ function computeDerivedData(spots) {
             (spot.altitude - last_altitude_spot.altitude) * 60000 /
             ((spot.ts - last_altitude_spot.ts) || 1);
       }
-      if (params.tracker != 'unknown' && spot.grid.length == 6) {
+      if (spot.grid.length == 6) {
         if (last_grid6_spot) {
           // Calculate cspeed (computed speed)
           let dist = getDistance(last_grid6_spot, spot) / 1000;
@@ -1660,22 +1663,25 @@ function computeDerivedData(spots) {
       }
       if (spot.altitude) last_altitude_spot = spot;
     }
-    if (spot.lat) {
+    if (!spot.is_invalid_gps &&
+        (!spot.is_unattached || params.tracker == 'unknown')) {
       derived_data['sun_elev'][i] =
           getSunElevation(spot.ts, spot.lat, spot.lon);
+      [derived_data['num_rx'][i], derived_data['max_rx_dist'][i],
+       derived_data['max_snr'][i]] = getRXStats(spot);
     }
-    [derived_data['num_rx'][i], derived_data['max_rx_dist'][i],
-     derived_data['max_snr'][i]] = getRXStats(spot);
   }
   for (const field of kDerivedFields) {
     if (derived_data[field].every(v => v == undefined)) {
       delete derived_data[field];
     }
   }
-  // Only keep power if some values are different
-  if (derived_data['power'] &&
-      new Set(derived_data['power'].filter(v => v != undefined)).size < 2) {
-    delete derived_data['power'];
+  // Only keep power and track attachment if some values are different
+  for (const field of ['power', 'track_attachment']) {
+    if (derived_data[field] &&
+        new Set(derived_data[field].filter(v => v != undefined)).size < 2) {
+      delete derived_data[field];
+    }
   }
   // Only keep gps_lock if some values are set to 0
   if (derived_data['gps_lock'] &&
@@ -1944,13 +1950,13 @@ function showDataView() {
 
   div.appendChild(document.createElement('br'));
 
-  div.appendChild(
-      createPrettyButton('Toggle Units', toggleUnits));
   if (params.detail != null && (can_show_less || can_show_more)) {
     div.appendChild(
         createPrettyButton(params.detail ? 'Show Less' : 'Show More',
                            toggleDataViewDetail));
   }
+  div.appendChild(
+      createPrettyButton('Toggle Units', toggleUnits));
   div.appendChild(
       createPrettyButton('Export CSV',
           () => downloadCSV(long_headers, table_data, table_formatters)));

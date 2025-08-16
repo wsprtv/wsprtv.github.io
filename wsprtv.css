@@ -94,8 +94,8 @@ html, body {
 #close_data_button {
   position: fixed;
   font-size: 20px;
-  top: 15px;
-  left: 15px;
+  top: 16px;
+  left: 16px;
   border: 3px solid #e8e8e8;
 }
 
