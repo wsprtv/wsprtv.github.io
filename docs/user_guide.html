@@ -613,8 +613,8 @@ from other formats.</p>
 <p>In this example, a single message is defined based on ET0 in slot 2. Two
 additional filters are applied: a temporal filter, which restricts the
 message to even <code class="notranslate">tx_seq</code> slots, and a custom selector, which checks that
-the first bit after the ET0 header is 0 (perhaps because the message
-format changes when the bit is 1).</p>
+the first bit after the ET0 header is 1 (perhaps because the message
+format changes when the bit is 0).</p>
 <p>The message contains two values -- Temperature and Voltage -- which
 follow immediately after the selector bit. The first divisor is 640,
 accounting for the ET0 header (320 values) plus the selector bit (2
@@ -633,7 +633,7 @@ link for your extended telemetry specification.</p>
 <h3 id="exteded-telemetry-url-parameters">Exteded Telemetry URL Parameters</h3>
 <p>While most extended telemetry definitions should be generated using the
 <a href="https://wsprtv.com/tools/et_wizard.html" rel="nofollow">ET Wizard</a>, it can be useful
-to understand how the extended telemetry URL parameters are constructed
+to understand how extended telemetry URL parameters are constructed
 from a specification.</p>
 <p>The <code class="notranslate">et_dec</code> URL parameters consists of one or more <em>decoders</em>,
 separated by the <code class="notranslate">~</code> character:</p>

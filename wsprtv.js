@@ -1145,8 +1145,10 @@ function onMarkerClick(e) {
     displaySpotInfo(marker, e.containerPoint);
     marker.rx_markers = [];
     marker.rx_segments = [];
-    spot.slots[0].rx.forEach(r => {
-      let rx_lat_lon = maidenheadToLatLon(r.grid);
+    const unique_rx = [...new Map(spot.slots.flatMap(slot => slot.rx).
+        map(rx => [rx.cs, rx])).values()];
+    unique_rx.forEach(rx => {
+      let rx_lat_lon = maidenheadToLatLon(rx.grid);
       let rx_marker = L.circleMarker(
           rx_lat_lon,
           { radius: 6, color: 'black',
@@ -1157,7 +1159,7 @@ function onMarkerClick(e) {
       });
       let dist = marker.getLatLng().distanceTo(rx_lat_lon);
       rx_marker.bindTooltip(
-          `${r.cs} ${formatDistance(dist)} ${r.snr} dBm`,
+          `${rx.cs} ${formatDistance(dist)} ${rx.snr} dBm`,
           { direction: 'top', opacity: 0.8 });
       marker.rx_markers.push(rx_marker);
       let segment = L.polyline([marker.getLatLng(), rx_lat_lon],
