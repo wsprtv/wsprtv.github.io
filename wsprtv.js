@@ -534,16 +534,15 @@ function processU4BSlot1Message(spot) {
       String.fromCharCode(97 + (p % 24));
   let altitude = (m % 1068) * 20;
 
+  spot.voltage = ((Math.floor(n / 168) + 20) % 40) * 0.05 + 3;
+  spot.temp = (Math.floor(n / 6720) % 90) - 50;
   const is_valid_gps = Math.floor(n / 2) % 2;
   if (!is_valid_gps && params.version < 100) {
     // Invalid GPS bit
     spot.is_invalid_gps = true;
     return false;
   }
-  // Fill values
   spot.speed = (Math.floor(n / 4) % 42) * 2 * 1.852;
-  spot.voltage = ((Math.floor(n / 168) + 20) % 40) * 0.05 + 3;
-  spot.temp = (Math.floor(n / 6720) % 90) - 50;
   spot.grid = grid;
   spot.altitude = altitude;
 
