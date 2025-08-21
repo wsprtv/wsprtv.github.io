@@ -270,6 +270,7 @@ function updateHistory() {
   let history;
   try {
     history = JSON.parse(localStorage.getItem('history'));
+    if (!history) history = [];
   } catch (error) {
     history = [];
   }
