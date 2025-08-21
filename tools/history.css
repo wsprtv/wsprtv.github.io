@@ -1,0 +1,79 @@
+html, body {
+  margin: 0;
+  background-color: #f8f8f8;
+  height: 100%;
+  font-family: Roboto, sans-serif;
+  font-size: 14px;
+}
+
+h1 {
+  margin: 0 0 15px 0;
+  color: #444;
+  font-size: 28px;
+}
+
+#wrapper {
+  padding: 20px;
+  display: inline-block;
+}
+
+table.data_table {
+  margin: 0px;
+  font-family: Arial, sans-serif;
+  font-size: 14px;
+  border-collapse: separate;
+  border-spacing: 0;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+  max-width: none;
+  overflow-y: auto;
+}
+
+.data_table tr {
+  background-color: white;
+  cursor: pointer;
+}
+
+.data_table td {
+  padding: 4px 10px;
+  text-align: center;
+  color: #333333;
+  border-bottom: 1px solid #555;
+  border-right: 1px solid #555;
+  white-space: nowrap;
+  height: 20px;
+}
+
+.data_table th {
+  padding: 5px;
+  position: sticky;
+  top: 0;
+  text-align: center;
+  color: #333;
+  background-color: #ccc;
+  white-space: pre;
+  border-bottom: 1px solid #555;
+  border-right: 1px solid #555;
+  border-top: 1px solid #555;
+  z-index: 100;
+}
+
+.data_table th:first-child,
+.data_table td:first-child {
+  text-align: center;
+  border-left: 1px solid #555;
+}
+
+.button {
+  padding: 3px 8px;
+  background-color: #7777cc;
+  color: white;
+  border: 1px solid #333;
+  border-radius: 5px;
+  text-decoration: none;
+  cursor: pointer;
+  display: inline-block;
+}
+
+.button:hover {
+  background-color: #5555aa;
+}

@@ -13,12 +13,13 @@ a `User Guide` option at the top.
 
 <img src="images/img1.png" width=360>
 
-There are two other links in the band menu:
+There are several other links in the band menu:
 
-- `ET Wizard` pointing to the
+- `History` -- displays recently viewed telemetry.
+- `Channel Map` -- shows
+[activity](https://wsprtv.com/tools/channel_map.html) on U4B channels.
+- `ET Wizard` -- open the
 [U4B Extended Telemetry Wizard](https://wsprtv.com/tools/et_wizard.html).
-- `Channel Map` showing [recent 
-activity](https://wsprtv.com/tools/channel_map.html) on U4B channels.
 
 Additionally, a small WSPR TV 
 [link](https://github.com/wsprtv/wsprtv.github.io) next to the OSM 

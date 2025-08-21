@@ -25,7 +25,7 @@ let message_sections;
 let num_extractors = 0;
 
 // Extracts a parameter value from the URL
-function getURLParametereter(url, name) {
+function getURLParameter(url, name) {
   const regex = new RegExp('[?&]' + name + '(=([^&]*)|(?=[&]|$))');
   const match = regex.exec(url);
   if (!match) return null;
@@ -35,16 +35,16 @@ function getURLParametereter(url, name) {
 
 function importWSPRTVURL(url) {
   let spec = {};
-  spec.cs = getURLParametereter(url, 'cs');
-  spec.ch = getURLParametereter(url, 'ch');
-  spec.band = getURLParametereter(url, 'band');
-  spec.start_date = getURLParametereter(url, 'start_date');
+  spec.cs = getURLParameter(url, 'cs');
+  spec.ch = getURLParameter(url, 'ch');
+  spec.band = getURLParameter(url, 'band');
+  spec.start_date = getURLParameter(url, 'start_date');
 
-  const decoders_param = getURLParametereter(url, 'et_dec');
-  const labels_param = getURLParametereter(url, 'et_labels');
-  const long_labels_param = getURLParametereter(url, 'et_llabels');
-  const units_param = getURLParametereter(url, 'et_units');
-  const resolutions_param = getURLParametereter(url, 'et_res');
+  const decoders_param = getURLParameter(url, 'et_dec');
+  const labels_param = getURLParameter(url, 'et_labels');
+  const long_labels_param = getURLParameter(url, 'et_llabels');
+  const units_param = getURLParameter(url, 'et_units');
+  const resolutions_param = getURLParameter(url, 'et_res');
 
   if (!decoders_param) {
     createMessages(spec);
@@ -97,12 +97,12 @@ function importWSPRTVURL(url) {
 
 function importTraquitoURL(url) {
   let spec = {};
-  spec.cs = getURLParametereter(url, 'callsign');
-  spec.ch = getURLParametereter(url, 'channel');
-  spec.band = getURLParametereter(url, 'band');
-  spec.start_date = getURLParametereter(url, 'dtGte');
+  spec.cs = getURLParameter(url, 'callsign');
+  spec.ch = getURLParameter(url, 'channel');
+  spec.band = getURLParameter(url, 'band');
+  spec.start_date = getURLParameter(url, 'dtGte');
   for (let i = 0; i < 4; i++) {
-    const slot_param = getURLParametereter(url, `slot${i + 1}MsgDefUserDefined`);
+    const slot_param = getURLParameter(url, `slot${i + 1}MsgDefUserDefined`);
     if (!slot_param) continue;
     const slot_spec =  JSON.parse(
         '[' + slot_param.replace(/\/\/.*$/gm, '').replace(/,\s*$/, '') + ']');

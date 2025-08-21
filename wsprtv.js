@@ -123,12 +123,16 @@ function formatTimestamp(ts) {
 }
 
 // Extracts a parameter value from the URL
-function getURLParameter(name) {
+function getParameterFromURL(url, name) {
   const regex = new RegExp('[?&]' + name + '(=([^&]*)|(?=[&]|$))');
-  const match = regex.exec(location.search);
+  const match = regex.exec(url);
   if (!match) return null;
   return match[2] != undefined ?
       decodeURIComponent(match[2].replace(/\+/g, ' ')) : '';
+}
+
+function getURLParameter(name) {
+  return getParameterFromURL(location.search, name);
 }
 
 // Parses a versioned parameter such as fooV12 into its prefix
@@ -260,6 +264,35 @@ function parseParameters() {
            'et_slots': et_slots, 'units': units,
            'detail': detail, 'et_spec': et_spec,
            'version': version };
+}
+
+function updateHistory() {
+  let history;
+  try {
+    history = JSON.parse(localStorage.getItem('history'));
+  } catch (error) {
+    history = [];
+  }
+
+  const now = Math.floor(Date.now() / 1000);
+  const url = getCurrentURL();
+  let updated_history = [{ 'ts': now, 'url': url }];
+  for (let i = 0; i < history.length; i++) {
+    const entry = history[i];
+    if (!entry.ts || !entry.url) continue;
+    if (now - entry.ts > 14 * 86400) continue;
+    const cs = getParameterFromURL(entry.url, 'cs');
+    const ch = getParameterFromURL(entry.url, 'ch');
+    const band = getParameterFromURL(entry.url, 'band');
+    if (cs.toUpperCase() != params.cs ||
+        ch != document.getElementById('ch').value.trim() ||
+        band.toLowerCase() != params.band) {
+      updated_history.push(entry);
+      if (updated_history.length >= 30) break;
+    }
+  }
+  localStorage.setItem('history', JSON.stringify(updated_history));
+  if (debug > 0) console.log(updated_history);
 }
 
 // Returns the list of slots that may have U4B extended telemetry
@@ -1460,44 +1493,49 @@ async function update(incremental_update = false) {
 }
 
 // Updates the URL based on current params, for bookmarking etc
+function getCurrentURL() {
+  let url = '?cs=' +
+      encodeURIComponent(document.getElementById('cs').value.trim());
+  url += '&ch=' +
+      encodeURIComponent(document.getElementById('ch').value.trim());
+  url += '&band=' +
+      encodeURIComponent(document.getElementById('band').value);
+  url += '&start_date=' +
+      encodeURIComponent(document.getElementById('start_date').value.trim());
+  if (end_date_param) {
+    url += '&end_date=' + encodeURIComponent(end_date_param);
+  }
+  if (units_param) {
+    url += '&units=' + encodeURIComponent(
+        params.units ? 'imperial' : 'metric');
+  }
+  if (detail_param) {
+    url += '&detail=' + encodeURIComponent(params.detail);
+  }
+  if (show_unattached_param != null) {
+    url += '&show_unattached';
+  }
+  if (et_decoders_param) {
+    url += '&et_dec=' + encodeURLParameter(et_decoders_param);
+  }
+  if (et_labels_param) {
+    url += '&et_labels=' + encodeURLParameter(et_labels_param);
+  }
+  if (et_long_labels_param) {
+    url += '&et_llabels=' + encodeURLParameter(et_long_labels_param);
+  }
+  if (et_units_param) {
+    url += '&et_units=' + encodeURLParameter(et_units_param);
+  }
+  if (et_resolutions_param) {
+    url += '&et_res=' + encodeURLParameter(et_resolutions_param);
+  }
+  return url;
+}
+
 function updateURL() {
   try {
-    let url = '?cs=' +
-        encodeURIComponent(document.getElementById('cs').value.trim());
-    url += '&ch=' +
-        encodeURIComponent(document.getElementById('ch').value.trim());
-    url += '&band=' +
-        encodeURIComponent(document.getElementById('band').value);
-    url += '&start_date=' +
-        encodeURIComponent(document.getElementById('start_date').value.trim());
-    if (end_date_param) {
-      url += '&end_date=' + encodeURIComponent(end_date_param);
-    }
-    if (units_param) {
-      url += '&units=' + encodeURIComponent(
-          params.units ? 'imperial' : 'metric');
-    }
-    if (detail_param) {
-      url += '&detail=' + encodeURIComponent(params.detail);
-    }
-    if (show_unattached_param != null) {
-      url += '&show_unattached';
-    }
-    if (et_decoders_param) {
-      url += '&et_dec=' + encodeURLParameter(et_decoders_param);
-    }
-    if (et_labels_param) {
-      url += '&et_labels=' + encodeURLParameter(et_labels_param);
-    }
-    if (et_long_labels_param) {
-      url += '&et_llabels=' + encodeURLParameter(et_long_labels_param);
-    }
-    if (et_units_param) {
-      url += '&et_units=' + encodeURLParameter(et_units_param);
-    }
-    if (et_resolutions_param) {
-      url += '&et_res=' + encodeURLParameter(et_resolutions_param);
-    }
+    const url = getCurrentURL();
     history.replaceState(null, '', url);
   } catch (error) {
     console.log('Security error triggered by history.replaceState()');
@@ -1524,6 +1562,7 @@ function processSubmission(e, on_load = false) {
       updateURL();
     }
     update();
+    updateHistory();
   } else {
     clearTrack();
   }
@@ -2348,14 +2387,16 @@ function start() {
   document.getElementById('band').addEventListener('change', function () {
     if (this.value == 'user_guide') {
       window.open('docs/user_guide.html', '_new');
-      this.value = params ? params.band : "20m";
+    } else if (this.value == 'history') {
+      window.location.href = 'tools/history.html';
     } else if (this.value == 'channel_map') {
       window.open('tools/channel_map.html', '_new');
-      this.value = params ? params.band : "20m";
     } else if (this.value == 'et_wizard') {
       window.open('tools/et_wizard.html', '_new');
-      this.value = params ? params.band : "20m";
+    } else {
+      return;
     }
+    this.value = params ? params.band : "20m";
   });
 
   // Handle clicks on the "Show data" button
