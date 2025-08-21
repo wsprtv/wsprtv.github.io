@@ -115,7 +115,7 @@ function showTable() {
     let cell = document.createElement('td');
     // Go button
     const go_button = document.createElement('a');
-    go_button.href = '../index.html' + entry.url;
+    go_button.href = '../' + entry.url;
     go_button.textContent = 'Go';
     go_button.className = 'button';
     cell.appendChild(go_button);
