@@ -47,7 +47,7 @@ let end_date_param;
 let dnu_param;  // dnu = do not update
 let show_unattached_param;
 
-// Extended telemetry URL params
+// Extended telemetry URL parameters
 let et_decoders_param;
 let et_labels_param;
 let et_long_labels_param;
@@ -140,6 +140,13 @@ function getURLParameter(name) {
 function parseVersionedParameter(param) {
   const match = param.match(/^(.*?)(?:V(\d+))?$/i);
   return [match[1], match[2] ? Number(match[2]) : 0];
+}
+
+function getParameterSetKey() {
+  const cs = document.getElementById('cs').value.trim().toUpperCase();
+  const ch = document.getElementById('ch').value.trim();
+  const band = document.getElementById('band').value.trim();
+  return `${cs}.${ch}.${band}`;
 }
 
 // Parses and validates input params, returning them as a dictionary.
@@ -263,6 +270,7 @@ function parseParameters() {
            'start_date': start_date, 'end_date': end_date,
            'et_slots': et_slots, 'units': units,
            'detail': detail, 'et_spec': et_spec,
+           'key': getParameterSetKey(),
            'version': version };
 }
 
@@ -1556,6 +1564,18 @@ function encodeURLParameter(param) {
 function processSubmission(e, on_load = false) {
   last_data_view_scroll_pos = 0;
   cancelPendingUpdate();
+  if (params && params.key != getParameterSetKey()) {
+    // Lose URL-only params when looking up new flights
+    end_date_param = null;
+    dnu_param = null;
+    units_param = null;
+    detail_param = null;
+    et_decoders_param = null;
+    et_labels_param = null;
+    et_long_labels_param = null;
+    et_units_param = null;
+    et_resolutions_param = null;
+  }
   params = parseParameters();
   if (params) {
     if (debug > 0) console.log(params);
