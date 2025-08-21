@@ -145,6 +145,12 @@ function showTable() {
 
 // Entry point
 function start() {
+  window.addEventListener('pageshow', function (event) {
+    if (event.persisted) {
+      showTable();
+    }
+  });
+
   showTable();
 }
 
