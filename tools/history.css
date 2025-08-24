@@ -59,7 +59,6 @@ table.data_table {
 
 .data_table th:first-child,
 .data_table td:first-child {
-  text-align: center;
   border-left: 1px solid #555;
 }
 
@@ -76,4 +75,8 @@ table.data_table {
 
 .button:hover {
   background-color: #5555aa;
+}
+
+p {
+  margin: 20px 0;
 }

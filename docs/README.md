@@ -832,7 +832,7 @@ In the table, the columns represent the start minute of the regular
 callsign transmission, while the rows correspond to the first and third 
 characters of the special callsign (such as Q1 in QB1ERZ). Each cell 
 contains two colored buckets, and each bucket in turn represents two 
-nearby U4B channels in adjacent frequency lanes (i.e. one bucket covers 
+U4B channels in adjacent frequency lanes (i.e. one bucket covers 
 0-80 Hz while the other 120-200 Hz). Binning of nearby channels is 
 necessary because RX frequency errors can easily exceed the 40 Hz width 
 of a single U4B channel.
