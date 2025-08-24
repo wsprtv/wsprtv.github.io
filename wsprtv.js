@@ -2341,7 +2341,7 @@ function start() {
   // Use OSM-hosted tiles for higher levels
   L.tileLayer(
       'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-      { minZoom: 7, maxZoom: 12,
+      { minZoom: 7, maxZoom: 16,
         attribution:
             '<a href="https://github.com/wsprtv/wsprtv.github.io">' +
             'WSPR TV</a> | &copy; <a href="https://www.openstreetmap.org' +
