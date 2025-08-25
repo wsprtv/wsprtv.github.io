@@ -192,10 +192,14 @@ table.data_table {
 }
 
 #go_button {
+  height: 20px;
   background-color: #7777cc;
   color: white;
   border: 1px solid #fff;
   border-radius: 3px;
+  align-items: center;
+  justify-content: center;
+  display: inline-flex;
 }
 
 #go_button:disabled {
@@ -208,4 +212,19 @@ table.data_table {
 
 .leaflet-tooltip {
   font-size: 13px;
+}
+
+.spinner {
+  width: 7px;
+  height: 7px;
+  border: 3px solid rgba(255, 255, 255, 0.3);
+  border-top: 3px solid white;
+  border-radius: 50%;
+  animation: spin 1.5s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }

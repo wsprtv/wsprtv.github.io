@@ -344,28 +344,32 @@ function createQueryDateRange(incremental_update = false) {
 // Creates wspr.live query for fetching telemetry reports.
 // Do not change this query unless you understand the impact
 // on wpsr.live servers.
-function createWSPRLiveQuery(
-    fetch_q01 = false, slots = [0],
-    incremental_update = false) {
-  let cs_clause;
-  if (fetch_q01) {
-    // Fetching from the Q/0/1 callsign space
-    if (params.tracker == 'u4b' || params.tracker == 'wb8elk') {
-      const cs1 = ['0', '1', 'Q'][Math.floor(params.ch / 200)];
-      const cs3 = Math.floor(params.ch / 20) % 10;
-      cs_clause = `substr(tx_sign, 1, 1) = '${cs1}' AND ` +
-                  `substr(tx_sign, 3, 1) = '${cs3}'`;
-    } else {
-      throw new Error('Internal error');
-    }
-  } else {
-    // Regular callsign query
-    cs_clause = `tx_sign = '${params.cs}'`;
-  }
+function createWSPRLiveQuery(reg_slots = [0], q01_slots = [],
+                             incremental_update = false) {
   const [_, wspr_live_band] = kWSPRBandInfo[params.band];
-  const slot_minutes = slots.map(slot => getU4BSlotMinute(slot));
-  const slot_clause = slot_minutes.length < 5 ?
-      `toMinute(time) % 10 IN (${slot_minutes})` : 'true';
+  let reg_clause;
+  let q01_clause;
+  if (reg_slots.length > 0) {
+    // Regular callsign query
+    reg_clause = `tx_sign = '${params.cs}'`;
+    if (reg_slots.length < 5) {
+      const slot_minutes = reg_slots.map(slot => getU4BSlotMinute(slot));
+      reg_clause += ` AND toMinute(time) % 10 IN (${slot_minutes})`;
+    }
+  }
+  if (q01_slots.length > 0) {
+    // Q01 callsign query
+    const cs1 = ['0', '1', 'Q'][Math.floor(params.ch / 200)];
+    const cs3 = Math.floor(params.ch / 20) % 10;
+    q01_clause = `substr(tx_sign, 1, 1) = '${cs1}' AND ` +
+                `substr(tx_sign, 3, 1) = '${cs3}'`;
+    if (q01_slots.length < 5) {
+      const slot_minutes = q01_slots.map(slot => getU4BSlotMinute(slot));
+      q01_clause += ` AND toMinute(time) % 10 IN (${slot_minutes})`;
+    }
+  }
+  const cs_slot_clause =
+      `((${reg_clause || false}) OR (${q01_clause || false}))`;
   const date_range = createQueryDateRange(incremental_update);
   return `
     SELECT  /* wsprtv.github.io */
@@ -373,9 +377,8 @@ function createWSPRLiveQuery(
       groupArray(tuple(rx_sign, rx_loc, frequency, snr))
     FROM wspr.rx
     WHERE
-      ${cs_clause} AND
+      ${cs_slot_clause} AND
       band = ${wspr_live_band} AND
-      ${slot_clause} AND
       ${date_range}
     GROUP BY time, tx_sign, tx_loc, power
     FORMAT JSONCompact`;
@@ -1354,8 +1357,8 @@ function displayNextUpdateCountdown() {
 
 // Displays progress by number of dots inside the button
 function displayProgress(stage) {
-//  document.getElementById('go_button').textContent = '.'.repeat(stage);
-  document.getElementById('go_button').textContent = '●'.repeat(stage);
+  document.getElementById('go_button').innerHTML =
+      '<div class="spinner"></div>';
 }
 
 // Cancels the next pending update, if any, set by setTimeout()
@@ -1427,23 +1430,15 @@ async function update(incremental_update = false) {
     let stage = 1;
     displayProgress(stage++);
 
+    const u4b_extra_slots = [...new Set([1, ...params.et_slots])];
+
     const query = createWSPRLiveQuery(
-        false /* fetch_q01 */,
         { 'zachtek2': [0, 1], 'generic2': [0, 1],
-          'unknown': [0, 1, 2, 3, 4] }[params.tracker] || [0]  /* slots */,
+          'unknown': [0, 1, 2, 3, 4] }[params.tracker] || [0]  /* reg slots */,
+        { 'u4b': u4b_extra_slots,
+          'wb8elk': [1] }[params.tracker] || []  /* Q01 slots */,
         incremental_update);
     new_data = importWSPRLiveData(await runQuery(query));
-
-    displayProgress(stage++);
-
-    if (params.tracker == 'u4b' || params.tracker == 'wb8elk') {
-      // Fetch Q/0/1 callsign telemetry
-      const slots = [...new Set([1, ...params.et_slots])];
-      const q01_query = createWSPRLiveQuery(
-          true /* fetch_q01 */, slots, incremental_update);
-      new_data.push(...importWSPRLiveData(await runQuery(q01_query)));
-      displayProgress(stage++);
-    }
 
     // Sort new_data by (ts, cs)
     new_data.sort((row1, row2) =>
