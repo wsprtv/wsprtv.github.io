@@ -92,7 +92,7 @@ function showTable() {
   }
 
   // Prefill the table with row numbers
-  let table_headers = ['', 'Callsign', 'Channel', 'Band', 'Last Viewed', ''];
+  let table_headers = ['', 'Callsign', 'Ch', 'Band', 'Viewed', ''];
 
   // Populate the table
   let table = document.createElement('table');

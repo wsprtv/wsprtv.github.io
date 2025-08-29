@@ -69,25 +69,25 @@ let last_data_view_scroll_pos = 0;
 let is_mobile;  // running on a mobile device
 
 // WSPR band info. For each band, the value is
-// [U4B starting minute offset, WSPR Live band id].
+// [U4B start minute offset, WSPR Live band id, start freq].
 const kWSPRBandInfo = {
-  '2200m': [0, -1],
-  '630m': [4, 0],
-  '160m': [8, 1],
-  '80m': [2, 3],
-  '60m': [6, 5],
-  '40m': [0, 7],
-  '30m': [4, 10],
-  '20m': [8, 14],
-  '17m': [2, 18],
-  '15m': [6, 21],
-  '12m': [0, 24],
-  '10m': [4, 28],
-  '6m': [8, 50],
-  '4m': [2, 70],
-  '2m': [6, 144],
-  '70cm': [0, 432],
-  '23cm': [4, 1296]
+  '2200m': [0, -1, 137400],
+  '630m': [4, 0, 475600],
+  '160m': [8, 1, 1838000],
+  '80m': [2, 3, 3570000],
+  '60m': [6, 5, 5288600],
+  '40m': [0, 7, 7040000],
+  '30m': [4, 10, 10140100],
+  '20m': [8, 14, 14097000],
+  '17m': [2, 18, 18106000],
+  '15m': [6, 21, 21096000],
+  '12m': [0, 24, 24926000],
+  '10m': [4, 28, 28126000],
+  '6m': [8, 50, 50294400],
+  '4m': [2, 70, 70092400],
+  '2m': [6, 144, 144490400],
+  '70cm': [0, 432, 432301400],
+  '23cm': [4, 1296, 1296501400]
 }
 
 // Used for spot decoding
@@ -163,7 +163,7 @@ function parseParameters() {
       parseVersionedParameter(document.getElementById('ch').value.trim());
   let ch;
   let tracker;
-  const [starting_minute_offset, _] = kWSPRBandInfo[band];
+  const [starting_minute_offset, _, _2] = kWSPRBandInfo[band];
   if (raw_ch.length > 1 && /^[A-Z]$/i.test(raw_ch[0])) {
     if (/[GZ]/i.test(raw_ch[0])) {
       // generic1 (g): unspecified protocol, single type 1 message
@@ -186,7 +186,7 @@ function parseParameters() {
         return null;
       }
       // Convert channel to an equivalent u4b one
-      ch = ['0', '1', 'Q'].indexOf(raw_ch[1]) * 200 +
+      ch = ['0', '1', 'Q'].indexOf(raw_ch[1].toUpperCase()) * 200 +
           (raw_ch[2] - '0') * 20 +
           ((raw_ch[3] - '0' - starting_minute_offset) / 2 + 5) % 5;
       tracker = raw_ch[0].toUpperCase() == 'W' ? 'wb8elk' : 'u4b';
@@ -322,7 +322,7 @@ function getExtendedTelemetrySlots(et_spec) {
 
 // Returns TX minute for given slot in the U4B protocol
 function getU4BSlotMinute(slot) {
-  const [starting_minute_offset, _] = kWSPRBandInfo[params.band];
+  const [starting_minute_offset, _, _2] = kWSPRBandInfo[params.band];
   return (starting_minute_offset + ((params.ch % 5) + slot) * 2) % 10;
 }
 
@@ -346,7 +346,7 @@ function createQueryDateRange(incremental_update = false) {
 // on wpsr.live servers.
 function createWSPRLiveQuery(reg_slots = [0], q01_slots = [],
                              incremental_update = false) {
-  const [_, wspr_live_band] = kWSPRBandInfo[params.band];
+  const [_, wspr_live_band, _2] = kWSPRBandInfo[params.band];
   let reg_clause;
   let q01_clause;
   if (reg_slots.length > 0) {
@@ -899,26 +899,32 @@ function getTimeToSunset(ts, lat, lon) {
   return SunCalc.getTimes(ts, lat, lon).sunset - ts;
 }
 
-// Returns [num_rx, max_rx_dist, max_snr]
+// Returns [num_rx, max_rx_dist, max_snr, avg_freq]
 function getRXStats(spot) {
+  const [_, _2, base_freq] = kWSPRBandInfo[params.band];
   let cs = {};
   let grids = {};
   let max_snr = -100;
+  let freq_sum = 0;
+  let num_freqs = 0;
   for (let i = 0; i < spot.slots.length; i++) {
     const slot = spot.slots[i];
     if (slot) {
       for (let j = 0; j < slot.rx.length; j++) {
         const rx = slot.rx[j];
         max_snr = Math.max(max_snr, rx.snr);
+        freq_sum += rx.freq - base_freq;
         cs[rx.cs] = 1;
         grids[rx.grid] = 1;
       }
+      num_freqs += slot.rx.length;
     }
   }
   const lat_lon = L.latLng([spot.lat, spot.lon]);
   const max_rx_dist = Math.max(...Object.keys(grids).map(grid =>
       lat_lon.distanceTo(maidenheadToLatLon(grid))));
-  return [Object.keys(cs).length, max_rx_dist, max_snr];
+  return [Object.keys(cs).length, max_rx_dist, max_snr,
+          Math.floor(freq_sum / (num_freqs || 1))];
 }
 
 // Units / localization
@@ -935,6 +941,7 @@ const kUnitInfo = {
   'power': [[' dBm', 0], [' dBm', 0]],
   'snr': [[' dB', 0], [' dB', 0]],
   'angle': [['°', 0], ['°', 0]],
+  'freq': [[' Hz', 0], [' Hz', 0]]
 };
 
 function toggleUnits() {
@@ -1308,11 +1315,12 @@ function displaySpotInfo(marker, point) {
   }
   const sun_elev = getSunElevation(spot.ts, spot.lat, spot.lon);
   spot_info.innerHTML += `<br>Sun elevation: ${sun_elev}&deg;`
-  const [num_rx, max_rx_dist, max_snr] = getRXStats(spot);
+  const [num_rx, max_rx_dist, max_snr, avg_freq] = getRXStats(spot);
   spot_info.innerHTML += `<br> ${num_rx} report` +
         ((num_rx == 1) ? '' : 's');
   spot_info.innerHTML += ` | ${max_snr} dBm`;
-  spot_info.innerHTML += `<br> ${formatDistance(max_rx_dist)}`;
+  spot_info.innerHTML +=
+      `<br> ${formatDistance(max_rx_dist)} | ${avg_freq} Hz`;
 
   if (marker == selected_marker) {
     // Add GoogleEarth view
@@ -1355,8 +1363,7 @@ function displayNextUpdateCountdown() {
   }
 }
 
-// Displays progress by number of dots inside the button
-function displayProgress(stage) {
+function displaySpinner() {
   document.getElementById('go_button').innerHTML =
       '<div class="spinner"></div>';
 }
@@ -1427,8 +1434,7 @@ async function update(incremental_update = false) {
 
     let new_data = [];
 
-    let stage = 1;
-    displayProgress(stage++);
+    displaySpinner();
 
     const u4b_extra_slots = [...new Set([1, ...params.et_slots])];
 
@@ -1653,6 +1659,13 @@ const kDataFields = [
     'long_label': '# RX Reports',
     'graph': {},
   }],
+  ['avg_freq', {
+    'min_detail': 1,
+    'label': 'Freq',
+    'long_label': 'Average RX Frequency',
+    'graph': {},
+    'type': 'freq'
+  }],
   ['max_rx_dist', {
     'min_detail': 1,
     'type': 'distance',
@@ -1670,7 +1683,7 @@ const kDataFields = [
 
 const kDerivedFields = [
   'track_attachment', 'gps_lock', 'power', 'sun_elev', 'cspeed',
-  'vspeed', 'num_rx', 'max_rx_dist', 'max_snr'];
+  'vspeed', 'num_rx', 'max_rx_dist', 'max_snr', 'avg_freq'];
 
 const kFormatters = {
   'timestamp': (v, au) => formatTimestamp(v),
@@ -1682,7 +1695,8 @@ const kFormatters = {
   'temp': formatTemperature,
   'power': (v, au) => v + (au ? ' dBm' : ''),
   'snr': (v, au) => v + (au ? ' dB' : ''),
-  'angle': (v, au) => v + (au ? '°' : '')
+  'angle': (v, au) => v + (au ? '°' : ''),
+  'freq': (v, au) => v + (au ? ' Hz' : '')
 };
 
 const kFetchers = {
@@ -1739,7 +1753,8 @@ function computeDerivedData(spots) {
       derived_data['sun_elev'][i] =
           getSunElevation(spot.ts, spot.lat, spot.lon);
       [derived_data['num_rx'][i], derived_data['max_rx_dist'][i],
-       derived_data['max_snr'][i]] = getRXStats(spot);
+       derived_data['max_snr'][i], derived_data['avg_freq'][i]] =
+          getRXStats(spot);
     }
   }
   for (const field of kDerivedFields) {
