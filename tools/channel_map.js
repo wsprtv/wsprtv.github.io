@@ -167,6 +167,7 @@ function createWSPRLiveQuery() {
           match(tx_sign, '^[Q01]') != 0 AND
           time > subtractDays(now(), ${params.num_days}) AND
           band = ${wspr_live_band} AND
+          toUnixTimestamp(time) % 120 = 0 AND
           (frequency BETWEEN ${start_freq} AND ${start_freq + 200}) AND
           (toInt8(substring(tx_loc, 4, 1)) * 19 +
            round(power / 3.33)) % 2 == 1

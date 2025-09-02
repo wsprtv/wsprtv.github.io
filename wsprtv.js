@@ -913,7 +913,7 @@ function getRXStats(spot) {
       for (let j = 0; j < slot.rx.length; j++) {
         const rx = slot.rx[j];
         max_snr = Math.max(max_snr, rx.snr);
-        freq_sum += rx.freq - base_freq;
+        freq_sum += Math.min(250, Math.max(-50, rx.freq - base_freq));
         cs[rx.cs] = 1;
         grids[rx.grid] = 1;
       }
