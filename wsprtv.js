@@ -715,11 +715,11 @@ function decodeSpot(spot) {
 function decodeExtendedTelemetry(spot) {
   if (!params.et_spec || !spot.raw_et) return null;
   let et = [];
-  let index = 0;  // index within data
   let tx_seq = (spot.ts.getUTCDate() - 1) * 720 +
       spot.ts.getUTCHours() * 30 +
       Math.floor(spot.ts.getUTCMinutes() / 2);
   for (let i = 0; i < spot.raw_et.length; i++) {
+    let index = 0;  // index within data
     const raw_et = spot.raw_et[i];
     if (raw_et == undefined) continue;
     const decoders = params.et_spec.decoders;
