@@ -143,6 +143,9 @@ more than a year before the end date (specified via a URL parameter, see
 below). For historical telemetry, you can specify a start date over a 
 year ago by appending the appropriate `end_date` parameter to the URL.
 
+The "From:" label (to the right of the start date field) is a link
+to the [History](../tools/history.html) page.
+
 ## URL Parameters
 
 Because WSPR TV is optimized for use on mobile devices with small 
