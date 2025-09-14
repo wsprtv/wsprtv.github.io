@@ -18,7 +18,7 @@ There are several other links in the band menu:
 - `History` -- displays recently viewed telemetry.
 - `Channel Map` -- shows
 [activity](https://wsprtv.com/tools/channel_map.html) on U4B channels.
-- `ET Wizard` -- open the
+- `ET Wizard` -- opens the
 [U4B Extended Telemetry Wizard](https://wsprtv.com/tools/et_wizard.html).
 
 Additionally, a small WSPR TV 
