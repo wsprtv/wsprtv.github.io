@@ -42,6 +42,8 @@ let spots = [];  // merged / annotated telemetry data
 let params;  // form / URL params
 let debug = 0;  // controls console logging
 
+let num_fetch_retries = 0;
+
 // URL-only parameters
 let end_date_param;
 let dnu_param;  // dnu = do not update
@@ -190,6 +192,9 @@ function parseParameters() {
           (raw_ch[2] - '0') * 20 +
           ((raw_ch[3] - '0' - starting_minute_offset) / 2 + 5) % 5;
       tracker = raw_ch[0].toUpperCase() == 'W' ? 'wb8elk' : 'u4b';
+    } else if (/^C(\d+)?$/i.test(raw_ch)) {
+      ch = raw_ch.length > 1 ? Number(raw_ch.slice(1)) : 0;
+      tracker = 'custom';
     } else {
       alert('Unknown tracker type: ' + raw_ch[0]);
       return null;
@@ -216,12 +221,13 @@ function parseParameters() {
       document.getElementById('start_date').value);
   const end_date = end_date_param ?
       parseDate(end_date_param) : new Date();
+  end_date.setUTCHours(23, 59, 59);
   const units = (units_param == null) ?
       (localStorage.getItem('units') == 1 ? 1 : 0) :
       (units_param == 'imperial' ? 1 : 0);
   const detail = (detail_param == null) ?
-      (localStorage.getItem('detail') == 1 ? 1 : 0) :
-      (detail_param == '1' ? 1 : 0);
+      (localStorage.getItem('detail') == 0 ? 0 : 1) :
+      (detail_param == '0' ? 0 : 1);
 
   let cs_regex;
   if (['generic2', 'zachtek2', 'unknown'].includes(tracker)) {
@@ -1011,6 +1017,12 @@ function clearTrack() {
   last_attached_marker = null;
 }
 
+function createToggleUnitsLink(value) {
+  return '<a href="#" id="unit_switch_link" title="Click to change units" ' +
+      'onclick="toggleUnits(); event.preventDefault()">' +
+      value + '</a>';
+}
+
 // Draws the track on the map
 function displayTrack() {
   clearTrack();
@@ -1029,14 +1041,16 @@ function displayTrack() {
       // Grid4
       marker = L.circleMarker([spot.lat, spot.lon],
           { radius: 5, color: 'black',
-            fillColor: spot.is_invalid_gps ? '#fbb' : 'white',
+            fillColor: spot.fill ? spot.fill :
+                (spot.is_invalid_gps ? '#fbb' : 'white'),
             weight: 1,
             stroke: true, fillOpacity: 1 });
     } else {
       // Grid6
       marker = L.circleMarker([spot.lat, spot.lon],
           { radius: 7, color: 'black',
-            fillColor: spot.is_unattached ? 'white' : '#add8e6',
+            fillColor: spot.fill ? spot.fill :
+                (spot.is_unattached ? 'white' : '#add8e6'),
             weight: 1,
             stroke: true, fillOpacity: 1 });
     }
@@ -1110,9 +1124,7 @@ function displayTrack() {
       // Distance is a clickable link to switch units
       const dist = computeTrackDistance(spots);
       synopsis.innerHTML += '<br>Distance: <b>' +
-          '<a href="#" id="unit_switch_link" title="Click to change units" ' +
-          'onclick="toggleUnits(); event.preventDefault()">' +
-          formatDistance(dist) + '</a></b>';
+          createToggleUnitsLink(formatDistance(dist)) + '</b>';
     }
     const num_track_spots = markers.filter(m => !m.spot.is_unattached).length;
     synopsis.innerHTML += `<br><b>${num_track_spots}</b> track spot` +
@@ -1125,11 +1137,11 @@ function displayTrack() {
     }
     if ('altitude' in last_spot) {
       synopsis.innerHTML += '<br>Last altitude: <b>' +
-          formatAltitude(last_spot.altitude) + '</b>';
+          createToggleUnitsLink(formatAltitude(last_spot.altitude)) + '</b>';
     }
     if ('speed' in last_spot) {
-      synopsis.innerHTML +=
-          `<br>Last speed: <b>${formatSpeed(last_spot.speed)}</b>`;
+      synopsis.innerHTML += '<br>Last speed: <b>' +
+          createToggleUnitsLink(formatSpeed(last_spot.speed)) + '</b>';
     }
     if ('voltage' in last_spot) {
       synopsis.innerHTML +=
@@ -1381,34 +1393,43 @@ function cancelPendingUpdate() {
 
 // Sets a timer to incrementally update the track at the end of
 // next expected TX slot
-function scheduleNextUpdate() {
+function scheduleNextUpdate(update_ts = null) {
   cancelPendingUpdate();
-
-  // Number of slots in telemetry sequence
-  const num_slots = Math.max(
-      ['zachtek1', 'generic1'].includes(params.tracker) ? 0 : 1,
-      ...params.et_slots) + 1;
-  const tx_end_minute = getU4BSlotMinute(num_slots);
 
   const now = new Date();
 
-  // Wait 1m 15s after the end of the next basic telemetry TX.
-  // The delay is needed so that WSPR telemetry can trickle in.
-  // It is randomized so that a large number of people watching
-  // a flight do not all hit wspr.live servers at exactly the same
-  // time.
-  next_update_ts = new Date(now.getTime() +
-      (tx_end_minute * 60 + 70 -
-       (now.getUTCMinutes() % 10) * 60 - now.getUTCSeconds()) * 1000 +
-       Math.floor(Math.random() * 10000));
+  if (!update_ts) {
+    // Wait 1m 15s after the end of the next basic telemetry TX.
+    // The delay is needed so that WSPR telemetry can trickle in.
+    // It is randomized so that a large number of people watching
+    // a flight do not all hit wspr.live servers at exactly the same
+    // time.
 
-  if (!next_update_ts) {
-    throw new Error('Internal error');
-  }
+    // Number of slots in telemetry sequence
+    const num_slots = Math.max(
+        ['zachtek1', 'generic1'].includes(params.tracker) ? 0 : 1,
+        ...params.et_slots) + 1;
+    const tx_end_minute = (params.tracker == 'custom') ?
+        0 : getU4BSlotMinute(num_slots);
+    const refresh_interval = (params.tracker == 'custom') ? 2 : 10;
 
-  while (next_update_ts - now < 10 * 1000) {
-    // Add 10 minutes
-    next_update_ts.setMinutes(next_update_ts.getMinutes() + 10);
+    next_update_ts = new Date(now.getTime() +
+        (tx_end_minute * 60 + 70 -
+         (now.getUTCMinutes() % refresh_interval) * 60 -
+         now.getUTCSeconds()) * 1000 +
+         ((params.tracker == 'custom') ?
+              5000 : Math.floor(Math.random() * 10000)));
+
+    if (!next_update_ts) {
+      throw new Error('Internal error');
+    }
+
+    while (next_update_ts - now < 10 * 1000) {
+      next_update_ts.setMinutes(
+          next_update_ts.getMinutes() + refresh_interval);
+    }
+  } else {
+    next_update_ts = update_ts;
   }
 
   if (debug > 0) {
@@ -1422,6 +1443,61 @@ function scheduleNextUpdate() {
   }, next_update_ts - now);
 }
 
+function importCustomData(data) {
+  let spots = [];
+  for (let i = 0; i < data.length; i++) {
+    const spot = data[i];
+    spot.ts = new Date(spot.ts);
+    if (spot.ts < params.start_date) continue;
+    if (end_date_param && spot.ts > params.end_date) continue;
+    spots.push(spot);
+  }
+  return spots;
+}
+
+async function updateFromCustomSource(incremental_update) {
+  const url =
+      `${params.cs.toUpperCase()}_${params.ch}_${params.band}.json`;
+  const response = await fetch(url, { cache: 'no-cache' });
+  if (!response.ok) throw new Error('HTTP error ' + response.status);
+  spots = importCustomData(await response.json());
+  if (debug > 2) console.log(spots);
+}
+
+async function updateFromWSPRLive(incremental_update) {
+  let new_data = [];
+
+  const u4b_extra_slots = [...new Set([1, ...params.et_slots])];
+
+  const query = createWSPRLiveQuery(
+      { 'zachtek2': [0, 1], 'generic2': [0, 1],
+        'unknown': [0, 1, 2, 3, 4] }[params.tracker] || [0]  /* reg slots */,
+      { 'u4b': u4b_extra_slots,
+        'wb8elk': [1] }[params.tracker] || []  /* Q01 slots */,
+      incremental_update);
+  new_data = importWSPRLiveData(await runQuery(query));
+
+  // Sort new_data by (ts, cs)
+  new_data.sort((row1, row2) =>
+      (row1.ts - row2.ts) ||
+      (row1.cs > row2.cs) - (row1.cs < row2.cs));
+
+  if (debug > 2) console.log(new_data);
+
+  if (!incremental_update) {
+    data = new_data;
+  } else {
+    data = mergeData(data, new_data);
+    if (debug > 3) console.log(data);
+  }
+
+  spots = matchTelemetry(data);
+  if (debug > 2) console.log(spots);
+
+  decodeSpots();
+  categorizeSpots();
+}
+
 // Fetch new data from wspr.live and update the map
 async function update(incremental_update = false) {
   cancelPendingUpdate();
@@ -1432,39 +1508,15 @@ async function update(incremental_update = false) {
     // Disable the button and show progress
     go_button.disabled = true;
 
-    let new_data = [];
-
     displaySpinner();
 
-    const u4b_extra_slots = [...new Set([1, ...params.et_slots])];
-
-    const query = createWSPRLiveQuery(
-        { 'zachtek2': [0, 1], 'generic2': [0, 1],
-          'unknown': [0, 1, 2, 3, 4] }[params.tracker] || [0]  /* reg slots */,
-        { 'u4b': u4b_extra_slots,
-          'wb8elk': [1] }[params.tracker] || []  /* Q01 slots */,
-        incremental_update);
-    new_data = importWSPRLiveData(await runQuery(query));
-
-    // Sort new_data by (ts, cs)
-    new_data.sort((row1, row2) =>
-        (row1.ts - row2.ts) ||
-        (row1.cs > row2.cs) - (row1.cs < row2.cs));
-
-    if (debug > 2) console.log(new_data);
-
-    if (!incremental_update) {
-      data = new_data;
+    if (params.tracker == 'custom') {
+      await updateFromCustomSource(incremental_update);
     } else {
-      data = mergeData(data, new_data);
-      if (debug > 3) console.log(data);
+      await updateFromWSPRLive(incremental_update);
     }
 
-    spots = matchTelemetry(data);
-    if (debug > 2) console.log(spots);
-
-    decodeSpots();
-    categorizeSpots();
+    num_fetch_retries = 0;
 
     if (document.getElementById('map').style.display == 'block') {
       // Map view active
@@ -1482,16 +1534,23 @@ async function update(incremental_update = false) {
     last_update_ts = now;
 
     if (incremental_update ||
-        ((dnu_param == null) && now - params.end_date < 86400 * 1000)) {
+        ((dnu_param == null) && now < params.end_date)) {
       // Only schedule updates for current flights
       scheduleNextUpdate();
     }
   } catch (error) {
-    clearTrack();
     cancelPendingUpdate();
-    if (error instanceof TypeError) {
-      alert('WSPR Live request failed. ' +
-            'Refresh the page to resume updates.');
+    if (error instanceof TypeError && error.message == 'Failed to fetch') {
+      if (num_fetch_retries < 3) {
+        const now = new Date();
+        const next_update_ts = new Date(
+            now.getTime() + (5 ** (num_fetch_retries + 1)) * 1000);
+        scheduleNextUpdate(next_update_ts);
+        console.log('Failed to fetch, retrying...');
+        num_fetch_retries++;
+      } else {
+        alert('Network request failed. Reload the page to resume updates.');
+      }
     } else {
       alert(debug > 0 ? `\n${error.stack}` : error);
     }
@@ -2036,7 +2095,8 @@ function showDataView() {
     const fetcher = table_fetchers[index] || ((v) => v);
     data_view.u_plots.push(
         new uPlot(opts, [ts_values, table_data[index].map(
-            (v) => (v == undefined) ? v : fetcher(v))], div));
+            (v, idx) => (v == undefined || spots[idx].is_unattached) ?
+               undefined : fetcher(v))], div));
   }
 
   div.appendChild(document.createElement('br'));
@@ -2362,8 +2422,7 @@ function start() {
 
   // Add day / night visualization and the scale indicator
   let terminator = L.terminator(
-      { opacity: 0, fillOpacity: 0.3, interactive: false,
-        longitudeRange: 360 }).addTo(map);
+      { opacity: 0, fillOpacity: 0.3, interactive: false }).addTo(map);
   L.control.scale().addTo(map);
 
   // Draw the antimeridian
