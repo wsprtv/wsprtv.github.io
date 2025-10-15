@@ -68,7 +68,7 @@ html, body {
   margin-top: 5px;
 }
 
-#unit_switch_link {
+.plain_link {
   color: white;
   text-decoration: none;
 }
@@ -155,6 +155,15 @@ table.data_table {
 
 .data_table th:first-child {
   border-left: 1px solid #555;
+}
+
+td.wspr_cell {
+  text-align: left;
+  font-family: 'Roboto Mono', monospace;
+  font-size: 13px;
+  padding: 10px;
+  white-space: pre;
+  background-color: #f8f8f8;
 }
 
 .pretty_button {

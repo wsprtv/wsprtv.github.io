@@ -1018,7 +1018,7 @@ function clearTrack() {
 }
 
 function createToggleUnitsLink(value) {
-  return '<a href="#" id="unit_switch_link" title="Click to change units" ' +
+  return '<a href="#" class="plain_link" title="Click to change units" ' +
       'onclick="toggleUnits(); event.preventDefault()">' +
       value + '</a>';
 }
@@ -1872,9 +1872,14 @@ function extractExtendedTelemetryData(spots) {
   return et_data;
 }
 
-function createTableCell(type, content, align = null, color = null) {
+function createTableCell(type, content, align = null, color = null,
+                         format = null) {
   const cell = document.createElement(type);
-  cell.textContent = content;
+  if (format == 'html') {
+    cell.innerHTML = content;
+  } else {
+    cell.textContent = content;
+  }
   if (align) {
     cell.style.textAlign = align;
   }
@@ -1926,6 +1931,56 @@ function getExtendedTelemetryAttributes(i) {
     return v;
   };
   return [label, long_label, units, formatter];
+}
+
+function createWSPRViewLink(i) {
+  return `<a href="#" class="plain_link" title="Click to toggle WSPR view" ` +
+      `onclick="toggleWSPRView(${i}); event.preventDefault()">📄</a>`;
+}
+
+function toggleWSPRView(i) {
+  const row = document.getElementById(`row_${i}`);
+  if (!row) return;
+  let wspr_row = document.getElementById(`wspr_row_${i}`);
+  if (wspr_row) {
+    wspr_row.parentNode.removeChild(wspr_row);
+    return;
+  }
+  wspr_row = document.createElement('tr');
+  wspr_row.id = `wspr_row_${i}`;
+  const wspr_cell = document.createElement('td');
+  wspr_cell.classList.add('wspr_cell');
+  wspr_cell.colSpan = row.cells.length;
+  wspr_row.appendChild(wspr_cell);
+  row.parentNode.insertBefore(wspr_row, row.nextSibling);
+  const field_align = [0, 0, 0, 1, 0, 0, 1, 1, 1];
+  const wspr_data = [
+      ['UTC', 'TXCall', 'TXGrid', 'Pwr', 'RXCall', 'RXGrid',
+       'SNR', 'Dist', 'Freq'],
+  ];
+  const blank_row = Array(field_align.length).fill('');
+  for (const slot of spots[i].slots) {
+    if (!slot) continue;
+    wspr_data.push(blank_row);
+    for (const rx of slot.rx) {
+       if (!rx) continue;
+       const dist = L.latLng([spots[i].lat, spots[i].lon]).distanceTo(
+           maidenheadToLatLon(rx.grid));
+       wspr_data.push([
+           formatTimestamp(slot.ts).slice(11),
+           slot.cs, slot.grid, slot.power,
+           rx.cs, rx.grid, rx.snr, formatDistance(dist, false), rx.freq]);
+    }
+  }
+  const max_widths = wspr_data[0].map((_, j) =>
+      Math.max(...wspr_data.map(r => r[j].toString().length)));
+  for (const r of wspr_data) {
+    wspr_cell.textContent +=
+        r.map((c, j) => (field_align[j] ?
+            String.prototype.padStart : String.prototype.padEnd)
+                .call(c, max_widths[j], r[0] == '' ? '-' : ' '))
+                    .join('  ') + '\n';
+  }
 }
 
 function showDataView() {
@@ -2068,6 +2123,16 @@ function showDataView() {
     table_data.push(field_data);
   }
 
+  // Add raw WSPR data column
+  // table_headers.push('🛈');
+  table_headers.push('WSPR');
+  long_headers.push('Raw WSPR Data');
+  table_data.push(Array.from(
+      { length: spots.length }, (_, i) => createWSPRViewLink(i)));
+  field_specs.push({ align: 'center', format: 'html' });
+  table_formatters.push(null);
+  table_fetchers.push(null);
+
   // Add graphs
   data_view.u_plots = [];  // references to created uPlot instances
   for (let i = 0; i < graph_data_indices.length; i++) {
@@ -2108,9 +2173,12 @@ function showDataView() {
   }
   div.appendChild(
       createPrettyButton('Toggle Units', toggleUnits));
+  // When exporting CSV, omit the last column, which is a link to
+  // raw WSPR data
   div.appendChild(
       createPrettyButton('Export CSV',
-          () => downloadCSV(long_headers, table_data, table_formatters)));
+          () => downloadCSV(long_headers.slice(0, -1),
+              table_data.slice(0, -1), table_formatters)));
   div.appendChild(
       createPrettyButton('Get Raw Data', () => downloadJSON(spots)));
 
@@ -2128,6 +2196,7 @@ function showDataView() {
 
   for (let i = table_data[0].length - 1; i >= 0; i--) {
     let row = document.createElement('tr');
+    row.id = `row_${i}`;
     for (let j = 0; j < table_data.length; j++) {
       let value = table_data[j][i];
       if (value == null) {
@@ -2138,7 +2207,8 @@ function showDataView() {
         }
       }
       const spec = field_specs[j];
-      row.appendChild(createTableCell('td', value, spec.align, spec.color));
+      row.appendChild(createTableCell(
+          'td', value, spec.align, spec.color, spec.format));
     }
     table.appendChild(row);
   }
