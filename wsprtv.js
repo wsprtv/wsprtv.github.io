@@ -1967,7 +1967,7 @@ function toggleWSPRView(i) {
        const dist = L.latLng([spots[i].lat, spots[i].lon]).distanceTo(
            maidenheadToLatLon(rx.grid));
        wspr_data.push([
-           formatTimestamp(slot.ts).slice(11),
+           formatTimestamp(slot.ts || spot.ts).slice(11),
            slot.cs, slot.grid, slot.power,
            rx.cs, rx.grid, rx.snr, formatDistance(dist, false), rx.freq]);
     }
