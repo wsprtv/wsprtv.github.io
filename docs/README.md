@@ -172,6 +172,11 @@ Live servers.
 - **show_unattached** (no value needed) causes WSPR TV to display
 spots that are not attached to the track.
 
+- **sun_el=`<degrees>`** displays a solar isoline on the map that 
+corresponds to the solar elevation. This is useful for estimating when 
+a balloon may start or stop transmitting, assuming its location is 
+approximately known.
+
 The callsign, channel, start date, and band can be specified as URL 
 parameters as well (using `cs`, `ch`, `start_date`, and `band` 
 respectively) and will pre-fill the control panel parameters. Example: 
@@ -259,10 +264,11 @@ in light yellow.
 
 <img src="images/img7.png" width=360>
 
-There is an easter egg of sorts included in the Flight Synopsis panel -- 
-clicking the distance value (25313 mi in the example above) will toggle 
-units from imperial to metric or vice versa. This preference will be 
-remembered if you return to the page later.
+There is an easter egg of sorts included in the Flight Synopsis panel 
+-- clicking the distance, altitude, or speed value (e.g. 25313 mi in 
+the example above) will toggle units from imperial to metric or vice 
+versa. This preference will be remembered if you return to the page 
+later.
 
 Allowing the map to update itself is by far the most efficient way to 
 view real-time data. Do not refresh the page via the browser -- doing so 

@@ -48,6 +48,7 @@ let num_fetch_retries = 0;
 let end_date_param;
 let dnu_param;  // dnu = do not update
 let show_unattached_param;
+let sun_elevation_param;
 
 // Extended telemetry URL parameters
 let et_decoders_param;
@@ -142,13 +143,6 @@ function getURLParameter(name) {
 function parseVersionedParameter(param) {
   const match = param.match(/^(.*?)(?:V(\d+))?$/i);
   return [match[1], match[2] ? Number(match[2]) : 0];
-}
-
-function getParameterSetKey() {
-  const cs = document.getElementById('cs').value.trim().toUpperCase();
-  const ch = document.getElementById('ch').value.trim();
-  const band = document.getElementById('band').value.trim();
-  return `${cs}.${ch}.${band}`;
 }
 
 // Parses and validates input params, returning them as a dictionary.
@@ -276,7 +270,6 @@ function parseParameters() {
            'start_date': start_date, 'end_date': end_date,
            'et_slots': et_slots, 'units': units,
            'detail': detail, 'et_spec': et_spec,
-           'key': getParameterSetKey(),
            'version': version };
 }
 
@@ -1584,6 +1577,12 @@ function getCurrentURL() {
   if (show_unattached_param != null) {
     url += '&show_unattached';
   }
+  if (dnu_param != null) {
+    url += '&dnu';
+  }
+  if (sun_elevation_param != null) {
+    url += '&sun_el=' + encodeURIComponent(sun_elevation_param);
+  }
   if (et_decoders_param) {
     url += '&et_dec=' + encodeURLParameter(et_decoders_param);
   }
@@ -1624,20 +1623,24 @@ function encodeURLParameter(param) {
 function processSubmission(e, on_load = false) {
   last_data_view_scroll_pos = 0;
   cancelPendingUpdate();
-  if (params && params.key != getParameterSetKey()) {
-    // Lose URL-only params when looking up new flights
-    end_date_param = null;
-    dnu_param = null;
-    units_param = null;
-    detail_param = null;
-    et_decoders_param = null;
-    et_labels_param = null;
-    et_long_labels_param = null;
-    et_units_param = null;
-    et_resolutions_param = null;
-  }
+  const old_params = params;
   params = parseParameters();
+
   if (params) {
+    if (old_params &&
+        `${params.cs}.${params.ch}.${params.band}` !=
+        `${old_params.cs}.${old_params.ch}.${old_params.band}`) {
+      // Discard URL-only params when looking up new flights
+      end_date_param = null;
+      dnu_param = null;
+      units_param = null;
+      detail_param = null;
+      et_decoders_param = null;
+      et_labels_param = null;
+      et_long_labels_param = null;
+      et_units_param = null;
+      et_resolutions_param = null;
+    }
     if (debug > 0) console.log(params);
     if (!on_load) {
       updateURL();
@@ -1729,7 +1732,7 @@ const kDataFields = [
     'min_detail': 1,
     'type': 'distance',
     'label': 'Max RX',
-    'long_label': 'Max RX distance',
+    'long_label': 'Max RX Distance',
     'graph': {}
   }],
   ['max_snr', {
@@ -2440,6 +2443,7 @@ function start() {
   show_unattached_param = getURLParameter('show_unattached');
   units_param = getURLParameter('units');
   detail_param = getURLParameter('detail');
+  sun_elevation_param = getURLParameter('sun_el');
   et_decoders_param = getURLParameter('et_dec');
   et_labels_param = getURLParameter('et_labels');
   et_long_labels_param = getURLParameter('et_llabels');
@@ -2493,6 +2497,12 @@ function start() {
   // Add day / night visualization and the scale indicator
   let terminator = L.terminator(
       { opacity: 0, fillOpacity: 0.3, interactive: false }).addTo(map);
+
+  let sun_elevation = Number(sun_elevation_param);
+  let solar_isoline = !Number.isNaN(sun_elevation) ?
+      L.solar_isoline({
+          elevation: sun_elevation, dashArray: '8,5' }).addTo(map) : null;
+
   L.control.scale().addTo(map);
 
   // Draw the antimeridian
@@ -2587,6 +2597,7 @@ function start() {
   // Update the terminator (day / night overlay) periodically
   setInterval(() => {
     terminator.setTime(new Date());
+    if (solar_isoline) solar_isoline.setTime(new Date());
   }, 120 * 1000);
 }
 

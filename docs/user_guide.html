@@ -177,6 +177,12 @@ Live servers.</p>
 <p><strong>show_unattached</strong> (no value needed) causes WSPR TV to display
 spots that are not attached to the track.</p>
 </li>
+<li>
+<p><strong>sun_el=<code class="notranslate">&lt;degrees&gt;</code></strong> displays a solar isoline on the map that
+corresponds to the solar elevation. This is useful for estimating when
+a balloon may start or stop transmitting, assuming its location is
+approximately known.</p>
+</li>
 </ul>
 <p>The callsign, channel, start date, and band can be specified as URL
 parameters as well (using <code class="notranslate">cs</code>, <code class="notranslate">ch</code>, <code class="notranslate">start_date</code>, and <code class="notranslate">band</code>
@@ -250,10 +256,11 @@ automatically every 10 minutes (unless <code class="notranslate">end_date</code>
 <code class="notranslate">dnu</code> URL parameter was used), and the time of the next update is shown
 in light yellow.</p>
 <p><a target="_blank" rel="noopener noreferrer" href="images/img7.png"><img src="images/img7.png" width="360" style="max-width: 100%;"></a></p>
-<p>There is an easter egg of sorts included in the Flight Synopsis panel --
-clicking the distance value (25313 mi in the example above) will toggle
-units from imperial to metric or vice versa. This preference will be
-remembered if you return to the page later.</p>
+<p>There is an easter egg of sorts included in the Flight Synopsis panel
+-- clicking the distance, altitude, or speed value (e.g. 25313 mi in
+the example above) will toggle units from imperial to metric or vice
+versa. This preference will be remembered if you return to the page
+later.</p>
 <p>Allowing the map to update itself is by far the most efficient way to
 view real-time data. Do not refresh the page via the browser -- doing so
 results in considerably more load on WSPR Live servers. Periodic updates
