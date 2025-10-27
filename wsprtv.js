@@ -2499,7 +2499,7 @@ function start() {
       { opacity: 0, fillOpacity: 0.3, interactive: false }).addTo(map);
 
   let sun_elevation = Number(sun_elevation_param);
-  let solar_isoline = !Number.isNaN(sun_elevation) ?
+  let solar_isoline = sun_elevation ?
       L.solar_isoline({
           elevation: sun_elevation, dashArray: '8,5' }).addTo(map) : null;
 
