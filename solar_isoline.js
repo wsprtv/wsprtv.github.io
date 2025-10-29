@@ -4,6 +4,7 @@
 //
 // Original code is licensed under the MIT License:
 // https://opensource.org/licenses/MIT.
+// Copyright (C) 2013 Joerg Dietrich <astro@joergdietrich.com>.
 //
 // Modified code is licensed under AGPL-3.0.
 // Copyright (C) 2025 WSPR TV authors.
@@ -33,6 +34,12 @@ L.SolarIsoline = L.Polyline.extend({
 		var latLng = this._compute(date);
 		this.setLatLngs(latLng);
 	},
+
+        setElevation: function (angle) {
+          this.options.elevation = angle;
+          var latLng = this._compute(this.options.time);
+          this.setLatLngs(latLng);
+        },
 
 	_julian: function (date) {
 		/* Calculate the present UTC Julian Date. Function is valid after
@@ -138,6 +145,7 @@ L.SolarIsoline = L.Polyline.extend({
 	},
 
 	_compute: function (time) {
+		if (!this.options.elevation) return [];
 		var today = time ? new Date(time) : new Date();
 		var julianDay = this._julian(today);
 		var gst = this._GMST(julianDay);

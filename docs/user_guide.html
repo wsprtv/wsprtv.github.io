@@ -181,7 +181,7 @@ spots that are not attached to the track.</p>
 <p><strong>sun_el=<code class="notranslate">&lt;degrees&gt;</code></strong> displays a solar isoline on the map that
 corresponds to the solar elevation. This is useful for estimating when
 a balloon may start or stop transmitting, assuming its location is
-approximately known.</p>
+approximately known. See more <a href="#solar-isoline">below</a>.</p>
 </li>
 </ul>
 <p>The callsign, channel, start date, and band can be specified as URL
@@ -283,6 +283,13 @@ during the night)</li>
 <li>If a track marker was already selected, the great circle distance
 between that marker and the clicked spot (157 miles)</li>
 </ul>
+<h3 id="solar-isoline">Solar Isoline</h3>
+<p>A dotted line marks the region where the Sun's elevation exceeds a certain
+value. This value can be set using the
+<a href="#url-parameters">sun_el URL parameter</a> or computed automatically from
+recent flight data as the lowest Sun angle at which transmissions
+occurred. To disable this feature, add <code class="notranslate">sun_el=off</code> to the URL.</p>
+<p><a target="_blank" rel="noopener noreferrer" href="images/img17.png"><img src="images/img17.png" width="360" style="max-width: 100%;"></a></p>
 <h2 id="data-view">Data View</h2>
 <p>Clicking on the chart icon (in the top-left corner, below the map zoom
 buttons) will close the map view and open the data view. The data view

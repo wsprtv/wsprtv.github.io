@@ -32,7 +32,7 @@
 let map;  // Leaflet map object
 let markers = [];
 let marker_group;
-let segment_group;
+let marker_line;
 let last_marker;  // used to periodically update the 'last ago' message
 let selected_marker;  // currently selected (clicked) marker
 
@@ -70,6 +70,8 @@ let update_task;  // telemetry / map update task
 let last_data_view_scroll_pos = 0;
 
 let is_mobile;  // running on a mobile device
+
+let solar_isoline;
 
 // WSPR band info. For each band, the value is
 // [U4B start minute offset, WSPR Live band id, start freq].
@@ -991,12 +993,11 @@ function computeTrackDistance(spots) {
 function clearTrack() {
   if (marker_group) {
     marker_group.clearLayers();
-    segment_group.clearLayers();
     map.removeLayer(marker_group);
-    map.removeLayer(segment_group);
+    map.removeLayer(marker_line);
     markers = [];
     marker_group = null;
-    segment_group = null;
+    marker_line = null;
   }
   document.getElementById('spot_info').style.display = 'none';
   document.getElementById('synopsis').innerHTML = '';
@@ -1007,7 +1008,7 @@ function clearTrack() {
     hideMarkerRXInfo(selected_marker);
   }
   selected_marker = null;
-  last_attached_marker = null;
+  last_marker = null;
 }
 
 function createToggleUnitsLink(value) {
@@ -1016,11 +1017,69 @@ function createToggleUnitsLink(value) {
       value + '</a>';
 }
 
+function toRadians(deg) {
+  return deg * Math.PI / 180;
+}
+
+function toDegrees(rad) {
+  return rad * 180 / Math.PI;
+}
+
+function toCartesian(lat, lon) {
+  return [
+      Math.cos(toRadians(lat)) * Math.cos(toRadians(lon)),
+      Math.cos(toRadians(lat)) * Math.sin(toRadians(lon)),
+      Math.sin(toRadians(lat))
+  ];
+}
+
+function fromCartesian(x, y, z) {
+  const r = Math.sqrt(x * x + y * y + z * z);
+  if (r == 0) return [0, 0];
+  return [
+    toDegrees(Math.asin(z / r)),
+    toDegrees(Math.atan2(y / r, x / r))
+  ];
+}
+
+function extendPath(path, lat, lon) {
+  if (!path.length) return;
+  const last_path = path[path.length - 1];
+  if (!last_path.length) return;
+  const [init_lat, init_lon] = last_path[last_path.length - 1];
+  const delta_lon = Math.abs(lon - init_lon);
+  if (delta_lon > 2) {
+    const [x1, y1, z1] = toCartesian(init_lat, init_lon);
+    const [x2, y2, z2] = toCartesian(lat, lon);
+    if (delta_lon > 180) {
+      // Anti-meridian crossing
+      const r = Math.abs(y1 / (y1 - y2));
+      const x = x1 + r * (x2 - x1);
+      const y = y1 + r * (y2 - y1);
+      const z = z1 + r * (z2 - z1);
+      const lat180 = fromCartesian(x, y, z)[0];
+      extendPath(path, lat180, (lon > init_lon) ? -180 : 180);
+      path.push([[lat180, (lon > init_lon) ? 180 : -180]]);
+      extendPath(path, lat, lon);
+      return;
+    }
+    const num_steps = Math.ceil(delta_lon / 2);
+    for (let i = 1; i < num_steps; i++) {
+      const r = i / num_steps;
+      const x = x1 + r * (x2 - x1);
+      const y = y1 + r * (y2 - y1);
+      const z = z1 + r * (z2 - z1);
+      const step_lat_lon = fromCartesian(x, y, z);
+      last_path.push(step_lat_lon);
+    }
+  }
+  last_path.push([lat, lon]);
+}
+
 // Draws the track on the map
 function displayTrack() {
   clearTrack();
   marker_group = L.featureGroup();
-  segment_group = L.featureGroup();
 
   for (let i = 0; i < spots.length; i++) {
     let spot = spots[i];
@@ -1052,7 +1111,8 @@ function displayTrack() {
     markers.push(marker);
   }
 
-  // Add segments between markers. Handle segments across map edges.
+  // Add lines between markers
+  let path = [];
   let first_attached_marker;
   let last_attached_marker;
   for (let i = 0; i < markers.length; i++) {
@@ -1063,33 +1123,16 @@ function displayTrack() {
       let lon1 = last_attached_marker.getLatLng().lng;
       let lat2 = marker.getLatLng().lat;
       let lon2 = marker.getLatLng().lng;
-      if (lon1 < lon2) {
-        // Reorder so that lon1 is east of lon2 when crossing the antimeridian
-        [[lat1, lon1], [lat2, lon2]] = [[lat2, lon2], [lat1, lon1]];
-      }
-      if (lon1 - lon2 > 180) {
-        // The segment crosses the antimeridian (lon=180 line). Leaflet doesn't
-        // display these correctly. Instead, we will display 2 segments -- from
-        // marker1 to antimeridian and from antimeridian to marker2. For this
-        // to work, the latitude at which the segment crosses antimeridian
-        // needs to be calculated.
-        const lat180 = lat1 + (lat2 - lat1) * (180 - lon1) /
-            (lon2 - lon1 + 360);
-        L.polyline([[lat1, lon1], [lat180, 180]],
-            { color: '#00cc00' }).addTo(segment_group);
-        L.polyline([[lat2, lon2], [lat180, -180]],
-            { color: '#00cc00' }).addTo(segment_group);
-      } else {
-        // Regular segment, no antimeridian crossing
-        L.polyline(
-          [last_attached_marker.getLatLng(), marker.getLatLng()],
-          { color: '#00cc00' }).addTo(segment_group);
-      }
     } else {
       first_attached_marker = marker;
+      path = [[[marker.getLatLng().lat, marker.getLatLng().lng]]];
     }
+    extendPath(path, marker.getLatLng().lat, marker.getLatLng().lng);
     last_attached_marker = marker;
   }
+
+  marker_line = L.polyline(path, { color: '#00cc00' });
+  marker_line.addTo(map);
 
   // Highlight first / last markers
   if (first_attached_marker) {
@@ -1103,7 +1146,6 @@ function displayTrack() {
     markers[markers.length - 1].setStyle({ fillColor: 'red' });
   }
 
-  segment_group.addTo(map);
   marker_group.addTo(map);
 
   // Populate flight synopsis
@@ -1164,6 +1206,24 @@ function displayTrack() {
         document.getElementById('map').style.display;
   }
 
+  // Update solar isoline based on last 3 days of data
+  const now = new Date();
+  if (solar_isoline && !sun_elevation_param && first_attached_marker &&
+      last_attached_marker.spot.ts - first_attached_marker.spot.ts >
+          12 * 3600 * 1000 &&
+      now - last_attached_marker.spot.ts < 14 * 86400 * 1000) {
+    let min_sun_elevation = null;
+    for (let i = 0; i < spots.length; i++) {
+      const spot = spots[i];
+      if (spot.is_unattached) continue;
+      if (last_attached_marker.spot.ts - spot.ts > 3 * 86400 * 1000) continue;
+      const sun_elevation = getSunElevation(spot.ts, spot.lat, spot.lon);
+      min_sun_elevation = (min_sun_elevation == null) ?
+          sun_elevation : Math.min(min_sun_elevation, sun_elevation);
+    }
+    if (min_sun_elevation) solar_isoline.setElevation(min_sun_elevation);
+  }
+
   marker_group.on('mouseover', onMarkerMouseover);
   marker_group.on('mouseout', onMarkerMouseout);
   marker_group.on('click', onMarkerClick);
@@ -1200,7 +1260,7 @@ function onMarkerClick(e) {
     selected_marker = marker;
     displaySpotInfo(marker, e.containerPoint);
     marker.rx_markers = [];
-    marker.rx_segments = [];
+    marker.rx_paths = [];
     const unique_rx = [...new Map(spot.slots.flatMap(slot => slot.rx).
         map(rx => [rx.cs, rx])).values()];
     unique_rx.forEach(rx => {
@@ -1218,9 +1278,11 @@ function onMarkerClick(e) {
           `${rx.cs} ${formatDistance(dist)} ${rx.snr} dBm`,
           { direction: 'top', opacity: 0.8 });
       marker.rx_markers.push(rx_marker);
-      let segment = L.polyline([marker.getLatLng(), rx_lat_lon],
+      let path = [[[marker.getLatLng().lat, marker.getLatLng().lng]]];
+      extendPath(path, rx_lat_lon[0], rx_lat_lon[1]);
+      let rx_path = L.polyline(path,
           { weight: 1.4, color: 'blue' }).addTo(map).bringToBack();
-      marker.rx_segments.push(segment);
+      marker.rx_paths.push(rx_path);
     });
   }
   L.DomEvent.stopPropagation(e);
@@ -1236,15 +1298,13 @@ function onMapClick(e) {
 
   const now = new Date();
 
-  const sun_pos = SunCalc.getPosition(now, lat, lon);
-  const sun_elev = Math.round(sun_pos.altitude * 180 / Math.PI);
-
+  const sun_elevation = getSunElevation(now, lat, lon);
   const hrs_sunrise = (getTimeSinceSunrise(now, lat, lon) / 3600000).toFixed(1);
   const hrs_sunset = (getTimeToSunset(now, lat, lon) / 3600000).toFixed(1);
 
   // Update the display
   let aux_info = document.getElementById('aux_info');
-  aux_info.innerHTML = `${lat}, ${lon} | ${sun_elev}&deg; `;
+  aux_info.innerHTML = `${lat}, ${lon} | ${sun_elevation}&deg; `;
   if (!isNaN(hrs_sunrise)) {
     aux_info.innerHTML += `/ ${hrs_sunrise} / ${hrs_sunset} hr`;
   }
@@ -1265,8 +1325,8 @@ function hideMarkerRXInfo(marker) {
   if (marker.rx_markers) {
     marker.rx_markers.forEach(rx_marker => map.removeLayer(rx_marker));
     delete marker.rx_markers;
-    marker.rx_segments.forEach(rx_segment => map.removeLayer(rx_segment));
-    delete marker.rx_segments;
+    marker.rx_paths.forEach(rx_path => map.removeLayer(rx_path));
+    delete marker.rx_paths;
   }
 }
 
@@ -1318,8 +1378,8 @@ function displaySpotInfo(marker, point) {
       }
     });
   }
-  const sun_elev = getSunElevation(spot.ts, spot.lat, spot.lon);
-  spot_info.innerHTML += `<br>Sun elevation: ${sun_elev}&deg;`
+  const sun_elevation = getSunElevation(spot.ts, spot.lat, spot.lon);
+  spot_info.innerHTML += `<br>Sun elevation: ${sun_elevation}&deg;`
   const [num_rx, max_rx_dist, max_snr, avg_freq] = getRXStats(spot);
   spot_info.innerHTML += `<br> ${num_rx} report` +
         ((num_rx == 1) ? '' : 's');
@@ -2499,7 +2559,7 @@ function start() {
       { opacity: 0, fillOpacity: 0.3, interactive: false }).addTo(map);
 
   let sun_elevation = Number(sun_elevation_param);
-  let solar_isoline = sun_elevation ?
+  solar_isoline = (!sun_elevation_param || sun_elevation) ?
       L.solar_isoline({
           elevation: sun_elevation, dashArray: '8,5' }).addTo(map) : null;
 
@@ -2588,9 +2648,9 @@ function start() {
 
     // Update the "Last ago" timestamp
     let last_age = document.getElementById('last_age');
-    if (last_age && last_attached_marker) {
+    if (last_age && last_marker) {
       last_age.innerHTML =
-          formatDuration(new Date(), last_attached_marker.spot.ts);
+          formatDuration(new Date(), last_marker.spot.ts);
     }
   }, 20 * 1000);
 
