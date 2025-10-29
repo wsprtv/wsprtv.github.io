@@ -889,7 +889,7 @@ function getTemperatureInCurrentUnits(c) {
 
 function getSunElevation(ts, lat, lon) {
   const sun_pos = SunCalc.getPosition(ts, lat, lon);
-  return Math.round(sun_pos.altitude * 180 / Math.PI);
+  return Math.round(toDegrees(sun_pos.altitude));
 }
 
 function getTimeSinceSunrise(ts, lat, lon) {
@@ -1042,27 +1042,36 @@ function fromCartesian(x, y, z) {
   ];
 }
 
-function extendPath(path, lat, lon) {
+function extendPath(path, lat, lon, great_circle = false) {
   if (!path.length) return;
   const last_path = path[path.length - 1];
   if (!last_path.length) return;
   const [init_lat, init_lon] = last_path[last_path.length - 1];
   const delta_lon = Math.abs(lon - init_lon);
-  if (delta_lon > 2) {
-    const [x1, y1, z1] = toCartesian(init_lat, init_lon);
-    const [x2, y2, z2] = toCartesian(lat, lon);
-    if (delta_lon > 180) {
-      // Anti-meridian crossing
+  if (delta_lon > 180) {
+    // Antimeridian crossing
+    let lat180;
+    if (great_circle) {
+      const [x1, y1, z1] = toCartesian(init_lat, init_lon);
+      const [x2, y2, z2] = toCartesian(lat, lon);
       const r = Math.abs(y1 / (y1 - y2));
       const x = x1 + r * (x2 - x1);
       const y = y1 + r * (y2 - y1);
       const z = z1 + r * (z2 - z1);
-      const lat180 = fromCartesian(x, y, z)[0];
-      extendPath(path, lat180, (lon > init_lon) ? -180 : 180);
-      path.push([[lat180, (lon > init_lon) ? 180 : -180]]);
-      extendPath(path, lat, lon);
-      return;
+      lat180 = fromCartesian(x, y, z)[0];
+    } else {
+      const r = (180 - Math.abs(init_lon)) / (360 - delta_lon);
+      lat180 = init_lat + r * (lat - init_lat);
     }
+    extendPath(path, lat180, (lon > init_lon) ? -180 : 180, great_circle);
+    path.push([[lat180, (lon > init_lon) ? 180 : -180]]);
+    extendPath(path, lat, lon, great_circle);
+    return;
+  }
+  if (great_circle && delta_lon > 2) {
+    // Interpolate in cartesian space, then project back to unit sphere
+    const [x1, y1, z1] = toCartesian(init_lat, init_lon);
+    const [x2, y2, z2] = toCartesian(lat, lon);
     const num_steps = Math.ceil(delta_lon / 2);
     for (let i = 1; i < num_steps; i++) {
       const r = i / num_steps;
@@ -1221,7 +1230,9 @@ function displayTrack() {
       min_sun_elevation = (min_sun_elevation == null) ?
           sun_elevation : Math.min(min_sun_elevation, sun_elevation);
     }
-    if (min_sun_elevation) solar_isoline.setElevation(min_sun_elevation);
+    if (min_sun_elevation > 0 && min_sun_elevation < 45) {
+      solar_isoline.setElevation(min_sun_elevation);
+    }
   }
 
   marker_group.on('mouseover', onMarkerMouseover);
@@ -1279,7 +1290,7 @@ function onMarkerClick(e) {
           { direction: 'top', opacity: 0.8 });
       marker.rx_markers.push(rx_marker);
       let path = [[[marker.getLatLng().lat, marker.getLatLng().lng]]];
-      extendPath(path, rx_lat_lon[0], rx_lat_lon[1]);
+      extendPath(path, rx_lat_lon[0], rx_lat_lon[1], true);
       let rx_path = L.polyline(path,
           { weight: 1.4, color: 'blue' }).addTo(map).bringToBack();
       marker.rx_paths.push(rx_path);
@@ -2561,7 +2572,8 @@ function start() {
   let sun_elevation = Number(sun_elevation_param);
   solar_isoline = (!sun_elevation_param || sun_elevation) ?
       L.solar_isoline({
-          elevation: sun_elevation, dashArray: '8,5' }).addTo(map) : null;
+          elevation: sun_elevation, dashArray: '8,5',
+          opacity: 0.3 }).addTo(map) : null;
 
   L.control.scale().addTo(map);
 
@@ -2652,13 +2664,11 @@ function start() {
       last_age.innerHTML =
           formatDuration(new Date(), last_marker.spot.ts);
     }
-  }, 20 * 1000);
 
-  // Update the terminator (day / night overlay) periodically
-  setInterval(() => {
+    // Update the terminator (day / night overlay) periodically
     terminator.setTime(new Date());
     if (solar_isoline) solar_isoline.setTime(new Date());
-  }, 120 * 1000);
+  }, 30 * 1000);
 }
 
 start();
