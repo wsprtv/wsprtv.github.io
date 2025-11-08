@@ -47,6 +47,7 @@ let num_fetch_retries = 0;
 // URL-only parameters
 let end_date_param;
 let dnu_param;  // dnu = do not update
+let detach_grid4_param;
 let show_unattached_param;
 let sun_elevation_param;
 
@@ -768,7 +769,8 @@ function categorizeSpots() {
   let last_attached_spot;
   for (let i = 0; i < spots.length; i++) {
     const spot = spots[i];
-    if (spot.is_invalid_gps || params.tracker == 'unknown') {
+    if (spot.is_invalid_gps || params.tracker == 'unknown' ||
+        (detach_grid4_param != null &&  spot.grid.length < 6)) {
       spot.is_unattached = true;
       continue;
     }
@@ -1292,7 +1294,8 @@ function onMarkerClick(e) {
       let path = [[[marker.getLatLng().lat, marker.getLatLng().lng]]];
       extendPath(path, rx_lat_lon[0], rx_lat_lon[1], true);
       let rx_path = L.polyline(path,
-          { weight: 1.4, color: 'blue' }).addTo(map).bringToBack();
+          { weight: 2, color: 'blue', opacity: 0.4 }
+          ).addTo(map).bringToBack();
       marker.rx_paths.push(rx_path);
     });
   }
@@ -1651,6 +1654,9 @@ function getCurrentURL() {
   if (dnu_param != null) {
     url += '&dnu';
   }
+  if (detach_grid4_param != null) {
+    url += '&detach_grid4';
+  }
   if (sun_elevation_param != null) {
     url += '&sun_el=' + encodeURIComponent(sun_elevation_param);
   }
@@ -1704,6 +1710,7 @@ function processSubmission(e, on_load = false) {
       // Discard URL-only params when looking up new flights
       end_date_param = null;
       dnu_param = null;
+      detach_grid4_param = null;
       units_param = null;
       detail_param = null;
       et_decoders_param = null;
@@ -2233,9 +2240,10 @@ function showDataView() {
 
     const fetcher = table_fetchers[index] || ((v) => v);
     data_view.u_plots.push(
-        new uPlot(opts, [ts_values, table_data[index].map(
-            (v, idx) => (v == undefined || spots[idx].is_unattached) ?
-               undefined : fetcher(v))], div));
+        new uPlot(opts, [ts_values, table_data[index].map((v, idx) =>
+            (v == undefined ||
+             (spots[idx].is_unattached && params.tracker != 'unknown')) ?
+                undefined : fetcher(v))], div));
   }
 
   div.appendChild(document.createElement('br'));
@@ -2511,6 +2519,7 @@ function start() {
 
   end_date_param = getURLParameter('end_date');
   dnu_param = getURLParameter('dnu');
+  detach_grid4_param = getURLParameter('detach_grid4');
   show_unattached_param = getURLParameter('show_unattached');
   units_param = getURLParameter('units');
   detail_param = getURLParameter('detail');
@@ -2573,7 +2582,7 @@ function start() {
   solar_isoline = (!sun_elevation_param || sun_elevation) ?
       L.solar_isoline({
           elevation: sun_elevation, dashArray: '8,5',
-          opacity: 0.3 }).addTo(map) : null;
+          opacity: 0.4 }).addTo(map) : null;
 
   L.control.scale().addTo(map);
 

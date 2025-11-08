@@ -169,6 +169,10 @@ WSPR TV not to update the track every 10 minutes. `dnu` is implied if
 sharing WSPR TV links widely to minimize the additional load on WSPR 
 Live servers.
 
+- **detach_grid4** (no value needed) removes low-resolution (grid4)
+spots from the track. Removed spots can still be seen in the data table
+and on the map with `show_unattached`.
+
 - **show_unattached** (no value needed) causes WSPR TV to display
 spots that are not attached to the track.
 

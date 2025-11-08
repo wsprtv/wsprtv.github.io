@@ -10,5 +10,4 @@ pico-balloons you may see on this site.
 
 ## Acknowledgements
 This project uses [WSPR Live](https://wspr.live), a free and publicly 
-accessible database of over 10 billion WSPR reports, hosted on 
-[WsprDaemon's](http://wsprdaemon.org) servers.
+accessible database of over 10 billion WSPR reports.
