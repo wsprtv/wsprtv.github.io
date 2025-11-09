@@ -158,8 +158,12 @@ format.
 UTC) for a track. `end_date` defaults to today and cannot be less than 
 `start_date` or more than a year after `start_date`.
 
+- **time=`<utc|local>`** causes timestamps to be displayed in UTC
+(default) or local timezone. There are other ways to change time
+display in WSPR TV (see [below](#time-display)).
+
 - **units=`<metric|imperial>`** specifies the display units. There are 
-other ways to switch units in WSPR TV (see below).
+other ways to switch units in WSPR TV (see [below](#unit-conversion)).
 
 - **detail=`<0|1>`** controls the amount of detail shown in the data view.
 
@@ -268,11 +272,12 @@ in light yellow.
 
 <img src="images/img7.png" width=360>
 
-There is an easter egg of sorts included in the Flight Synopsis panel 
--- clicking the distance, altitude, or speed value (e.g. 25313 mi in 
+Some of the values in the Flight Synopsis also serve as toggles --
+clicking the distance, altitude, or speed value (e.g. 25313 mi in 
 the example above) will toggle units from imperial to metric or vice 
-versa. This preference will be remembered if you return to the page 
-later.
+versa. Clicking on the duration value will toggle time display from
+UTC to local. These preference will be remembered if you return to the
+page later.
 
 Allowing the map to update itself is by far the most efficient way to 
 view real-time data. Do not refresh the page via the browser -- doing so 
@@ -321,7 +326,7 @@ extended telemetry.
 - A table showing all received spots, including grid4 spots not 
 displayed on the map.
 - Buttons to export spots as a CSV table, all raw data as a JSON file, 
-and to switch units.
+and to switch units and time format (from UTC to local).
 - A button to display / graph more data, such as computed speed and 
 vertical speed.
 
@@ -387,6 +392,16 @@ only if the values differ from spot to spot.
 Telemetry detail can also be set with the `detail`
 [URL parameter](#url-parameters).
 
+### Time Display
+
+The `Toggle UTC` button switches time display from UTC to local (local
+here refers to your device's timezone, not the balloon's location). 
+The preference affects all displayed, charted, and CSV exported values
+in both the map and data views, and is remembered across browser sessions.
+
+Another way to toggle time display is to click on the `Duration` value in 
+the control panel of the map view.
+
 ### Unit Conversion
 
 The `Toggle Units` button switches units from metric to imperial and 
@@ -397,8 +412,8 @@ browser sessions.
 Extended telemetry units are opaque to WSPR TV and are not impacted by 
 unit conversion.
 
-Another way to switch units is to click on the `Distance` value in the 
-control panel of the map view.
+Another way to switch units is to click on the `Distance`, `Speed`, or
+`Altitude` values in the control panel of the map view.
 
 ### Data Export
 

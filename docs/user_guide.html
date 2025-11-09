@@ -160,8 +160,13 @@ UTC) for a track. <code class="notranslate">end_date</code> defaults to today an
 <code class="notranslate">start_date</code> or more than a year after <code class="notranslate">start_date</code>.</p>
 </li>
 <li>
+<p><strong>time=<code class="notranslate">&lt;utc|local&gt;</code></strong> causes timestamps to be displayed in UTC
+(default) or local timezone. There are other ways to change time
+display in WSPR TV (see <a href="#time-display">below</a>).</p>
+</li>
+<li>
 <p><strong>units=<code class="notranslate">&lt;metric|imperial&gt;</code></strong> specifies the display units. There are
-other ways to switch units in WSPR TV (see below).</p>
+other ways to switch units in WSPR TV (see <a href="#unit-conversion">below</a>).</p>
 </li>
 <li>
 <p><strong>detail=<code class="notranslate">&lt;0|1&gt;</code></strong> controls the amount of detail shown in the data view.</p>
@@ -261,11 +266,12 @@ automatically every 10 minutes (unless <code class="notranslate">end_date</code>
 <code class="notranslate">dnu</code> URL parameter was used), and the time of the next update is shown
 in light yellow.</p>
 <p><a target="_blank" rel="noopener noreferrer" href="images/img7.png"><img src="images/img7.png" width="360" style="max-width: 100%;"></a></p>
-<p>There is an easter egg of sorts included in the Flight Synopsis panel
--- clicking the distance, altitude, or speed value (e.g. 25313 mi in
+<p>Some of the values in the Flight Synopsis also serve as toggles --
+clicking the distance, altitude, or speed value (e.g. 25313 mi in
 the example above) will toggle units from imperial to metric or vice
-versa. This preference will be remembered if you return to the page
-later.</p>
+versa. Clicking on the duration value will toggle time display from
+UTC to local. These preference will be remembered if you return to the
+page later.</p>
 <p>Allowing the map to update itself is by far the most efficient way to
 view real-time data. Do not refresh the page via the browser -- doing so
 results in considerably more load on WSPR Live servers. Periodic updates
@@ -305,7 +311,7 @@ extended telemetry.</li>
 <li>A table showing all received spots, including grid4 spots not
 displayed on the map.</li>
 <li>Buttons to export spots as a CSV table, all raw data as a JSON file,
-and to switch units.</li>
+and to switch units and time format (from UTC to local).</li>
 <li>A button to display / graph more data, such as computed speed and
 vertical speed.</li>
 </ul>
@@ -368,6 +374,13 @@ only if the values differ from spot to spot.</p>
 </ul>
 <p>Telemetry detail can also be set with the <code class="notranslate">detail</code>
 <a href="#url-parameters">URL parameter</a>.</p>
+<h3 id="time-display">Time Display</h3>
+<p>The <code class="notranslate">Toggle UTC</code> button switches time display from UTC to local (local
+here refers to your device's timezone, not the balloon's location).
+The preference affects all displayed, charted, and CSV exported values
+in both the map and data views, and is remembered across browser sessions.</p>
+<p>Another way to toggle time display is to click on the <code class="notranslate">Duration</code> value in
+the control panel of the map view.</p>
 <h3 id="unit-conversion">Unit Conversion</h3>
 <p>The <code class="notranslate">Toggle Units</code> button switches units from metric to imperial and
 vice versa. The preference affects all displayed, charted, and CSV
@@ -375,8 +388,8 @@ exported values in both the map and data views, and is remembered across
 browser sessions.</p>
 <p>Extended telemetry units are opaque to WSPR TV and are not impacted by
 unit conversion.</p>
-<p>Another way to switch units is to click on the <code class="notranslate">Distance</code> value in the
-control panel of the map view.</p>
+<p>Another way to switch units is to click on the <code class="notranslate">Distance</code>, <code class="notranslate">Speed</code>, or
+<code class="notranslate">Altitude</code> values in the control panel of the map view.</p>
 <h3 id="data-export">Data Export</h3>
 <p>The <code class="notranslate">Export CSV</code> button exports the data view table exactly as it is
 displayed (in currently selected units, in the same field order, etc).</p>

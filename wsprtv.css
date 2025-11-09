@@ -166,7 +166,7 @@ td.wspr_cell {
   background-color: #f8f8f8;
 }
 
-.pretty_button {
+.data_view_button {
    margin: 20px 10px 20px 0px;
    padding: 5px 10px;
    font-size: 14px;
@@ -178,7 +178,7 @@ td.wspr_cell {
    transition: background-color 0.3s ease;
 }
 
-.pretty_button:hover {
+.data_view_button:hover {
   background-color: #5555aa;
 }
 

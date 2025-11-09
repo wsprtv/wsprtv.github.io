@@ -60,6 +60,7 @@ let et_resolutions_param;
 
 // Other URL parameters
 let units_param;
+let time_param;
 let detail_param;
 
 let last_update_ts;
@@ -109,22 +110,34 @@ function parseTimestamp(ts_str) {
 
 // Parses a string such as '2025-07-13' into a Date object or
 // returns null if the string couldn't be parsed
-function parseDate(date_str) {
+function parseDate(date_str, use_utc) {
   const date_regex = /^(\d{4})-(\d{1,2})-(\d{1,2})$/;
   const match = date_str.match(date_regex);
   if (!match) return null;
   const year = parseInt(match[1]);
   const month = parseInt(match[2]) - 1;  // 0-indexed
   const day = parseInt(match[3]);
-  const date = new Date(Date.UTC(year, month, day));
-  if (date.getUTCFullYear() !== year ||
-      date.getUTCMonth() !== month ||
-      date.getUTCDate() !== day) return null;
-  return date;
+  if (use_utc) {
+    const date = new Date(Date.UTC(year, month, day));
+    if (date.getUTCFullYear() !== year ||
+        date.getUTCMonth() !== month ||
+        date.getUTCDate() !== day) return null;
+    return date;
+  } else {
+    // Local time
+    const date = new Date(year, month, day);
+    if (date.getFullYear() !== year ||
+        date.getMonth() !== month ||
+        date.getDate() !== day) return null;
+    return date;
+  }
 }
 
-// Formats a Date() object to a UTC string such as '2025-07-15 12:00:00'
-function formatTimestamp(ts) {
+// Formats a Date() object to a string such as '2025-07-15 12:00:00'
+function formatTimestamp(ts, force_utc = 0) {
+  if (params && params.use_utc == 0 && !force_utc) {
+    ts = new Date(ts.getTime() - ts.getTimezoneOffset() * 60000);
+  }
   return ts.toISOString().slice(0, 16).replace('T', ' ');
 }
 
@@ -214,17 +227,26 @@ function parseParameters() {
     tracker = 'u4b';  // default
   }
 
-  const start_date = parseDate(
-      document.getElementById('start_date').value);
-  const end_date = end_date_param ?
-      parseDate(end_date_param) : new Date();
-  end_date.setUTCHours(23, 59, 59);
   const units = (units_param == null) ?
       (localStorage.getItem('units') == 1 ? 1 : 0) :
       (units_param == 'imperial' ? 1 : 0);
+  const use_utc = (time_param == null) ?
+      (localStorage.getItem('use_utc') == 0 ? 0 : 1) :
+      (time_param == 'local' ? 0 : 1);
   const detail = (detail_param == null) ?
       (localStorage.getItem('detail') == 0 ? 0 : 1) :
       (detail_param == '0' ? 0 : 1);
+  const start_date = parseDate(
+      document.getElementById('start_date').value, use_utc);
+  const end_date = end_date_param ?
+      parseDate(end_date_param, use_utc) : new Date();
+  if (use_utc) {
+    start_date.setUTCHours(0, 0, 0);
+    end_date.setUTCHours(24, 0,  0);
+  } else {
+    start_date.setHours(0, 0, 0);
+    end_date.setHours(24, 0, 0);
+  }
 
   let cs_regex;
   if (['generic2', 'zachtek2', 'unknown'].includes(tracker)) {
@@ -271,7 +293,7 @@ function parseParameters() {
   // Successful validation
   return { 'cs': cs, 'ch': ch, 'band': band, 'tracker': tracker,
            'start_date': start_date, 'end_date': end_date,
-           'et_slots': et_slots, 'units': units,
+           'et_slots': et_slots, 'units': units, 'use_utc': use_utc,
            'detail': detail, 'et_spec': et_spec,
            'version': version };
 }
@@ -334,12 +356,12 @@ function createQueryDateRange(incremental_update = false) {
     // Fetch up to 6 hours prior to last update timestamp
     let cutoff_ts = last_update_ts;
     cutoff_ts.setHours(cutoff_ts.getHours() - 6);
-    const cutoff_ts_str = formatTimestamp(cutoff_ts);
+    const cutoff_ts_str = formatTimestamp(cutoff_ts, true);
     return `time > '${cutoff_ts_str}:00'`;
   } else {
-    const start_date = formatTimestamp(params.start_date).slice(0, 10);
-    const end_date = formatTimestamp(params.end_date).slice(0, 10);
-    return `time >= '${start_date}' AND time <= '${end_date} 23:58:00'`
+    const start_date = formatTimestamp(params.start_date, true);
+    const end_date = formatTimestamp(params.end_date, true);
+    return `time >= '${start_date}:00' AND time < '${end_date}:00'`
   }
 }
 
@@ -949,17 +971,24 @@ const kUnitInfo = {
 
 function toggleUnits() {
   params.units ^= 1;
+  localStorage.setItem('units', params.units);
+  redraw();
+}
 
+function toggleUTC() {
+  params.use_utc ^= 1;
+  localStorage.setItem('use_utc', params.use_utc);
+  redraw();
+}
+
+function redraw() {
   if (document.getElementById('map').style.display == 'block') {
-    // Redraw the track using new units
+    // Redraw the track
     displayTrack();
   } else {
     // Redraw the data view
     showDataView();
   }
-
-  // Remember units preference
-  localStorage.setItem('units', params.units);
 
   updateURL();
 }
@@ -1014,8 +1043,14 @@ function clearTrack() {
 }
 
 function createToggleUnitsLink(value) {
-  return '<a href="#" class="plain_link" title="Click to change units" ' +
+  return '<a href="#" class="plain_link" title="Click to toggle units" ' +
       'onclick="toggleUnits(); event.preventDefault()">' +
+      value + '</a>';
+}
+
+function createToggleUTCLink(value) {
+  return '<a href="#" class="plain_link" title="Click to toggle UTC" ' +
+      'onclick="toggleUTC(); event.preventDefault()">' +
       value + '</a>';
 }
 
@@ -1165,7 +1200,8 @@ function displayTrack() {
     const last_spot = last_attached_marker.spot;
     const first_spot = first_attached_marker.spot;
     const duration = formatDuration(last_spot.ts, first_spot.ts);
-    synopsis.innerHTML = `Duration: <b>${duration}</b>`;
+    synopsis.innerHTML = 'Duration: <b>' +
+        createToggleUTCLink(duration) + '</b>';
     if (params.tracker != 'unknown') {
       // Distance is a clickable link to switch units
       const dist = computeTrackDistance(spots);
@@ -1349,8 +1385,10 @@ function displaySpotInfo(marker, point) {
   let spot_info = document.getElementById('spot_info');
   spot_info.style.left = point.x + 50 + 'px';
   spot_info.style.top = point.y - 20 + 'px';
-  const utc_ts = formatTimestamp(spot.ts);
-  spot_info.innerHTML = `<span style="color: #ffc">${utc_ts} UTC</span>`;
+  const ts = formatTimestamp(spot.ts);
+  let tz = params.use_utc ? ' UTC' : '';
+  spot_info.innerHTML =
+      `<span style="color: #ffc">${ts}${tz}</span>`;
   for (let i = 0; i < spot.slots.length; i++) {
     const slot = spot.slots[i];
     if (slot && !slot.is_invalid) {
@@ -1516,7 +1554,7 @@ function importCustomData(data) {
     const spot = data[i];
     spot.ts = new Date(spot.ts);
     if (spot.ts < params.start_date) continue;
-    if (end_date_param && spot.ts > params.end_date) continue;
+    if (end_date_param && spot.ts >= params.end_date) continue;
     spots.push(spot);
   }
   return spots;
@@ -1645,6 +1683,9 @@ function getCurrentURL() {
     url += '&units=' + encodeURIComponent(
         params.units ? 'imperial' : 'metric');
   }
+  if (time_param) {
+    url += '&time=' + (params.use_utc ? 'utc' : 'local');
+  }
   if (detail_param) {
     url += '&detail=' + encodeURIComponent(params.detail);
   }
@@ -1712,6 +1753,7 @@ function processSubmission(e, on_load = false) {
       dnu_param = null;
       detach_grid4_param = null;
       units_param = null;
+      time_param = null;
       detail_param = null;
       et_decoders_param = null;
       et_labels_param = null;
@@ -1734,7 +1776,6 @@ function processSubmission(e, on_load = false) {
 
 const kDataFields = [
   ['ts', {
-    'label': 'Time UTC',
     'color': '#7b5d45',
     'type': 'timestamp'
   }],
@@ -1888,14 +1929,11 @@ function computeDerivedData(spots) {
       }
       if (spot.altitude) last_altitude_spot = spot;
     }
-    if (!spot.is_invalid_gps &&
-        (!spot.is_unattached || params.tracker == 'unknown')) {
-      derived_data['sun_elev'][i] =
-          getSunElevation(spot.ts, spot.lat, spot.lon);
-      [derived_data['num_rx'][i], derived_data['max_rx_dist'][i],
-       derived_data['max_snr'][i], derived_data['avg_freq'][i]] =
-          getRXStats(spot);
-    }
+    derived_data['sun_elev'][i] =
+        getSunElevation(spot.ts, spot.lat, spot.lon);
+    [derived_data['num_rx'][i], derived_data['max_rx_dist'][i],
+     derived_data['max_snr'][i], derived_data['avg_freq'][i]] =
+        getRXStats(spot);
   }
   for (const field of kDerivedFields) {
     if (derived_data[field].every(v => v == undefined)) {
@@ -1970,9 +2008,9 @@ function createTableCell(type, content, align = null, color = null,
   return cell;
 }
 
-function createPrettyButton(text, action) {
+function createDataViewButton(text, action) {
   const button = document.createElement('button');
-  button.classList.add('pretty_button');
+  button.classList.add('data_view_button');
   button.textContent = text;
   button.addEventListener('click', action);
   return button;
@@ -2036,7 +2074,7 @@ function toggleWSPRView(i) {
   row.parentNode.insertBefore(wspr_row, row.nextSibling);
   const field_align = [0, 0, 0, 1, 0, 0, 1, 1, 1];
   const wspr_data = [
-      ['UTC', 'TXCall', 'TXGrid', 'Pwr', 'RXCall', 'RXGrid',
+      ['Time', 'TXCall', 'TXGrid', 'Pwr', 'RXCall', 'RXGrid',
        'SNR', 'Dist', 'Freq'],
   ];
   const blank_row = Array(field_align.length).fill('');
@@ -2173,7 +2211,9 @@ function showDataView() {
     table_fetchers.push(fetcher);
 
     // Add table / graph labels
-    const default_label = field[0].toUpperCase() + field.slice(1);
+    const default_label = (field == 'ts') ?
+        (params.use_utc ? 'UTC Time' : 'Local Time') :
+        field[0].toUpperCase() + field.slice(1);
     let table_header = spec['label'] || default_label;
     let long_label =
         spec['long_label'] || spec['label'] || default_label;
@@ -2219,7 +2259,9 @@ function showDataView() {
   for (let i = 0; i < graph_data_indices.length; i++) {
     let index  = graph_data_indices[i];
     const opts = {
-      tzDate: ts => uPlot.tzDate(new Date(ts * 1e3), 'Etc/UTC'),
+      tzDate: ts => params.use_utc ?
+          uPlot.tzDate(new Date(ts * 1e3), 'Etc/UTC') :
+          uPlot.tzDate(new Date(ts * 1e3)),
       cursor: {
         drag: { x: true, y: true, uni: 20 },
         sync: { key: 1, setSeries: true, scales: ['x'] }
@@ -2227,15 +2269,32 @@ function showDataView() {
       width: 600,
       height: 300,
       plugins: [touchZoomPlugin()],
-      series: [{ label: 'Time UTC' },
-        {
-          label: graph_labels[i],
-          stroke: 'blue',
-          value: (self, value) => value
-        }
-      ],
+      series: [{
+        label: params.use_utc ? 'UTC Time' : 'Local Time',
+        value: '{YYYY}-{MM}-{DD} {HH}:{mm}'
+      }, {
+        label: graph_labels[i],
+        stroke: 'blue',
+        value: (self, value) => value
+      }],
       scales: [{ label: 'x' }],
-      axes: [{}, { size: 52 }]
+      axes: [{
+        values: [
+          // inc, default, year, month, day, hour, min, sec, mode
+          [3600 * 24 * 365, '{YYYY}', null, null, null, null, null,
+           null, 1],
+          [3600 * 24 * 28, '{MMM}', '\n{YYYY}', null, null, null, null,
+           null, 1],
+          [3600 * 24, '{M}/{D}', '\n{YYYY}', null, null, null, null,
+           null, 1],
+          [3600, '{HH}', '\n{YYYY}/{M}/{D}', null, '\n{M}/{D}', null, null,
+           null, 1],
+          [60, '{HH}:{mm}', '\n{YYYY}/{M}/{D}', null, '\n{M}/{D}', null,
+           null, null, 1],
+          [1, ':{ss}', '\n{YYYY}/{M}/{D} {HH}:{mm}', null,
+           '\n{M}/{D} {HH}:{mm}', null, '\n{HH}:{mm}', null, 1]
+        ]
+      }, { size: 52 }]
     };
 
     const fetcher = table_fetchers[index] || ((v) => v);
@@ -2250,19 +2309,21 @@ function showDataView() {
 
   if (params.detail != null && (can_show_less || can_show_more)) {
     div.appendChild(
-        createPrettyButton(params.detail ? 'Show Less' : 'Show More',
-                           toggleDataViewDetail));
+        createDataViewButton(params.detail ? 'Show Less' : 'Show More',
+                             toggleDataViewDetail));
   }
   div.appendChild(
-      createPrettyButton('Toggle Units', toggleUnits));
+      createDataViewButton('Toggle UTC', toggleUTC));
+  div.appendChild(
+      createDataViewButton('Toggle Units', toggleUnits));
   // When exporting CSV, omit the last column, which is a link to
   // raw WSPR data
   div.appendChild(
-      createPrettyButton('Export CSV',
+      createDataViewButton('Export CSV',
           () => downloadCSV(long_headers.slice(0, -1),
               table_data.slice(0, -1), table_formatters)));
   div.appendChild(
-      createPrettyButton('Get Raw Data', () => downloadJSON(spots)));
+      createDataViewButton('Get Raw Data', () => downloadJSON(spots)));
 
   // Populate the table
   let table = document.createElement('table');
@@ -2522,6 +2583,7 @@ function start() {
   detach_grid4_param = getURLParameter('detach_grid4');
   show_unattached_param = getURLParameter('show_unattached');
   units_param = getURLParameter('units');
+  time_param = getURLParameter('time');
   detail_param = getURLParameter('detail');
   sun_elevation_param = getURLParameter('sun_el');
   et_decoders_param = getURLParameter('et_dec');
