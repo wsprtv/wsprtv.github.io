@@ -231,8 +231,8 @@ function parseParameters() {
       (localStorage.getItem('units') == 1 ? 1 : 0) :
       (units_param == 'imperial' ? 1 : 0);
   const use_utc = (time_param == null) ?
-      (localStorage.getItem('use_utc') == 0 ? 0 : 1) :
-      (time_param == 'local' ? 0 : 1);
+      (localStorage.getItem('use_utc') == 1 ? 1 : 0) :
+      (time_param == 'utc' ? 1 : 0);
   const detail = (detail_param == null) ?
       (localStorage.getItem('detail') == 0 ? 0 : 1) :
       (detail_param == '0' ? 0 : 1);
@@ -705,7 +705,7 @@ function decodeSpot(spot) {
     // Nothing to do here
   } else if (params.tracker == 'zachtek2' || params.tracker == 'generic2') {
     if (!spot.slots[1]) {
-      // Slot 1 need to be present as it contains the location. WSPRNet
+      // Slot 1 needs to be present as it contains the location. WSPRNet
       // guesses the location for type 2 (slot 0) messages. Relying
       // just on type 3 (slot 1) messages risks 15-bit hash collisions.
       return false;
@@ -1048,12 +1048,6 @@ function createToggleUnitsLink(value) {
       value + '</a>';
 }
 
-function createToggleUTCLink(value) {
-  return '<a href="#" class="plain_link" title="Click to toggle UTC" ' +
-      'onclick="toggleUTC(); event.preventDefault()">' +
-      value + '</a>';
-}
-
 function toRadians(deg) {
   return deg * Math.PI / 180;
 }
@@ -1200,8 +1194,7 @@ function displayTrack() {
     const last_spot = last_attached_marker.spot;
     const first_spot = first_attached_marker.spot;
     const duration = formatDuration(last_spot.ts, first_spot.ts);
-    synopsis.innerHTML = 'Duration: <b>' +
-        createToggleUTCLink(duration) + '</b>';
+    synopsis.innerHTML = `Duration: <b>${duration}</b>`;
     if (params.tracker != 'unknown') {
       // Distance is a clickable link to switch units
       const dist = computeTrackDistance(spots);
@@ -1466,7 +1459,8 @@ function displayNextUpdateCountdown() {
   }
 
   // Number of seconds until the next update
-  const remaining_time = (next_update_ts - (new Date())) / 1000;
+  const now = new Date();
+  const remaining_time = (next_update_ts - now) / 1000;
 
   if (remaining_time >= 60) {
     update_countdown.innerHTML =
@@ -1477,6 +1471,11 @@ function displayNextUpdateCountdown() {
   } else {
     // Can happen if the device went to sleep after last setTimeout()
     update_countdown.innerHTML = 'Update pending';
+    if (remaining_time < -20) {
+      // Retry update in 10 seconds
+      const next_update_ts = new Date(now.getTime() + 10 * 1000);
+      scheduleNextUpdate(next_update_ts);
+    }
   }
 }
 
@@ -1699,7 +1698,7 @@ function getCurrentURL() {
     url += '&detach_grid4';
   }
   if (sun_elevation_param != null) {
-    url += '&sun_el=' + encodeURIComponent(sun_elevation_param);
+    url += '&sun_elev=' + encodeURIComponent(sun_elevation_param);
   }
   if (et_decoders_param) {
     url += '&et_dec=' + encodeURLParameter(et_decoders_param);
@@ -2585,7 +2584,8 @@ function start() {
   units_param = getURLParameter('units');
   time_param = getURLParameter('time');
   detail_param = getURLParameter('detail');
-  sun_elevation_param = getURLParameter('sun_el');
+  sun_elevation_param =
+      getURLParameter('sun_el') || getURLParameter('sun_elev');
   et_decoders_param = getURLParameter('et_dec');
   et_labels_param = getURLParameter('et_labels');
   et_long_labels_param = getURLParameter('et_llabels');

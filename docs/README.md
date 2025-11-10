@@ -180,7 +180,7 @@ and on the map with `show_unattached`.
 - **show_unattached** (no value needed) causes WSPR TV to display
 spots that are not attached to the track.
 
-- **sun_el=`<degrees>`** displays a solar isoline on the map that 
+- **sun_elev=`<degrees>`** displays a solar isoline on the map that 
 corresponds to the solar elevation. This is useful for estimating when 
 a balloon may start or stop transmitting, assuming its location is 
 approximately known. See more [below](#solar-isoline).
@@ -274,10 +274,9 @@ in light yellow.
 
 Some of the values in the Flight Synopsis also serve as toggles --
 clicking the distance, altitude, or speed value (e.g. 25313 mi in 
-the example above) will toggle units from imperial to metric or vice 
-versa. Clicking on the duration value will toggle time display from
-UTC to local. These preference will be remembered if you return to the
-page later.
+the example above) will switch units from imperial to metric or vice 
+versa. This preference will be remembered if you return to the page
+later.
 
 Allowing the map to update itself is by far the most efficient way to 
 view real-time data. Do not refresh the page via the browser -- doing so 
@@ -309,9 +308,9 @@ between that marker and the clicked spot (157 miles)
 
 A dotted line marks the region where the Sun's elevation exceeds a certain 
 value. This value can be set using the 
-[sun_el URL parameter](#url-parameters) or computed automatically from
+[sun_elev URL parameter](#url-parameters) or computed automatically from
 recent flight data as the lowest Sun angle at which transmissions 
-occurred. To disable this feature, add `sun_el=off` to the URL.
+occurred. To disable this feature, add `sun_elev=off` to the URL.
 
 <img src="images/img17.png" width=360>
 
@@ -398,9 +397,6 @@ The `Toggle UTC` button switches time display from UTC to local (local
 here refers to your device's timezone, not the balloon's location). 
 The preference affects all displayed, charted, and CSV exported values
 in both the map and data views, and is remembered across browser sessions.
-
-Another way to toggle time display is to click on the `Duration` value in 
-the control panel of the map view.
 
 ### Unit Conversion
 
