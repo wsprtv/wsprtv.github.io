@@ -1042,6 +1042,12 @@ function clearTrack() {
   last_marker = null;
 }
 
+function createToggleUTCLink(value) {
+  return '<a href="#" class="plain_link" title="Click to toggle UTC" ' +
+      'onclick="toggleUTC(); event.preventDefault()">' +
+      value + '</a>';
+}
+
 function createToggleUnitsLink(value) {
   return '<a href="#" class="plain_link" title="Click to toggle units" ' +
       'onclick="toggleUnits(); event.preventDefault()">' +
@@ -1222,7 +1228,8 @@ function displayTrack() {
       synopsis.innerHTML +=
           `<br>Last voltage: <b>${formatVoltage(last_spot.voltage)}</b>`;
     }
-    const last_age = formatDuration(new Date(), last_spot.ts);
+    const last_age = createToggleUTCLink(
+        formatDuration(new Date(), last_spot.ts));
     synopsis.innerHTML += `<br><b>(<span id='last_age'>${last_age}` +
         `</span> ago)</b>`;
     last_marker = last_attached_marker;
@@ -1347,15 +1354,20 @@ function onMapClick(e) {
 
   // Update the display
   let aux_info = document.getElementById('aux_info');
-  aux_info.innerHTML = `${lat}, ${lon} | ${sun_elevation}&deg; `;
+  aux_info.innerHTML = `<span title="Latitude">${lat}</span>, ` +
+      `<span title="Longitude">${lon}</span> | ` +
+      `<span title="Sun elevation">${sun_elevation}&deg;</span> `;
   if (!isNaN(hrs_sunrise)) {
-    aux_info.innerHTML += `/ ${hrs_sunrise} / ${hrs_sunset} hr`;
+    aux_info.innerHTML +=
+        `/ <span title="Hours since sunrise">${hrs_sunrise}</span>` +
+        ` / <span title="Hours to sunset">${hrs_sunset}</span> hr`;
   }
 
   if (selected_marker) {
     // Display distance to the previously clicked marker
     let dist = e.latlng.distanceTo(selected_marker.getLatLng());
-    aux_info.innerHTML += ' | ' + formatDistance(dist);
+    aux_info.innerHTML += ' | <span title="Distance from selected marker">' +
+        formatDistance(dist) + '</span>';
     // Clicking anywhere on the map hides the info bar for the last
     // clicked marker
     hideMarkerRXInfo(selected_marker);
@@ -2732,8 +2744,8 @@ function start() {
     // Update the "Last ago" timestamp
     let last_age = document.getElementById('last_age');
     if (last_age && last_marker) {
-      last_age.innerHTML =
-          formatDuration(new Date(), last_marker.spot.ts);
+      last_age.innerHTML = createToggleUTCLink(
+          formatDuration(new Date(), last_marker.spot.ts));
     }
 
     // Update the terminator (day / night overlay) periodically

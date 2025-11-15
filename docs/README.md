@@ -135,7 +135,7 @@ link to this user guide.
 
 ### Start Date
 
-The start date is UTC-based and should be in the `YYYY-mm-dd` format, 
+The start date should be in the `YYYY-mm-dd` format,
 such as `2025-07-15`. This field defaults to 30 days before today and is 
 a good choice for minimizing the load on WSPR Live servers and making 
 the WSPR TV user interface more responsive. The start date cannot be 
@@ -154,12 +154,12 @@ telemetry parameters. Additional parameters may be specified by
 appending them to the URL using the `param1=value1&param2=value2` 
 format.
 
-- **end_date=`<YYYY-mm-dd>`** specifies the end date (up to 23:59:59 in 
-UTC) for a track. `end_date` defaults to today and cannot be less than 
+- **end_date=`<YYYY-mm-dd>`** specifies the end date (up to 23:59:59)
+for a track. `end_date` defaults to today and cannot be less than
 `start_date` or more than a year after `start_date`.
 
 - **time=`<utc|local>`** causes timestamps to be displayed in UTC
-(default) or local timezone. There are other ways to change time
+or local timezone (default). There are other ways to change time
 display in WSPR TV (see [below](#time-display)).
 
 - **units=`<metric|imperial>`** specifies the display units. There are 
@@ -272,10 +272,11 @@ in light yellow.
 
 <img src="images/img7.png" width=360>
 
-Some of the values in the Flight Synopsis also serve as toggles --
-clicking the distance, altitude, or speed value (e.g. 25313 mi in 
-the example above) will switch units from imperial to metric or vice 
-versa. This preference will be remembered if you return to the page
+Some of the values in the Flight Synopsis also serve as **toggles** --
+clicking on the distance, altitude, or speed (e.g. 25313 mi in
+the example above) switches units from imperial to metric or vice
+versa. Clicking on `(12m ago)` in the example above toggles UTC time
+display. These preferences will be remembered if you return to the page
 later.
 
 Allowing the map to update itself is by far the most efficient way to 
@@ -397,6 +398,9 @@ The `Toggle UTC` button switches time display from UTC to local (local
 here refers to your device's timezone, not the balloon's location). 
 The preference affects all displayed, charted, and CSV exported values
 in both the map and data views, and is remembered across browser sessions.
+
+Another way to toggle time display is to click on the `(X ago)` value in
+the control panel of the map view.
 
 ### Unit Conversion
 
