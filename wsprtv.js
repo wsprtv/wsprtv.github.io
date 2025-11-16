@@ -298,15 +298,16 @@ function parseParameters() {
            'version': version };
 }
 
-function updateHistory() {
-  let history;
+function loadHistory() {
   try {
-    history = JSON.parse(localStorage.getItem('history'));
-    if (!history) history = [];
+    return JSON.parse(localStorage.getItem('history'));
   } catch (error) {
-    history = [];
+    return [];
   }
+}
 
+function updateHistory() {
+  const history = loadHistory();
   const now = Math.floor(Date.now() / 1000);
   const url = getCurrentURL();
   let updated_history = [{ 'ts': now, 'url': url }];
@@ -990,7 +991,7 @@ function redraw() {
     showDataView();
   }
 
-  updateURL();
+  setURL(getCurrentURL());
 }
 
 // Returns the distance between two spots in meters
@@ -1730,9 +1731,8 @@ function getCurrentURL() {
   return url;
 }
 
-function updateURL() {
+function setURL(url) {
   try {
-    const url = getCurrentURL();
     history.replaceState(null, '', url);
   } catch (error) {
     console.log('Security error triggered by history.replaceState()');
@@ -1774,7 +1774,7 @@ function processSubmission(e, on_load = false) {
     }
     if (debug > 0) console.log(params);
     if (!on_load) {
-      updateURL();
+      setURL(getCurrentURL());
     }
     update();
     updateHistory();
@@ -2385,7 +2385,7 @@ function toggleDataViewDetail() {
   // Remember user preference
   localStorage.setItem('detail', params.detail);
 
-  updateURL();
+  setURL(getCurrentURL());
 }
 
 function getDownloadFilename(ext) {
@@ -2587,6 +2587,14 @@ function parseExtendedTelemetrySpec() {
 
 // Entry point
 function start() {
+  if (!location.search.includes('?') &&
+      localStorage.getItem('load_last') == '1') {
+    const history = loadHistory();
+    if (history.length > 0) {
+      setURL(history[0].url);
+    }
+  }
+
   initializeFormFields();
 
   end_date_param = getURLParameter('end_date');

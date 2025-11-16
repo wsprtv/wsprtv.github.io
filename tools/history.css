@@ -80,3 +80,7 @@ table.data_table {
 p {
   margin: 20px 0;
 }
+
+input[type=checkbox] {
+  vertical-align: -2.5px;
+}

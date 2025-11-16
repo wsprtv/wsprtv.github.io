@@ -3,7 +3,7 @@
   <title>WSPR TV History</title>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <link rel="stylesheet" href="history.css?4">
+  <link rel="stylesheet" href="history.css?5">
 </head>
 
 <body>
@@ -11,11 +11,14 @@
     <h1>WSPR TV History</h1>
     <div id="table"></div>
     <div id="help" style="display: none; max-width: 400px">
+      <p><input type="checkbox" id="load_last"
+          onchange="changeDefaultViewSetting()">
+         Load last viewed entry by default
       <p>History is stored locally.
       Old entries are removed after 14 days.<br>
       <b>Tip</b>: the "From:" label on wsprtv.com
       (next to the start date) is a link to this page.
     </div>
   </div>
-  <script src="history.js?5"></script>
+  <script src="history.js?7"></script>
 </body></html>

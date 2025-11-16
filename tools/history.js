@@ -143,6 +143,11 @@ function showTable() {
   document.getElementById('help').style.display = 'block';
 }
 
+function changeDefaultViewSetting() {
+  localStorage.setItem('load_last',
+      document.getElementById('load_last').checked ? '1' : '0');
+}
+
 // Entry point
 function start() {
   window.addEventListener('pageshow', function (event) {
@@ -152,6 +157,9 @@ function start() {
   });
 
   showTable();
+
+  document.getElementById('load_last').checked =
+      (localStorage.getItem('load_last') == '1') || false;
 }
 
 start();
