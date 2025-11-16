@@ -2595,7 +2595,10 @@ function start() {
     }
   }
 
-  initializeFormFields();
+  // Prevent bots from loading flights
+  if (!/bot|spider|crawler/i.test(navigator.userAgent)) {
+    initializeFormFields();
+  }
 
   end_date_param = getURLParameter('end_date');
   dnu_param = getURLParameter('dnu');
