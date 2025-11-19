@@ -300,7 +300,7 @@ function parseParameters() {
 
 function loadHistory() {
   try {
-    return JSON.parse(localStorage.getItem('history'));
+    return JSON.parse(localStorage.getItem('history')) || [];
   } catch (error) {
     return [];
   }
