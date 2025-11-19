@@ -157,7 +157,13 @@ format.</p>
 <li>
 <p><strong>end_date=<code class="notranslate">&lt;YYYY-mm-dd&gt;</code></strong> specifies the end date (up to 23:59:59)
 for a track. <code class="notranslate">end_date</code> defaults to today and cannot be less than
-<code class="notranslate">start_date</code> or more than a year after <code class="notranslate">start_date</code>.</p>
+<code class="notranslate">start_date</code> or more than a year after <code class="notranslate">start_date</code>, unless <code class="notranslate">ate1y</code>
+is also present.</p>
+</li>
+<li>
+<p><strong>ate1y</strong> (abbreviation for "allow tracks exceeding 1 year",
+no value needed) allows tracks to be up to 2 years long. Use this
+parameter only when absolutely necessary.</p>
 </li>
 <li>
 <p><strong>time=<code class="notranslate">&lt;utc|local&gt;</code></strong> causes timestamps to be displayed in UTC

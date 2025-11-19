@@ -46,6 +46,7 @@ let num_fetch_retries = 0;
 
 // URL-only parameters
 let end_date_param;
+let ate1y_param;  // ate1y = allow tracks exceeding 1 year
 let dnu_param;  // dnu = do not update
 let detach_grid4_param;
 let show_unattached_param;
@@ -275,11 +276,20 @@ function parseParameters() {
     return null;
   }
 
-  if (end_date - start_date > 366 * 86400 * 1000) {
-    alert('Start date cannot be more than a year before the end date. ' +
-          'For past flights, end date can be specified with the ' +
-          '&end_date=YYYY-mm-dd URL param');
-    return null;
+  if (ate1y_param != null) {
+    if (end_date - start_date > 731 * 86400 * 1000) {
+      alert('Start date cannot be more than two years before the end date. ' +
+            'For past flights, end date can be specified with the ' +
+            '&end_date=YYYY-mm-dd URL param');
+      return null;
+    }
+  } else {
+    if (end_date - start_date > 366 * 86400 * 1000) {
+      alert('Start date cannot be more than a year before the end date. ' +
+            'For past flights, end date can be specified with the ' +
+            '&end_date=YYYY-mm-dd URL param');
+      return null;
+    }
   }
 
   const et_spec = et_decoders_param ? parseExtendedTelemetrySpec() : null;
@@ -1021,6 +1031,24 @@ function computeTrackDistance(spots) {
   return dist;
 }
 
+// Returns number of east-bound laps for given track
+function getNumLaps(spots) {
+  if (!spots) return 0;
+  let num_degrees = 0;
+  let max_lon = spots[0].lon;
+  for (let i = 1; i < spots.length; i++) {
+    const spot = spots[i];
+    if (spot.is_unattached) continue;
+    let delta = ((spot.lon - max_lon + 180) % 360) - 180;
+    if (delta < -120) delta += 360;  // prefer east-bound legs
+    if (delta > 0) {
+      num_degrees += delta;
+      max_lon = spot.lon;
+    }
+  }
+  return num_degrees / 360;
+}
+
 // Removes all existing markers and segments from the map
 function clearTrack() {
   if (marker_group) {
@@ -1207,6 +1235,8 @@ function displayTrack() {
       const dist = computeTrackDistance(spots);
       synopsis.innerHTML += '<br>Distance: <b>' +
           createToggleUnitsLink(formatDistance(dist)) + '</b>';
+      const num_laps = getNumLaps(spots);
+      synopsis.innerHTML += `<br>Laps: <b>${num_laps.toFixed(2)}</b>`;
     }
     const num_track_spots = markers.filter(m => !m.spot.is_unattached).length;
     synopsis.innerHTML += `<br><b>${num_track_spots}</b> track spot` +
@@ -1691,6 +1721,9 @@ function getCurrentURL() {
   if (end_date_param) {
     url += '&end_date=' + encodeURIComponent(end_date_param);
   }
+  if (ate1y_param != null) {
+    url += '&ate1y';
+  }
   if (units_param) {
     url += '&units=' + encodeURIComponent(
         params.units ? 'imperial' : 'metric');
@@ -1761,6 +1794,7 @@ function processSubmission(e, on_load = false) {
         `${old_params.cs}.${old_params.ch}.${old_params.band}`) {
       // Discard URL-only params when looking up new flights
       end_date_param = null;
+      ate1y_param = null;
       dnu_param = null;
       detach_grid4_param = null;
       units_param = null;
@@ -2601,6 +2635,7 @@ function start() {
   }
 
   end_date_param = getURLParameter('end_date');
+  ate1y_param = getURLParameter('ate1y');
   dnu_param = getURLParameter('dnu');
   detach_grid4_param = getURLParameter('detach_grid4');
   show_unattached_param = getURLParameter('show_unattached');

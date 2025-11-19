@@ -156,7 +156,12 @@ format.
 
 - **end_date=`<YYYY-mm-dd>`** specifies the end date (up to 23:59:59)
 for a track. `end_date` defaults to today and cannot be less than
-`start_date` or more than a year after `start_date`.
+`start_date` or more than a year after `start_date`, unless `ate1y`
+is also present.
+
+- **ate1y** (abbreviation for "allow tracks exceeding 1 year",
+no value needed) allows tracks to be up to 2 years long. Use this
+parameter only when absolutely necessary.
 
 - **time=`<utc|local>`** causes timestamps to be displayed in UTC
 or local timezone (default). There are other ways to change time
