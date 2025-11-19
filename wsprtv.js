@@ -1108,13 +1108,15 @@ function fromCartesian(x, y, z) {
   ];
 }
 
-function extendPath(path, lat, lon, great_circle = false) {
+function extendPath(path, lat, lon, great_circle = false,
+                    prefer_eastbound = false) {
   if (!path.length) return;
   const last_path = path[path.length - 1];
   if (!last_path.length) return;
   const [init_lat, init_lon] = last_path[last_path.length - 1];
   const delta_lon = Math.abs(lon - init_lon);
-  if (delta_lon > 180) {
+  if (delta_lon >
+          180 + (prefer_eastbound ? ((lon > init_lon) ? 60 : -60) : 0)) {
     // Antimeridian crossing
     let lat180;
     if (great_circle) {
@@ -1202,7 +1204,8 @@ function displayTrack() {
       first_attached_marker = marker;
       path = [[[marker.getLatLng().lat, marker.getLatLng().lng]]];
     }
-    extendPath(path, marker.getLatLng().lat, marker.getLatLng().lng);
+    extendPath(path, marker.getLatLng().lat, marker.getLatLng().lng,
+               false, true);
     last_attached_marker = marker;
   }
 
@@ -1236,7 +1239,10 @@ function displayTrack() {
       synopsis.innerHTML += '<br>Distance: <b>' +
           createToggleUnitsLink(formatDistance(dist)) + '</b>';
       const num_laps = getNumLaps(spots);
-      synopsis.innerHTML += `<br>Laps: <b>${num_laps.toFixed(2)}</b>`;
+      if (num_laps > 0) {
+        synopsis.innerHTML +=
+            `<br>Laps: <b>${(num_laps - 0.0004999).toFixed(3)}</b>`;
+      }
     }
     const num_track_spots = markers.filter(m => !m.spot.is_unattached).length;
     synopsis.innerHTML += `<br><b>${num_track_spots}</b> track spot` +
@@ -1805,7 +1811,10 @@ function processSubmission(e, on_load = false) {
       et_long_labels_param = null;
       et_units_param = null;
       et_resolutions_param = null;
+      params = parseParameters();
     }
+  }
+  if (params) {
     if (debug > 0) console.log(params);
     if (!on_load) {
       setURL(getCurrentURL());
