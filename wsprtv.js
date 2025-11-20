@@ -1035,18 +1035,22 @@ function computeTrackDistance(spots) {
 function getNumLaps(spots) {
   if (!spots) return 0;
   let num_degrees = 0;
-  let max_lon = spots[0].lon;
-  for (let i = 1; i < spots.length; i++) {
+  let max_num_degrees = 0;
+  let last_lon = null;
+  for (let i = 0; i < spots.length; i++) {
     const spot = spots[i];
     if (spot.is_unattached) continue;
-    let delta = ((spot.lon - max_lon + 180) % 360) - 180;
-    if (delta < -120) delta += 360;  // prefer east-bound legs
-    if (delta > 0) {
+    if (last_lon == null) {
+      last_lon = spot.lan;
+    } else {
+      let delta = ((spot.lon - last_lon + 180) % 360) - 180;
+      if (delta < -120) delta += 360;  // prefer east-bound legs
       num_degrees += delta;
-      max_lon = spot.lon;
+      max_num_degrees = Math.max(num_degrees, max_num_degrees);
     }
+    last_lon = spot.lon;
   }
-  return num_degrees / 360;
+  return max_num_degrees / 360;
 }
 
 // Removes all existing markers and segments from the map
