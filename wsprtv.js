@@ -1445,7 +1445,7 @@ function onMarkerClick(e) {
       });
       let dist = marker.getLatLng().distanceTo(rx_lat_lon);
       rx_marker.bindTooltip(
-          `${rx.cs} ${formatDistance(dist)} ${rx.snr} dBm`,
+          `${rx.cs} ${formatDistance(dist)} ${rx.snr} dB`,
           { direction: 'top', opacity: 0.8 });
       marker.rx_markers.push(rx_marker);
       let path = [[[marker.getLatLng().lat, marker.getLatLng().lng]]];
@@ -1563,7 +1563,7 @@ function displaySpotInfo(marker, point) {
   const [num_rx, max_rx_dist, max_snr, avg_freq] = getRXStats(spot);
   spot_info.innerHTML += `<br> ${num_rx} report` +
         ((num_rx == 1) ? '' : 's');
-  spot_info.innerHTML += ` | ${max_snr} dBm`;
+  spot_info.innerHTML += ` | ${max_snr} dB`;
   spot_info.innerHTML +=
       `<br> ${formatDistance(max_rx_dist)} | ${avg_freq} Hz`;
 
