@@ -237,10 +237,21 @@ function parseParameters() {
   const detail = (detail_param == null) ?
       (localStorage.getItem('detail') == 0 ? 0 : 1) :
       (detail_param == '0' ? 0 : 1);
+
   const start_date = parseDate(
       document.getElementById('start_date').value, use_utc);
+  if (!start_date) {
+    alert('Start date should be in the YYYY-mm-dd format');
+    return null;
+  }
+
   const end_date = end_date_param ?
       parseDate(end_date_param, use_utc) : new Date();
+  if (!end_date) {
+    alert('End date should be in the YYYY-mm-dd format');
+    return null;
+  }
+
   if (use_utc) {
     start_date.setUTCHours(0, 0, 0);
     end_date.setUTCHours(24, 0,  0);
@@ -249,29 +260,7 @@ function parseParameters() {
     end_date.setHours(24, 0, 0);
   }
 
-  let cs_regex;
-  if (['generic2', 'zachtek2', 'unknown'].includes(tracker)) {
-    // Compound callsigns allowed
-    cs_regex = /^([A-Z0-9]{1,4}\/)?[A-Z0-9]{4,6}(\/[A-Z0-9]{1,4})?$/i;
-  } else {
-    cs_regex = /^[A-Z0-9]{4,6}$/i;
-  }
-  if (!cs_regex.test(cs)) {
-    alert('Please enter a valid callsign');
-    return null;
-  }
-
-  if (!start_date) {
-    alert('Start date should be in the YYYY-mm-dd format');
-    return null;
-  }
-
-  if (!end_date) {
-    alert('End date should be in the YYYY-mm-dd format');
-    return null;
-  }
-
-  if (start_date > end_date) {
+  if (start_date >= end_date) {
     alert('Start date should be before end date');
     return null;
   }
@@ -290,6 +279,18 @@ function parseParameters() {
             '&end_date=YYYY-mm-dd URL param');
       return null;
     }
+  }
+
+  let cs_regex;
+  if (['generic2', 'zachtek2', 'unknown'].includes(tracker)) {
+    // Compound callsigns allowed
+    cs_regex = /^([A-Z0-9]{1,4}\/)?[A-Z0-9]{4,6}(\/[A-Z0-9]{1,4})?$/i;
+  } else {
+    cs_regex = /^[A-Z0-9]{4,6}$/i;
+  }
+  if (!cs_regex.test(cs)) {
+    alert('Please enter a valid callsign');
+    return null;
   }
 
   const et_spec = et_decoders_param ? parseExtendedTelemetrySpec() : null;
@@ -644,18 +645,21 @@ function handleU4BVariants(spot, flag) {
     case 101: {
       // Improved altitude resolution
       if (!flag) spot.altitude += 10;
+      spot.altitude_res = 10;
       break;
     }
     case 102: {
       // Improved longitude resolution
       [spot.lat, spot.lon] = maidenheadToLatLon(spot.grid);
       spot.lon += flag ? (-1 / 48) : (1 / 48);
+      spot.lon_res = 1 / 24;
       break;
     }
     case 103: {
       // Improved latitude resolution
       [spot.lat, spot.lon] = maidenheadToLatLon(spot.grid);
       spot.lat += flag ? (-1 / 96) : (1 / 96);
+      spot.lat_res = 1 / 48;
       break;
     }
   }
@@ -744,17 +748,22 @@ function decodeSpot(spot) {
     [spot.lat, spot.lon] = maidenheadToLatLon(spot.grid);
   }
   if (spot.raw_et) decodeExtendedTelemetry(spot);
+  if (spot.grid.length == 6 && spot.native_et) {
+    processNativeExtendedTelemetry(spot);
+  }
   return true;
 }
 
 function decodeExtendedTelemetry(spot) {
   if (!params.et_spec || !spot.raw_et) return null;
-  let et = [];
+  let opaque_et = [];  // opaque type values
+  let native_et = {};  // native type values
+  let has_native_et = false;
   let tx_seq = (spot.ts.getUTCDate() - 1) * 720 +
       spot.ts.getUTCHours() * 30 +
       Math.floor(spot.ts.getUTCMinutes() / 2);
   for (let i = 0; i < spot.raw_et.length; i++) {
-    let index = 0;  // index within data
+    let opaque_index = 0;  // index within data
     const raw_et = spot.raw_et[i];
     if (raw_et == undefined) continue;
     const decoders = params.et_spec.decoders;
@@ -782,19 +791,57 @@ function decodeExtendedTelemetry(spot) {
       }
       if (matched) {
         // Extract the values
-        for (const [divisor, modulus, offset, slope] of extractors) {
-          et[index++] = offset +
-              (Math.trunc(raw_et / divisor) % modulus) * slope;
+        for (const extractor of extractors) {
+          if (extractor[0]) {
+            // Native type
+            const [divisor, modulus, type_id] = extractor.slice(1);
+            native_et[type_id] =
+                [Math.trunc(raw_et / divisor) % modulus, modulus];
+            has_native_et = true;
+          } else {
+            // Opaque type
+            const [divisor, modulus, offset, slope] = extractor.slice(1);
+            opaque_et[opaque_index++] = offset +
+                (Math.trunc(raw_et / divisor) % modulus) * slope;
+          }
         }
         break;  // do not try other decoders
       } else {
         // Skip over the missing indices
-        index += extractors.length;
+        for (const extractor of extractors) {
+          if (!extractor[0]) opaque_index++;
+        }
       }
     }
   }
-  if (et.length) spot.et = et;
+  if (opaque_et.length) spot.opaque_et = opaque_et;
+  if (has_native_et) spot.native_et = native_et;
   return data;
+}
+
+function processNativeExtendedTelemetry(spot) {
+  spot.fill = '#7ab1c9';
+  for (const [type, [value, num_values]] of Object.entries(spot.native_et)) {
+    if (type == 100) {
+      // Enhanced longitude
+      if (spot.lon_res == undefined) {
+        spot.lon += -1 / 24 + (value + 0.5) / (12 * num_values);
+        spot.lon_res = 1 / (12 * num_values);
+      }
+    } else if (type == 101) {
+      // Enhanced latitude
+      if (spot.lat_res == undefined) {
+        spot.lat += -1 / 48 + (value + 0.5) / (24 * num_values);
+        spot.lat_res = 1 / (24 * num_values);
+      }
+    } else if (type == 102) {
+      // Enhanced altitude
+      if (spot.altitude_res == undefined) {
+        spot.altitude += Math.trunc(20 * value / num_values);
+        spot.altitude_res = 20 / num_values;
+      }
+    }
+  }
 }
 
 // Categorizes spots on whether they should be part of the track
@@ -862,38 +909,48 @@ function formatDuration(ts1, ts2) {
 
 function formatDistance(m, append_units = true) {
   const v = getDistanceInCurrentUnits(m);
-  const [units, _] = kUnitInfo['distance'][params.units]
-  return v + (append_units ? units : '');
+  return v + (append_units ? (params.units ? ' mi' : ' km') : '');
 }
 
 function formatSpeed(kph, append_units = true) {
   const v = getSpeedInCurrentUnits(kph);
-  const [units, _] = kUnitInfo['speed'][params.units];
-  return v + (append_units ? units : '');
+  return v + (append_units ? (params.units ? ' mph' : ' km/h') : '');
 }
 
 // Vertical speed, mpm = m/min
 function formatVSpeed(mpm, append_units = true) {
   const v = getVSpeedInCurrentUnits(mpm);
-  const [units, _] = kUnitInfo['vspeed'][params.units];
-  return v + (append_units ? units : '');
+  return v + (append_units ? (params.units ? ' ft/min' : ' m/min') : '');
 }
 
-function formatAltitude(m, append_units = true) {
+function formatAltitude([m, resolution], append_units = true) {
   const v = getAltitudeInCurrentUnits(m);
-  const [units, resolution] = kUnitInfo['altitude'][params.units];
-  return (resolution ? v.toFixed(resolution) : v) +
-      (append_units ? units : '');
+  const precision = params.units ? 0 : ((resolution < 10) ? 3 : 2);
+  return v.toFixed(precision) +
+      (append_units ? (params.units ? ' ft' : ' km') : '');
 }
 
 function formatTemperature(c, append_units = true) {
   const v = getTemperatureInCurrentUnits(c);
-  const [units, _] = kUnitInfo['temp'][params.units]
-  return v + (append_units ? units : '');
+  return v + (append_units ? (params.units ? '°F' : '°C') : '');
 }
 
 function formatVoltage(v, append_units = true) {
   return v.toFixed(2) + (append_units ? 'V' : '');
+}
+
+function formatCoordinate([d, resolution], append_units = true) {
+  let value;
+  if (resolution >= 0.5) {
+    value = `${d.toFixed(1)}`;
+  } else if (resolution >= 1 / 48) {
+    value = `${d.toFixed(3)}`;
+  } else if (resolution >= 1 / 4096) {
+    value = `${d.toFixed(4)}`;
+  } else {
+    value = `${d.toFixed(5)}`;
+  }
+  return value + (append_units ? '°' : '')
 }
 
 function getDistanceInCurrentUnits(m) {
@@ -904,7 +961,7 @@ function getDistanceInCurrentUnits(m) {
 
 function getAltitudeInCurrentUnits(m) {
   return (params.units == 0) ?
-      m / 1000 : Math.round(m * 3.28084 / 10) * 10;
+      m / 1000 : Math.round(m * 3.28084);
 }
 
 function getSpeedInCurrentUnits(kph) {
@@ -963,21 +1020,38 @@ function getRXStats(spot) {
           Math.floor(freq_sum / (num_freqs || 1))];
 }
 
+function getLatitudeResolution(spot) {
+  if (spot.lat_res) return spot.lat_res;
+  if (spot.grid.length == 6) return 1 / 48;
+  return 1 / 2;
+}
+
+function getLongitudeResolution(spot) {
+  if (spot.lon_res) return spot.lon_res;
+  if (spot.grid.length == 6) return 1 / 24;
+  return 1;
+}
+
+function getAltitudeResolution(spot) {
+  if (spot.altitude_res) return spot.altitude_res;
+  return 20;
+}
+
 // Units / localization
 
 // Metric / imperial, with second param being the display resolution.
 // Spaces in units are deliberate: 5 mph vs 5V.
 const kUnitInfo = {
-  'speed': [[' km/h', 0], [' mph', 0]],
-  'vspeed': [[' m/min', 0], [' ft/min', 0]],
-  'altitude': [[' km', 2], [' ft', 0]],
-  'distance': [[' km', 0], [' mi', 0]],
-  'temp': [['°C', 0], ['°F', 1]],
-  'voltage': [['V', 2], ['V', 2]],
-  'power': [[' dBm', 0], [' dBm', 0]],
-  'snr': [[' dB', 0], [' dB', 0]],
-  'angle': [['°', 0], ['°', 0]],
-  'freq': [[' Hz', 0], [' Hz', 0]]
+  'speed': [' km/h', ' mph'],
+  'vspeed': [' m/min', ' ft/min'],
+  'altitude': [' km', ' ft'],
+  'distance': [' km', ' mi'],
+  'temp': ['°C', '°F'],
+  'voltage': ['V', 'V'],
+  'power': [' dBm', ' dBm'],
+  'snr': [' dB', ' dB'],
+  'angle': ['°', '°'],
+  'freq': [' Hz', ' Hz']
 };
 
 function toggleUnits() {
@@ -1144,14 +1218,18 @@ function extendPath(path, lat, lon, great_circle = false,
     // Interpolate in cartesian space, then project back to unit sphere
     const [x1, y1, z1] = toCartesian(init_lat, init_lon);
     const [x2, y2, z2] = toCartesian(lat, lon);
-    const num_steps = Math.ceil(delta_lon / 2);
+    const num_steps = (delta_lon > 175) ? 360 : Math.ceil(delta_lon / 2);
     for (let i = 1; i < num_steps; i++) {
       const r = i / num_steps;
       const x = x1 + r * (x2 - x1);
       const y = y1 + r * (y2 - y1);
       const z = z1 + r * (z2 - z1);
-      const step_lat_lon = fromCartesian(x, y, z);
-      last_path.push(step_lat_lon);
+      const [step_lat, step_lon] = fromCartesian(x, y, z);
+      const [last_lat, last_lon] = last_path[last_path.length - 1];
+      if (Math.abs(step_lat - last_lat) > 0.75 ||
+          Math.abs(step_lon - last_lon) > 0.75) {
+        last_path.push([step_lat, step_lon]);
+      }
     }
   }
   last_path.push([lat, lon]);
@@ -1219,12 +1297,12 @@ function displayTrack() {
   // Highlight first / last markers
   if (first_attached_marker) {
     first_attached_marker.setStyle({ fillColor: '#3cb371' });
-  } else if (markers.length > 0) {
+  } else if (markers.length > 0 && params.tracker == 'unknown') {
     markers[0].setStyle({ fillColor: '#3cb371' });
   }
   if (last_attached_marker) {
     last_attached_marker.setStyle({ fillColor: 'red' });
-  } else if (markers.length > 0) {
+  } else if (markers.length > 0 && params.tracker == 'unknown') {
     markers[markers.length - 1].setStyle({ fillColor: 'red' });
   }
 
@@ -1259,7 +1337,9 @@ function displayTrack() {
     }
     if ('altitude' in last_spot) {
       synopsis.innerHTML += '<br>Last altitude: <b>' +
-          createToggleUnitsLink(formatAltitude(last_spot.altitude)) + '</b>';
+          createToggleUnitsLink(formatAltitude(
+              [last_spot.altitude, getAltitudeResolution(last_spot)])) +
+          '</b>';
     }
     if ('speed' in last_spot) {
       synopsis.innerHTML += '<br>Last speed: <b>' +
@@ -1288,7 +1368,7 @@ function displayTrack() {
 
   displayNextUpdateCountdown();
 
-  if (spots) {
+  if (spots && spots.length > 0) {
     // Display the data view button if there are any spots
     document.getElementById('show_data_button').style.display =
         document.getElementById('map').style.display;
@@ -1384,24 +1464,24 @@ function onMapClick(e) {
   document.getElementById('spot_info').style.display = 'none';
 
   // Display lat / lng / sun elevation of clicked point
-  const lat = e.latlng.lat.toFixed(2);
-  const lon = e.latlng.lng.toFixed(2);
+  const lat = e.latlng.lat;
+  const lon = e.latlng.lng;
 
   const now = new Date();
 
   const sun_elevation = getSunElevation(now, lat, lon);
-  const hrs_sunrise = (getTimeSinceSunrise(now, lat, lon) / 3600000).toFixed(1);
-  const hrs_sunset = (getTimeToSunset(now, lat, lon) / 3600000).toFixed(1);
+  const hrs_sunrise = (getTimeSinceSunrise(now, lat, lon) / 3600000);
+  const hrs_sunset = (getTimeToSunset(now, lat, lon) / 3600000);
 
   // Update the display
   let aux_info = document.getElementById('aux_info');
-  aux_info.innerHTML = `<span title="Latitude">${lat}</span>, ` +
-      `<span title="Longitude">${lon}</span> | ` +
+  aux_info.innerHTML = `<span title="Latitude">${lat.toFixed(3)}</span>, ` +
+      `<span title="Longitude">${lon.toFixed(3)}</span> | ` +
       `<span title="Sun elevation">${sun_elevation}&deg;</span> `;
   if (!isNaN(hrs_sunrise)) {
-    aux_info.innerHTML +=
-        `/ <span title="Hours since sunrise">${hrs_sunrise}</span>` +
-        ` / <span title="Hours to sunset">${hrs_sunset}</span> hr`;
+    aux_info.innerHTML += `/ ` +
+        `<span title="Hours since sunrise">${hrs_sunrise.toFixed(1)}</span>` +
+        ` / <span title="Hours to sunset">${hrs_sunset.toFixed(1)}</span> hr`;
   }
 
   if (selected_marker) {
@@ -1446,10 +1526,12 @@ function displaySpotInfo(marker, point) {
     spot_info.innerHTML +=
         '<br><span style="color: red">Invalid GPS fix</span>';
   }
-  spot_info.innerHTML +=
-      `<br>${spot.lat.toFixed(2)}°, ${spot.lon.toFixed(2)}°`;
+  spot_info.innerHTML += '<br>' +
+      formatCoordinate([spot.lat, getLatitudeResolution(spot)]) + ', ' +
+      formatCoordinate([spot.lon, getLongitudeResolution(spot)]);
   if ('altitude' in spot) {
-    spot_info.innerHTML += '<br>Altitude: ' + formatAltitude(spot.altitude);
+    spot_info.innerHTML += '<br>Altitude: ' +
+        formatAltitude([spot.altitude, getAltitudeResolution(spot)]);
   }
   if ('speed' in spot) {
     spot_info.innerHTML += `<br>Speed: ${formatSpeed(spot.speed)}`;
@@ -1460,15 +1542,15 @@ function displaySpotInfo(marker, point) {
   if ('voltage' in spot) {
     spot_info.innerHTML += `<br>Voltage: ${formatVoltage(spot.voltage)}`;
   }
-  if (spot.raw_et && !spot.et) {
-    // Display opaque extended telemetry
+  if (spot.raw_et && !spot.opaque_et) {
+    // Display raw extended telemetry
     spot.raw_et.forEach((v, i) =>
         spot_info.innerHTML += `<br>Raw ET${i}: ${v}`);
   }
-  if (spot.et) {
+  if (spot.opaque_et) {
     // Display decoded extended telemetry
     let count = 0;
-    spot.et.forEach((v, i) => {
+    spot.opaque_et.forEach((v, i) => {
       if (count++ < 8) {
         const [label, long_label, units, formatter] =
             getExtendedTelemetryAttributes(i);
@@ -1698,7 +1780,7 @@ async function update(incremental_update = false) {
   } catch (error) {
     cancelPendingUpdate();
     if (error instanceof TypeError && error.message == 'Failed to fetch') {
-      if (num_fetch_retries < 3) {
+      if (last_update_ts && num_fetch_retries < 3) {
         const now = new Date();
         const next_update_ts = new Date(
             now.getTime() + (5 ** (num_fetch_retries + 1)) * 1000);
@@ -1807,6 +1889,7 @@ function processSubmission(e, on_load = false) {
       ate1y_param = null;
       dnu_param = null;
       detach_grid4_param = null;
+      show_unattached_param = null;
       units_param = null;
       time_param = null;
       detail_param = null;
@@ -1850,15 +1933,21 @@ const kDataFields = [
     'label': 'Lat',
     'color': '#0066cc',
     'type': 'angle',
-    'formatter': (v, au) => `${v.toFixed(2)}` + (au ? '°' : '')
+    'source': (s) => [s.lat, getLatitudeResolution(s)],
+    'formatter': formatCoordinate
   }],
   ['lon', {
     'label': 'Lon',
     'color': '#0066cc',
     'type': 'angle',
-    'formatter': (v, au) => `${v.toFixed(2)}` + (au ? '°' : '')
+    'source': (s) => [s.lon, getLongitudeResolution(s)],
+    'formatter': formatCoordinate
   }],
-  ['altitude', { 'graph': {} }],
+  ['altitude', {
+    'source': (s) => (s.altitude == undefined) ?
+        undefined : [s.altitude, getAltitudeResolution(s)],
+    'graph': {}
+  }],
   ['vspeed', {
     'min_detail': 1,
     'label': 'VSpeed',
@@ -1940,7 +2029,7 @@ const kFormatters = {
 
 const kFetchers = {
   'distance': getDistanceInCurrentUnits,
-  'altitude': getAltitudeInCurrentUnits,
+  'altitude': (v) => getAltitudeInCurrentUnits(v[0]),
   'speed': getSpeedInCurrentUnits,
   'vspeed': getVSpeedInCurrentUnits,
   'temp': getTemperatureInCurrentUnits
@@ -1973,8 +2062,14 @@ function computeDerivedData(spots) {
           let dist = getDistance(last_grid6_spot, spot) / 1000;
           let ts_delta = (spot.ts - last_grid6_spot.ts) || 1;
           let cspeed = dist * 3600000 / ts_delta;
-          let min_cspeed = Math.max(dist - 4, 0) * 3600000 / ts_delta;
-          let max_cspeed = (dist + 4) * 3600000 / ts_delta;
+          const eps_deg = Math.max(
+              getLatitudeResolution(spot),
+              getLatitudeResolution(last_grid6_spot),
+              getLongitudeResolution(spot),
+              getLongitudeResolution(last_grid6_spot));
+          const eps_km = 120 * eps_deg;
+          let min_cspeed = Math.max(dist - eps_km, 0) * 3600000 / ts_delta;
+          let max_cspeed = (dist + eps_km) * 3600000 / ts_delta;
           if (cspeed > (max_cspeed - min_cspeed) * 4 ||
               max_cspeed - min_cspeed <= 10) {
             // Close enough
@@ -2025,7 +2120,7 @@ function extractExtendedTelemetryData(spots) {
     const spot = spots[i];
     if (spot.raw_et) {
       spot.raw_et.forEach((v, slot) => {
-        let field = `raw_et${slot}`;
+        const field = `raw_et${slot}`;
         let field_data = et_data[field];
         if (!field_data) {
           field_data = new Array(spots.length).fill(undefined);
@@ -2034,9 +2129,9 @@ function extractExtendedTelemetryData(spots) {
         field_data[i] = v;
       });
     }
-    if (spot.et) {
-      spot.et.forEach((v, slot) => {
-        let field = `et${slot}`;
+    if (spot.opaque_et) {
+      spot.opaque_et.forEach((v, slot) => {
+        const field = `et${slot}`;
         let field_data = et_data[field];
         if (!field_data) {
           field_data = new Array(spots.length).fill(undefined);
@@ -2180,7 +2275,7 @@ function showDataView() {
     notice.innerHTML = '&lt;-- Tap here to close. ' +
         'Charts are touch-enabled, supporting pan and zoom gestures.';
   } else {
-    notice.innerHTML = '⟵ Click here to close. To <b>zoom in</b> ' +
+    notice.innerHTML = '&lt;-- Click here to close. To <b>zoom in</b> ' +
         'on charts, click and drag. To <b>zoom out</b>, double click.';
   }
   notice.classList.add('notice');
@@ -2207,8 +2302,8 @@ function showDataView() {
       { length: spots.length }, (_, i) => i + 1)];
   let field_specs = [{}];
   let table_formatters = [null];
-  let table_fetchers = [null];
-
+  let graph_fetchers = [];
+  let graph_formatters = [];
   let graph_labels = [];
   let graph_data_indices = [];  // indices into table_data
   const ts_values = spots.map(spot => spot.ts.getTime() / 1000);
@@ -2231,7 +2326,7 @@ function showDataView() {
           getExtendedTelemetryAttributes(i);
       data_fields.push([`et${i}`,
         { 'label': label, 'long_label': long_label, 'units': units,
-          'formatter': formatter, 'graph': {} }]);
+          'formatter': formatter, 'graph': {}, 'is_et' : true }]);
     }
   }
 
@@ -2266,7 +2361,6 @@ function showDataView() {
       }
     }
     table_formatters.push(formatter);
-    table_fetchers.push(fetcher);
 
     // Add table / graph labels
     const default_label = (field == 'ts') ?
@@ -2276,7 +2370,7 @@ function showDataView() {
     let long_label =
         spec['long_label'] || spec['label'] || default_label;
     let units = spec['units'] ||
-        (kUnitInfo[type] && kUnitInfo[type][params.units][0]);
+        (kUnitInfo[type] && kUnitInfo[type][params.units]);
     if (units) {
       long_label += ' (' + units.trim() + ')';
       table_header += '\n(' + units.trim() + ')';
@@ -2284,9 +2378,12 @@ function showDataView() {
     table_headers.push(table_header);
     long_headers.push(long_label);
     field_specs.push(spec);
+
     if (spec.graph) {
       graph_labels.push(long_label);
       graph_data_indices.push(table_data.length);
+      graph_fetchers.push(fetcher);
+      graph_formatters.push(spec.is_et ? formatter : null);
     }
 
     // Data for this field
@@ -2294,10 +2391,7 @@ function showDataView() {
     if (supplementary_data[field]) {
       field_data = supplementary_data[field];
     } else {
-      field_data = spots.map(spot =>
-          spot[field] == undefined ?
-              undefined : (spec.fetcher ?
-                  spec.fetcher(spot[field]) : spot[field]));
+      field_data = spots.map(spec.source || (spot => spot[field]));
     }
     table_data.push(field_data);
   }
@@ -2310,12 +2404,12 @@ function showDataView() {
       { length: spots.length }, (_, i) => createWSPRViewLink(i)));
   field_specs.push({ align: 'center', format: 'html' });
   table_formatters.push(null);
-  table_fetchers.push(null);
 
   // Add graphs
   data_view.u_plots = [];  // references to created uPlot instances
   for (let i = 0; i < graph_data_indices.length; i++) {
-    let index  = graph_data_indices[i];
+    const fetcher = graph_fetchers[i] || ((v) => v);
+    const formatter = graph_formatters[i] || ((v) => v);
     const opts = {
       tzDate: ts => params.use_utc ?
           uPlot.tzDate(new Date(ts * 1e3), 'Etc/UTC') :
@@ -2333,7 +2427,7 @@ function showDataView() {
       }, {
         label: graph_labels[i],
         stroke: 'blue',
-        value: (self, value) => value
+        value: (self, v) => ((v == undefined) ? undefined : formatter(v))
       }],
       scales: [{ label: 'x' }],
       axes: [{
@@ -2355,7 +2449,7 @@ function showDataView() {
       }, { size: 52 }]
     };
 
-    const fetcher = table_fetchers[index] || ((v) => v);
+    const index  = graph_data_indices[i];
     data_view.u_plots.push(
         new uPlot(opts, [ts_values, table_data[index].map((v, idx) =>
             (v == undefined ||
@@ -2524,7 +2618,6 @@ function parseExtendedTelemetrySpec() {
   if (!et_decoders_param) return null;
   if (!/^[0-9ets,:_~.-]+$/.test(et_decoders_param)) return null;
   let decoders = [];
-  let num_extractors = 0;
   for (const decoder_spec of et_decoders_param.toLowerCase().split('~')) {
     let header_divisor = 1;
     let [filters_spec, extractors_spec] = decoder_spec.split('_');
@@ -2575,25 +2668,34 @@ function parseExtendedTelemetrySpec() {
     let next_divisor = header_divisor;
     if (extractors_spec) {
       for (const extractor_spec of extractors_spec.split(',')) {
-        let extractor = extractor_spec.split(':').map(Number);
-        if (extractor.length == 3) {
+        let extractor = extractor_spec.split(':');
+        let is_native_type = false;
+        if (extractor[extractor.length - 1].startsWith('t')) {
+          extractor[extractor.length - 1] =
+              extractor[extractor.length - 1].substring(1);
+          is_native_type = true;
+        }
+        extractor = extractor.map(Number);
+        if (extractor.length == (is_native_type ? 2 : 3)) {
+          // Implicit divisor
           extractor.unshift(next_divisor);
         }
-        if (extractor.length != 4) return null;
-        for (let i = 0; i < extractor.length; i++) {
-          if ((i <= 1) && (!Number.isInteger(extractor[i]) ||
-              extractor[i] < 1)) {
-            return null;
-          }
+        if (extractor.length != (is_native_type ? 3 : 4)) return null;
+        if (!Number.isInteger(extractor[0]) || extractor[0] < 1) return null;
+        if (!Number.isInteger(extractor[1]) || extractor[1] < 2) return null;
+        if (is_native_type) {
+          if (!Number.isInteger(extractor[2]) || extractor[2] < 0) return null;
+        } else {
+          // Opaque type
           if (Number.isNaN(extractor[2])) return null;
           if (Number.isNaN(extractor[3]) || extractor[3] <= 0) return null;
-          next_divisor = extractor[0] * extractor[1];
         }
+        next_divisor = extractor[0] * extractor[1];
+        extractor.unshift(is_native_type);
         extractors.push(extractor);
       }
     }
     decoders.push([filters, extractors]);
-    num_extractors += extractors.length;
   }
   if (!decoders) return null;
   // Parse optional params
@@ -2683,7 +2785,7 @@ function start() {
 
   // Initialize the map
   map = L.map('map',
-      { renderer : L.canvas({tolerance: click_tolerance })});
+      { renderer : L.canvas({ tolerance: click_tolerance })});
 
   // Use local English-label tiles for lower levels
   L.tileLayer(
@@ -2780,7 +2882,7 @@ function start() {
     } else {
       return;
     }
-    this.value = params ? params.band : "20m";
+    this.value = params ? params.band : '20m';
   });
 
   // Handle clicks on the "Show data" button

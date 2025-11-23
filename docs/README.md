@@ -203,7 +203,8 @@ Extended-telemetry-related URL parameters `et_dec`, `et_labels`,
 
 A track is rendered as a sequence of small white grid4 markers (low 
 resolution) and larger light blue grid6 markers (high resolution).
-Markers are connected by green lines.
+Enhanced U4B telemetry spots (see [below]((#u4b-extended-telemetry)
+are shaded in a darker blue. Markers are connected by green lines.
 
 <img src="images/img3.png" width=360>
 
@@ -530,6 +531,25 @@ To unpack `value3`, we first shift the message right by dividing it by
 Then, we apply a modulus of 3 (i.e., take the remainder after dividing 
 by 3) to extract the value of `value3`.
 
+### Value Types
+
+Extended telemetry values can be **opaque** or **native**. Opaque values
+can be graphed and displayed in a table, but their meaning is otherwise
+not known to WSPR TV. By contrast, native values have a well-defined type,
+and can influence the site's UI at a deeper level.
+
+Currently, three native types are supported:
+
+- Type 100: enhanced longitude resolution 
+- Type 101: enhanced latitude resolution 
+- Type 102: enhanced altitude resolution
+
+These types increase the resolution of U4B telemetry by further subdividing
+longitude, latitude, and altitude values. The additional resolution depends
+on the size of the corresponding extended telemetry fields. For example,
+if 10 values are allocated to type 102, altitude resolution improves by a
+factor of 10, from 20m to 2m.
+
 ### Extended Telemetry Message Definition
 
 WSPR TV has an extremely flexible extended telemetry definition 
@@ -641,7 +661,7 @@ This enables different handling of messages in, for example, slot 2
 versus slot 3.
 
 
-### Value Extraction
+### Opaque Value Extraction
 
 Once all filters in a message definition pass, a set of values are 
 extracted. Generally, extraction is specified using the following tuple 
@@ -741,6 +761,25 @@ don't require units: `NumSats: 5` is typically clearer than
 decimal point. By default, values are displayed as integers (resolution 
 = 0). The maximum allowed resolution is 6.
 
+### Native Value Extraction
+
+[Native value](#value-types) extraction is specified using the following
+tuple of parameters:
+
+```
+(divisor, modulus, type_id)
+```
+
+Note that there is no offset, slope, or value annotation, since the
+type of the value is already known to WSPR TV.
+
+When the divisor is implied, a **simplified 2-term extractor**
+specification is also available:
+
+```
+(modulus, type_id)
+```
+
 ### Extended Telemetry Wizard
 
 WSPR TV provides a [wizard](https://wsprtv.com/tools/et_wizard.html) to 
@@ -819,19 +858,26 @@ Hence the filter specification for ET0 user-defined telemetry in slot 2
 may be expressed as follows:
 
 ```
-et0:0,slot:2
+et0:0,s:2
 ```
 
-An extractor can have either a 3-term or 4-term format, depending on 
-whether the divisor is explicit or implicit:
+An opaque value extractor can have either a 3-term or 4-term format,
+depending on whether the divisor is explicit or implicit:
 
 ```
 <modulus>:<offset>:<slope>
 <divisor>:<modulus>:<offset>:<slope>
 ```
 
+Native value extractors specify their type after the modulus:
+
+```
+<modulus>:t<type_id>
+<divisor>:<modulus>:t<type_id>
+```
+
 Finally, a set of annotation parameters -- `et_labels`, `et_llabels`, 
-`et_units`, and `et_res` -- can be used to customize the display of ET 
+`et_units`, and `et_res` -- can be used to customize the display of opaque ET 
 values. All of these are a comma-separated list of parameters, with one 
 value per extractor specification. For example, if there are 2 decoders 
 containing 4 and 5 extractors respectively, then the 7th item in 

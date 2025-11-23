@@ -22,7 +22,7 @@ let debug = 0;  // controls console logging
 let seq = 0;  // DOM element id sequence
 let tail;
 let message_sections;
-let num_extractors = 0;
+let num_opaque_extractors = 0;
 
 // Extracts a parameter value from the URL
 function getURLParameter(url, name) {
@@ -39,6 +39,7 @@ function importWSPRTVURL(url) {
   spec.ch = getURLParameter(url, 'ch');
   spec.band = getURLParameter(url, 'band');
   spec.start_date = getURLParameter(url, 'start_date');
+  spec.end_date = getURLParameter(url, 'end_date');
 
   const decoders_param = getURLParameter(url, 'et_dec');
   const labels_param = getURLParameter(url, 'et_labels');
@@ -68,7 +69,8 @@ function importWSPRTVURL(url) {
     for (const extractor_spec of extractors_spec.split(',')) {
       if (!extractor_spec) continue;
       let extractor = extractor_spec.split(':');
-      if (extractor.length == 3) {
+      const is_native = extractor[extractor.length - 1].startsWith('t');
+      if (extractor.length == (2 + (is_native ? 0 : 1))) {
         extractor.unshift('');
       }
       extractors.push(extractor);
@@ -93,6 +95,7 @@ function importWSPRTVURL(url) {
     spec.resolutions = resolutions_param.split(',');
   }
   createMessages(spec);
+  generateURL();
 }
 
 function importTraquitoURL(url) {
@@ -101,6 +104,7 @@ function importTraquitoURL(url) {
   spec.ch = getURLParameter(url, 'channel');
   spec.band = getURLParameter(url, 'band');
   spec.start_date = getURLParameter(url, 'dtGte');
+  spec.end_date = getURLParameter(url, 'dtLte');
   for (let i = 0; i < 4; i++) {
     const slot_param = getURLParameter(url, `slot${i + 1}MsgDefUserDefined`);
     if (!slot_param) continue;
@@ -132,15 +136,13 @@ function importTraquitoSpec(traquito_spec) {
     if (traquito_spec[i]) {
       let filters = [['et0', '0'], ['s', i]];
       let extractors = [];
-      let divisor = 320;
       for (let extractor_spec of traquito_spec[i]) {
         let offset = extractor_spec.lowValue;
         let slope = extractor_spec.stepSize;
         let modulus = Math.ceil(
             (extractor_spec.highValue - extractor_spec.lowValue) /
             extractor_spec.stepSize) + 1;
-        extractors.push([divisor, modulus, offset, slope, 1]);
-        divisor *= modulus;
+        extractors.push(['', modulus + '', offset + '', slope + '']);
         labels.push(extractor_spec.name);
         units.push(extractor_spec.unit);
       }
@@ -152,6 +154,7 @@ function importTraquitoSpec(traquito_spec) {
   if (traquito_spec.ch) spec.ch = traquito_spec.ch;
   if (traquito_spec.band) spec.band = traquito_spec.band;
   if (traquito_spec.start_date) spec.start_date = traquito_spec.start_date;
+  if (traquito_spec.end_date) spec.end_date = traquito_spec.end_date;
   createMessages(spec);
   return;
 }
@@ -291,11 +294,11 @@ function createFilter(parent, filter = null) {
   return s;
 }
 
-function createExtractor(parent, extractor = null, spec = null) {
+function createOpaqueExtractor(parent, extractor = null, spec = null) {
   let s = addSection(parent);
   addLabel(s, 'Div');
   let f = addInputField(s, '', 50, 'implied');
-  if (extractor && extractor[4] == 0) f.value = extractor[0];
+  if (extractor) f.value = extractor[0];
   addLabel(s, 'Mod');
   f = addInputField(s, '', 50);
   if (extractor) f.value = extractor[1];
@@ -307,26 +310,50 @@ function createExtractor(parent, extractor = null, spec = null) {
   if (extractor) f.value = extractor[3];
   addLabel(s, 'Label');
   f = addInputField(s, '', 75);
-  if (spec && spec.labels && spec.labels[num_extractors]) {
-    f.value = spec.labels[num_extractors];
+  if (spec && spec.labels && spec.labels[num_opaque_extractors]) {
+    f.value = spec.labels[num_opaque_extractors];
   }
   addLabel(s, 'Long label');
   f = addInputField(s, '', 100);
-  if (spec && spec.long_labels && spec.long_labels[num_extractors]) {
-    f.value = spec.long_labels[num_extractors];
+  if (spec && spec.long_labels && spec.long_labels[num_opaque_extractors]) {
+    f.value = spec.long_labels[num_opaque_extractors];
   }
   addLabel(s, 'Units');
   f = addInputField(s, '', 50);
-  if (spec && spec.units && spec.units[num_extractors]) {
-    f.value = spec.units[num_extractors];
+  if (spec && spec.units && spec.units[num_opaque_extractors]) {
+    f.value = spec.units[num_opaque_extractors];
   }
   addLabel(s, 'Resolution');
   f = addInputField(s, '', 30);
-  if (spec && spec.resolutions && spec.resolutions[num_extractors]) {
-    f.value = spec.resolutions[num_extractors];
+  if (spec && spec.resolutions && spec.resolutions[num_opaque_extractors]) {
+    f.value = spec.resolutions[num_opaque_extractors];
   }
   addButton(s, 'Delete', deleteExtractor);
-  num_extractors++;
+  num_opaque_extractors++;
+}
+
+function createNativeExtractor(parent, extractor = null, spec = null) {
+  let s = addSection(parent);
+  addLabel(s, 'Div');
+  let f = addInputField(s, '', 50, 'implied');
+  if (extractor) f.value = extractor[0];
+  addLabel(s, 'Mod');
+  f = addInputField(s, '', 50);
+  if (extractor) f.value = extractor[1];
+  addLabel(s, 'Type');
+  const native_type = addSelectMenu(s,
+      ['[100] Enhanced Longitude Resolution',
+       '[101] Enhanced Latitude Resolution',
+       '[102] Enhanced Altitude Resolution'
+      ], null);
+  if (extractor && extractor[2] == 't100') {
+    native_type.value = 0;
+  } else if (extractor && extractor[2] == 't101') {
+    native_type.value = 1;
+  } else if (extractor && extractor[2] == 't102') {
+    native_type.value = 2;
+  }
+  addButton(s, 'Delete', deleteExtractor);
 }
 
 function createMessage(decoder = null, spec = null) {
@@ -388,17 +415,24 @@ function createMessage(decoder = null, spec = null) {
   addTextElement(extractors_section, 'h3', 'Value Extractors');
   if (decoder && decoder[1]) {
     for (const extractor of decoder[1]) {
-      createExtractor(extractors_section, extractor, spec);
+      if (extractor && extractor[extractor.length - 1].startsWith('t')) {
+        createNativeExtractor(extractors_section, extractor, spec);
+      } else {
+        createOpaqueExtractor(extractors_section, extractor, spec);
+      }
     }
   }
-  addButton(extractors_wrapper, 'Add',
-      () => createExtractor(extractors_section));
+  addButton(extractors_wrapper, 'Add Opaque',
+      () => createOpaqueExtractor(extractors_section));
+
+  addButton(extractors_wrapper, 'Add Native',
+      () => createNativeExtractor(extractors_section));
 
   addButton(message_section, 'Delete Message', deleteMessage);
 }
 
 function createMessages(spec = null) {
-  num_extractors = 0;
+  num_opaque_extractors = 0;
   const wizard = document.getElementById('wizard');
   message_sections = addSection(wizard);
   if (spec && spec.decoders) {
@@ -425,6 +459,9 @@ function createMessages(spec = null) {
   }
   if (spec && spec.start_date) {
     main_params.querySelector('#start_date').value = spec.start_date;
+  }
+  if (spec && spec.end_date) {
+    main_params.querySelector('#end_date').value = spec.end_date;
   }
 
   wizard.appendChild(main_params);
@@ -479,24 +516,33 @@ function checkFilter(filter, row) {
   return true;
 }
 
-function checkExtractor(filter, implied_div, row) {
+function checkExtractor(extractor, implied_div, row) {
+  const is_native = extractor[2].startsWith('t');
   try {
     let div = implied_div;
-    if (filter[0]) {
-      div = Number(filter[0]);
+    if (extractor[0]) {
+      div = Number(extractor[0]);
       if (!Number.isInteger(div) || div < 1) {
         throw ['Extractor divisor must be an integer >= 1', 1];
       }
     }
-    const mod = Number(filter[1] || 'none');
+    const mod = Number(extractor[1] || 'none');
     if (!Number.isInteger(mod) || mod < 2) {
       throw ['Extractor modulus must be an integer >= 2', 3];
     }
     if (div * mod > 194756140800) {
       throw ['Extractor modulus is too large for BigNum', 3];
     }
-    const offset = Number(filter[2] || 'none');
-    const slope = Number(filter[3] || 'none');
+    if (!is_native) {
+      const offset = Number(extractor[2] || 'none');
+      if (Number.isNaN(offset)) {
+        throw ['Invalid offset', 5];
+      }
+      const slope = Number(extractor[3] || 'none');
+      if (Number.isNaN(slope) || slope <= 0) {
+        throw ['Invalid slope', 7];
+      }
+    }
   } catch ([error, field]) {
     alert(error);
     row.children[field].className = 'error';
@@ -504,7 +550,10 @@ function checkExtractor(filter, implied_div, row) {
   }
   row.children[1].className = '';
   row.children[3].className = '';
-  row.children[5].className = '';
+  if (!is_native) {
+    row.children[5].className = '';
+    row.children[7].className = '';
+  }
   return true;
 }
 
@@ -556,8 +605,8 @@ function generateURL() {
   let long_labels = [];
   let units = [];
   let resolutions = [];
-  num_extractors = 0;
-  let all_extractors = [];
+  num_opaque_extractors = 0;
+  let all_opaque_extractors = [];
   for (const message_section of message_sections.children) {
     let filters = [];
     let extractors = [];
@@ -606,10 +655,19 @@ function generateURL() {
     let extractor_rows = message_section.children[4].children[0].children;
     for (let i = 1; i < extractor_rows.length; i++) {
       const extractor_row = extractor_rows[i];
-      let extractor = [extractor_row.children[1].value,
-                       extractor_row.children[3].value,
-                       extractor_row.children[5].value,
-                       extractor_row.children[7].value];
+      const is_native = (extractor_row.children.length == 7);
+      let extractor;
+      if (is_native) {
+        extractor = [extractor_row.children[1].value,
+                     extractor_row.children[3].value,
+                     ['t100', 't101', 't102']
+                         [extractor_row.children[5].value]];
+      } else {
+        extractor = [extractor_row.children[1].value,
+                     extractor_row.children[3].value,
+                     extractor_row.children[5].value,
+                     extractor_row.children[7].value];
+      }
       if (!checkExtractor(extractor, next_divisor, extractor_row)) return;
       if (extractor_row.children[1].value == '') {
         next_divisor *= Number(extractor[1]);
@@ -618,28 +676,30 @@ function generateURL() {
         next_divisor = Number(extractor[0]) * Number(extractor[1]);
       }
       extractors.push(extractor);
-      all_extractors.push(extractor);
-      const label_field = extractor_row.children[9];
-      if (label_field.value) {
-        if (!checkAnnotationField('label', label_field)) return;
-        labels[num_extractors] = label_field.value;
+      if (!is_native) {
+        all_opaque_extractors.push(extractor);
+        const label_field = extractor_row.children[9];
+        if (label_field.value) {
+          if (!checkAnnotationField('label', label_field)) return;
+          labels[num_opaque_extractors] = label_field.value;
+        }
+        const long_label_field = extractor_row.children[11];
+        if (long_label_field.value) {
+          if (!checkAnnotationField('long_label', long_label_field)) return;
+          long_labels[num_opaque_extractors] = long_label_field.value;
+        }
+        const units_field = extractor_row.children[13];
+        if (units_field.value) {
+          if (!checkAnnotationField('units', units_field)) return;
+          units[num_opaque_extractors] = units_field.value;
+        }
+        const resolution_field = extractor_row.children[15];
+        if (resolution_field.value) {
+          if (!checkAnnotationField('resolution', resolution_field)) return;
+          resolutions[num_opaque_extractors] = resolution_field.value;
+        }
+        num_opaque_extractors++;
       }
-      const long_label_field = extractor_row.children[11];
-      if (long_label_field.value) {
-        if (!checkAnnotationField('long_label', long_label_field)) return;
-        long_labels[num_extractors] = long_label_field.value;
-      }
-      const units_field = extractor_row.children[13];
-      if (units_field.value) {
-        if (!checkAnnotationField('units', units_field)) return;
-        units[num_extractors] = units_field.value;
-      }
-      const resolution_field = extractor_row.children[15];
-      if (resolution_field.value) {
-        if (!checkAnnotationField('resolution', resolution_field)) return;
-        resolutions[num_extractors] = resolution_field.value;
-      }
-      num_extractors++;
     }
     decoders.push([filters, extractors]);
   }
@@ -651,6 +711,7 @@ function generateURL() {
   let ch = main_params.children[1].value;
   let band = main_params.children[2].value;
   let start_date = main_params.children[3].value;
+  let end_date = main_params.children[4].value;
   if (cs) {
     if (!/^([A-Z0-9]{1,4}\/)?[A-Z0-9]{4,6}(\/[A-Z0-9]{1,4})?$/i.test(cs)) {
       alert(`Invalid callsign: ${cs}`);
@@ -675,9 +736,16 @@ function generateURL() {
     }
     url += 'start_date=' + encodeURLParameter(start_date) + '&';
   }
+  if (end_date) {
+    if (!/^\d{4}-\d{1,2}-\d{1,2}$/.test(end_date)) {
+      alert(`Invalid end date: ${end_date}`);
+      return;
+    }
+    url += 'end_date=' + encodeURLParameter(end_date) + '&';
+  }
   let decoder_param = decoders.map(
       d => d[0].map(f => f.join(':')).join(',') + '_' +
-           d[1].map(e => ((e[4] == 1) ? e.slice(1, 4) : e.slice(0, 4))
+           d[1].map(e => ((e[0] == '') ? e.slice(1) : e.slice(0))
                .join(':')).join(',')).join('~');
   if (decoder_param) {
     url += 'et_dec=' + encodeURLParameter(decoder_param) + '&';
@@ -697,7 +765,8 @@ function generateURL() {
     url += 'et_res=' + encodeURLParameter(resolutions_param) + '&';
   }
   if (url.endsWith('&')) url = url.slice(0, -1);  // remove trailing &
-  displayURL(url, all_extractors, labels, long_labels, units, resolutions);
+  displayURL(url, all_opaque_extractors, labels, long_labels,
+             units, resolutions);
 }
 
 function displayURL(url, extractors, labels, long_labels, units, resolutions) {
@@ -743,6 +812,13 @@ function displayURL(url, extractors, labels, long_labels, units, resolutions) {
         `defintions and then click the "Update URL" button below.`;
   }
 
+  addVerticalSpace(display_section);
+  const wizard_link = document.createElement('a');
+  wizard_link.href = '?spec=' + encodeURIComponent(url);
+  wizard_link.textContent = 'Current configuration link.';
+  wizard_link.target = '_new3';
+  display_section.appendChild(wizard_link);
+
   addButton(tail, 'Update URL', generateURL);
   addButton(tail, 'Copy URL', () => navigator.clipboard.writeText(url));
   addButton(tail, 'Start Over', start);
@@ -752,6 +828,13 @@ function displayURL(url, extractors, labels, long_labels, units, resolutions) {
 function start() {
   let wizard = document.getElementById('wizard');
   wizard.innerHTML = '';
+
+  const spec = getURLParameter(location.search, 'spec');
+  if (spec) {
+    importWSPRTVURL(spec);
+    return;
+  }
+
   addSelectMenu(wizard,
       ['What would you like to do?',
        '────────────',
