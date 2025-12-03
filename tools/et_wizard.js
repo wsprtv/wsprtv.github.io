@@ -33,6 +33,14 @@ function getURLParameter(url, name) {
       decodeURIComponent(match[2].replace(/\+/g, ' ')) : '';
 }
 
+function setURL(url) {
+  try {
+    history.replaceState(null, '', url);
+  } catch (error) {
+    console.log('Security error triggered by history.replaceState()');
+  }
+}
+
 function importWSPRTVURL(url) {
   let spec = {};
   spec.cs = getURLParameter(url, 'cs');
@@ -95,7 +103,6 @@ function importWSPRTVURL(url) {
     spec.resolutions = resolutions_param.split(',');
   }
   createMessages(spec);
-  generateURL();
 }
 
 function importTraquitoURL(url) {
@@ -168,7 +175,7 @@ function handleImport(type) {
      importTraquitoJSON][type](input.value);
   } catch (err) {
     alert(err);
-    start();
+    setOver();
   }
 }
 
@@ -197,7 +204,7 @@ function handleRootAction() {
     wizard.appendChild(document.createElement('p'));
     tail = addSection(wizard);
     addButton(tail, 'Import', () => handleImport(this.value - 3));
-    addButton(tail, 'Start Over', start);
+    addButton(tail, 'Start Over', startOver);
   }
 }
 
@@ -468,7 +475,7 @@ function createMessages(spec = null) {
 
   tail = addSection(wizard);
   addButton(tail, 'Generate URL', generateURL);
-  addButton(tail, 'Start Over', start);
+  addButton(tail, 'Start Over', startOver);
 }
 
 function deleteFilter() {
@@ -821,7 +828,12 @@ function displayURL(url, extractors, labels, long_labels, units, resolutions) {
 
   addButton(tail, 'Update URL', generateURL);
   addButton(tail, 'Copy URL', () => navigator.clipboard.writeText(url));
-  addButton(tail, 'Start Over', start);
+  addButton(tail, 'Start Over', startOver);
+}
+
+function startOver() {
+  setURL(location.pathname);
+  start();
 }
 
 // Entry point

@@ -943,9 +943,9 @@ function formatCoordinate([d, resolution], append_units = true) {
   let value;
   if (resolution >= 0.5) {
     value = `${d.toFixed(1)}`;
-  } else if (resolution >= 1 / 48) {
+  } else if (resolution >= 1 / 100) {
     value = `${d.toFixed(3)}`;
-  } else if (resolution >= 1 / 4096) {
+  } else if (resolution >= 1 / 1000) {
     value = `${d.toFixed(4)}`;
   } else {
     value = `${d.toFixed(5)}`;
@@ -1039,8 +1039,7 @@ function getAltitudeResolution(spot) {
 
 // Units / localization
 
-// Metric / imperial, with second param being the display resolution.
-// Spaces in units are deliberate: 5 mph vs 5V.
+// Metric / imperial. Spaces in units are deliberate: 5 mph vs 5V.
 const kUnitInfo = {
   'speed': [' km/h', ' mph'],
   'vspeed': [' m/min', ' ft/min'],
@@ -1389,8 +1388,10 @@ function displayTrack() {
       min_sun_elevation = (min_sun_elevation == null) ?
           sun_elevation : Math.min(min_sun_elevation, sun_elevation);
     }
-    if (min_sun_elevation > 0 && min_sun_elevation < 45) {
+    if (min_sun_elevation > 0 && min_sun_elevation < 60) {
       solar_isoline.setElevation(min_sun_elevation);
+    } else {
+      solar_isoline.setElevation(null);
     }
   }
 
@@ -2814,10 +2815,9 @@ function start() {
       { opacity: 0, fillOpacity: 0.3, interactive: false }).addTo(map);
 
   let sun_elevation = Number(sun_elevation_param);
-  solar_isoline = (!sun_elevation_param || sun_elevation) ?
-      L.solar_isoline({
-          elevation: sun_elevation, dashArray: '8,5',
-          opacity: 0.4 }).addTo(map) : null;
+  solar_isoline = L.solar_isoline({
+      elevation: sun_elevation, dashArray: '8,5',
+      opacity: 0.4 }).addTo(map);
 
   L.control.scale().addTo(map);
 
