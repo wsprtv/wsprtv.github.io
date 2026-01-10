@@ -131,6 +131,8 @@ table.data_table {
 
 .data_table tr {
   background-color: white;
+  content-visibility: auto;
+  contain-intrinsic-size: auto;
 }
 
 .data_table td {

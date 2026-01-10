@@ -49,9 +49,9 @@ following formats are supported:
 encodes 6-character Maidenhead grid location, altitude, speed, voltage, 
 and temperature through a pair of sequential type 1 WSPR messages. The 
 first message is a "regular" callsign message, while the second message 
-uses unallocated callsign space starting with `Q`, `0`, or `1`. `<CH>` 
+uses unallocated callsign space starting with `Q`, `0`, or `1`. `<CH>`
 is a number between 0 and 599 representing the first and third 
-characters of the special callsign, the start minute, and one of 4 
+characters of the special callsign, the starting minute, and one of 4
 frequency "lanes".
 
   Example: `459` on the 10m band indicates transmissions that use Q\*2\* 
@@ -68,19 +68,19 @@ discussed in detail [below](#u4b-extended-telemetry).
 
 - **U4B [`U<CS1><CS3><M>`]**. This is an alternative U4B channel 
 representation that specifies the first and third characters of the 
-special callsign (`<CS1>` and `<CS3>`) as well as the start minute 
+special callsign (`<CS1>` and `<CS3>`) as well as the starting minute
 (`<M>`) explicitly. Unlike the numeric channel format, this 
 representation does not include frequency lane information.
 
   Example: `UQ22` corresponds to channel 459 (and also 454, 449, etc.) 
-on the 10-meter band. It indicates Q\*2\* special callsigns and a start 
+on the 10-meter band. It indicates Q\*2\* special callsigns and a starting
 minute of 2.
 
 - **Generic 1 [`g<M>`]**. This is the simplest type of telemetry, 
 consisting of a single type 1 WSPR message. Location is indicated by a 
 4-character Maidenhead grid locator and provides ~70x100 mi spatial 
 resolution. No other attributes, such as altitude or speed, are encoded. 
-`<M>` is the start minute (must be one of 0, 2, 4, 6, or 8).
+`<M>` is the starting minute (must be one of 0, 2, 4, 6, or 8).
 
   Example: `g2` if transmissions begin 2 minutes into the 10-minute cycle.
 
@@ -94,7 +94,7 @@ message's power field (resolution ~1 km).
 WSPR messages. The first message encodes a compound callsign, while the 
 second message adds a 6-character Maidenhead grid locator, improving 
 spatial resolution to ~3x4 mi. No other attributes are encoded. Both 
-messages must be received for a spot to be decoded. `<M>` is the start 
+messages must be received for a spot to be decoded. `<M>` is the starting
 minute (must be one of 0, 2, 4, 6, or 8). 
 
   Example: `G4` if the first (type 2) message is transmitted 4 minutes
@@ -112,7 +112,7 @@ messages. The second message uses special `Q/0/1` callsigns similar to
 to ~60 m resolution, voltage, and approximate number of GPS satellites 
 (not displayed by WSPR TV). Location is a 6-character Maidenhead grid 
 locator (~3x4 mi resolution). `<CS1>` and `<CS3>` are the first and 
-third characters of the special callsign. `<M>` is the start minute 
+third characters of the special callsign. `<M>` is the starting minute
 (must be one of 0, 2, 4, 6, or 8).
 
   Example: `WQ46` if Q\*4\* special callsigns are used and 
@@ -138,8 +138,8 @@ link to this user guide.
 The start date should be in the `YYYY-mm-dd` format,
 such as `2025-07-15`. This field defaults to 30 days before today and is 
 a good choice for minimizing the load on WSPR Live servers and making 
-the WSPR TV user interface more responsive. The start date cannot be 
-more than a year before the end date (specified via a URL parameter, see 
+the WSPR TV user interface more responsive. The start date normally cannot 
+be more than a year before the end date (specified via a URL parameter, see 
 below). For historical telemetry, you can specify a start date over a 
 year ago by appending the appropriate `end_date` parameter to the URL.
 
@@ -349,13 +349,13 @@ fresh values, switch to the map view and then back to the data view.
 
 The charts are interactive and can be zoomed in and out:
 
-- To zoom in on the X-axis: click on a starting point and then drag left 
+- To zoom in on the X-axis: click on a starting point and then drag left
 or right (without changing the Y position by more than 20 pixels). You 
 will see a horizontal slice of the chart being selected.
 
 <img src="images/img9.png" width=600>
 
-- To zoom in on the Y-axis: click on a starting point and then drag up 
+- To zoom in on the Y-axis: click on a starting point and then drag up
 or down (without changing the X position by more than 20 pixels). You 
 will see a vertical slice of the chart being selected.
 
@@ -472,7 +472,7 @@ payload.
 Historically, U4B extended telemetry was unstructured. This changed in 
 late 2024, when a new protocol for extended telemetry was proposed and 
 later adopted by the pico-ballooning community. The protocol adds the 
-following structure on top of `BigNumber`, starting from the least 
+following structure on top of `BigNumber`, starting from the least
 significant bit after `HdrTelemetryType`:
 
 ```
@@ -917,7 +917,7 @@ This map is particularly well-suited for identifying unused channels.
 
 <img src="images/img13.png" width=700>
 
-In the table, the columns represent the start minute of the regular 
+In the table, the columns represent the starting minute of the regular
 callsign transmission, while the rows correspond to the first and third 
 characters of the special callsign (such as Q1 in QB1ERZ). Each cell 
 contains two colored buckets, and each bucket in turn represents two 
@@ -967,8 +967,8 @@ reserving a U4B channel using the map:
 - Select a random green bucket (or better yet, a cell containing two
 green buckets). 
 - If you already have an active tracker using your callsign, ensure the 
-new bucket has a different start minute. In other words, **you cannot have 
-two trackers in the same column of the table**.
+new bucket has a different starting minute. In other words, **you cannot
+have two trackers in the same column of the table**.
 - The green bucket will show 2 U4B channels, with the preferred channel 
 -- the one that is farther away from the adjacent bucket -- highlighted 
 with an asterisk (*).

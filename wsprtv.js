@@ -1210,7 +1210,7 @@ function extendPath(path, lat, lon, great_circle = false,
     }
     extendPath(path, lat180, (lon > init_lon) ? -180 : 180, great_circle);
     path.push([[lat180, (lon > init_lon) ? 180 : -180]]);
-    extendPath(path, lat, lon, great_circle);
+    extendPath(path, lat, lon, great_circle, prefer_eastbound);
     return;
   }
   if (great_circle && delta_lon > 2) {
