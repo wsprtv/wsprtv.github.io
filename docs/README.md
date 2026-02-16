@@ -203,7 +203,7 @@ Extended-telemetry-related URL parameters `et_dec`, `et_labels`,
 
 A track is rendered as a sequence of small white grid4 markers (low 
 resolution) and larger light blue grid6 markers (high resolution).
-Enhanced U4B telemetry spots (see [below]((#u4b-extended-telemetry)
+Enhanced U4B telemetry spots (see [below](#u4b-extended-telemetry)
 are shaded in a darker blue. Markers are connected by green lines.
 
 <img src="images/img3.png" width=360>
