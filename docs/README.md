@@ -814,7 +814,7 @@ total number of extractors does not exceed 32. Once your message
 definitions are finalized, click "Generate URL" to create the WSPR TV 
 link for your extended telemetry specification.
 
-### Exteded Telemetry URL Parameters
+### Extended Telemetry URL Parameters
 
 While most extended telemetry definitions should be generated using the 
 [ET Wizard](https://wsprtv.com/tools/et_wizard.html), it can be useful 
