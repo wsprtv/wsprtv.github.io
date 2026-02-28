@@ -556,7 +556,7 @@ function matchTelemetry(data) {
           if (last_spot.slots[j]) {
             const score =
                 matchOnCoreception(last_spot.slots[j].rx, row.rx, score_all);
-            if (!last_spot.slots[slot] || score > max_score) {
+            if ((!last_spot.slots[slot] && score > 0) || score > max_score) {
               last_spot.slots[slot] = row;
               max_score = score;
               break;
