@@ -490,14 +490,14 @@ This transformation is necessary for compatibility with ET0, where
 
 ### Traquito's ET
 
-Traquito's extended telemetry is a subtype of Generic ET, because it
-also starts with `HdrSlot`. The current version of the protocol, ET0,
-adds the following structure on top of the opaque data blob:
+Traquito's extended telemetry (ET0) is a subtype of Generic ET,
+because it also starts with `HdrSlot`. ET0 adds the following
+structure on top of the opaque data blob:
 
 ```
 HdrRESERVED - 4 values, set to 0 (used as the protocol version number)
-HdrType - 16 values, of which only 0 (`USER_DEFINED`) and 15
-(`VENDOR_DEFINED`) are specified
+HdrType - 16 values, of which only 0 (USER_DEFINED) and 15
+(VENDOR_DEFINED) are specified
 ```
 
 Traquito's headers use up ~8.3 bits (320 values), with approximately 
