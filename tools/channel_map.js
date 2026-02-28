@@ -170,7 +170,7 @@ function createWSPRLiveQuery() {
           toUnixTimestamp(time) % 120 = 0 AND
           (frequency BETWEEN ${start_freq} AND ${start_freq + 200}) AND
           (toInt8(substring(tx_loc, 4, 1)) * 19 +
-           round(power / 3.33)) % 2 == 1
+           round(power / 3.33)) % 2 = 1
         GROUP BY time, tx_sign, tx_loc, power
         HAVING num_rx >= ${params.rx_threshold}
       )

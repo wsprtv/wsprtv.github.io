@@ -480,17 +480,25 @@ function mergeData(old_data, new_data) {
   return result;
 }
 
-// Given two sets of sorted RX reports, check if any callsign
-// is in both, and the RX frequency is similar
-function findCoreceiver(rx1, rx2) {
+// Given two sets of sorted RX reports, checks if any callsign
+// is in both, and the RX frequency is similar. Returns a non-zero
+// value if there is a match. If score_all is true, computes a
+// cumulative score across all matches, otherwise returns the score
+// for the first match.
+function matchOnCoreception(rx1, rx2, score_all = false) {
   let i = 0;  // index in rx1
   let j = 0;  // index in rx2
+  let score = 0;
   for (;;) {
-    if (i >= rx1.length || j >= rx2.length) return false;
+    if (i >= rx1.length || j >= rx2.length) return score;
     const r1 = rx1[i];
     const r2 = rx2[j];
     if (r1.cs == r2.cs) {
-      if (Math.abs(r1.freq - r2.freq) <= 4) return true;
+      const freq_delta = Math.abs(r1.freq - r2.freq);
+      if (freq_delta <= 5) {
+        score += 6 - freq_delta;
+        if (!score_all) return score;
+      }
       i++;
       j++;
     } else if (r1.cs < r2.cs) {
@@ -510,6 +518,7 @@ function matchTelemetry(data) {
 
   let starting_minute = getU4BSlotMinute(0);
   let last_spot;
+  let max_score = 0;
 
   for (let i = 0; i < data.length; i++) {
     row = data[i];
@@ -519,13 +528,12 @@ function matchTelemetry(data) {
     }
     const slot = (((row.ts.getMinutes() - starting_minute) + 10) % 10) / 2;
     if (slot == 0) {
-      if (!last_spot || last_spot.slots[0].ts != row.ts) {
+      if (!last_spot || +last_spot.slots[0].ts != +row.ts) {
         // New spot
         last_spot = { 'slots': [row] };
         spots.push(last_spot);
       }
-    } else if (last_spot && row.ts - last_spot.slots[0].ts < 10 * 60 * 1000 &&
-               !last_spot.slots[slot]) {
+    } else if (last_spot && row.ts - last_spot.slots[0].ts < 10 * 60 * 1000) {
       // Same TX sequence as last spot, try to attach the row
       if (params.tracker == 'zachtek2' || params.tracker == 'generic2') {
         // Always a match
@@ -536,11 +544,23 @@ function matchTelemetry(data) {
         }
       } else if (params.tracker == 'u4b') {
         // U4B frequency matching
+        if (!last_spot.slots[slot]) {
+          // New slot. Reset max coreception match score.
+          max_score = 0;
+        }
+        // Score all coreception matches only if there are multiple rows
+        // in the same slot
+        const score_all = (i > 0 && +data[i - 1].ts == +row.ts) ||
+            (i < data.length - 1 && +data[i + 1].ts == +row.ts);
         for (let j = 0; j < slot; j++) {
-          if (last_spot.slots[j] &&
-              findCoreceiver(last_spot.slots[j].rx, row.rx)) {
-            last_spot.slots[slot] = row;
-            break;
+          if (last_spot.slots[j]) {
+            const score =
+                matchOnCoreception(last_spot.slots[j].rx, row.rx, score_all);
+            if (!last_spot.slots[slot] || score > max_score) {
+              last_spot.slots[slot] = row;
+              max_score = score;
+              break;
+            }
           }
         }
       }
@@ -610,11 +630,6 @@ function processU4BSlot1Message(spot) {
     }
     return false;
   }
-  let p = Math.floor(m / 1068);
-  let grid = spot.grid + String.fromCharCode(97 + Math.floor(p / 24)) +
-      String.fromCharCode(97 + (p % 24));
-  let altitude = (m % 1068) * 20;
-
   spot.voltage = ((Math.floor(n / 168) + 20) % 40) * 0.05 + 3;
   spot.temp = (Math.floor(n / 6720) % 90) - 50;
   const is_valid_gps = Math.floor(n / 2) % 2;
@@ -624,8 +639,10 @@ function processU4BSlot1Message(spot) {
     return false;
   }
   spot.speed = (Math.floor(n / 4) % 42) * 2 * 1.852;
-  spot.grid = grid;
-  spot.altitude = altitude;
+  const p = Math.floor(m / 1068);
+  spot.grid = spot.grid + String.fromCharCode(97 + Math.floor(p / 24)) +
+      String.fromCharCode(97 + (p % 24));
+  spot.altitude = (m % 1068) * 20;;
 
   if (params.version >= 100) {
     handleU4BVariants(spot, is_valid_gps);
@@ -671,10 +688,13 @@ function processExtendedTelemetryMessage(spot, slot) {
     // Not an extended telemetry message
     return false;
   }
-  const v = Math.floor((m * 615600 + n) / 2);
   if (!spot.raw_et) {
     spot.raw_et = [];
   }
+  let v = m * 307800 + (n >> 1);
+  // Rearrange n to support Generic ET (needed for ET0 compatibility)
+  v = Math.floor(v / 320) * 320 + (Math.floor(v / 4) % 16) * 20 +
+      (v % 4) * 5 + (Math.floor(v / 64) % 5);
   spot.raw_et[slot] = v;
   return true;
 }
@@ -835,11 +855,41 @@ function processNativeExtendedTelemetry(spot) {
         spot.lat_res = 1 / (24 * num_values);
       }
     } else if (type == 102) {
-      // Enhanced altitude
+      // Enhanced altitude resolution
       if (spot.altitude_res == undefined) {
-        spot.altitude += Math.trunc(20 * value / num_values);
+        spot.altitude += 20 * value / num_values;
         spot.altitude_res = 20 / num_values;
       }
+    } else if (type == 103) {
+      // Enhanced altitude range
+      spot.altitude += 21360 * value;
+    } else if (type == 104) {
+      // Enhanced temperature resolution
+      if (spot.temp_res == undefined) {
+        spot.temp += value / num_values;
+        spot.temp_res = 1 / num_values;
+      }
+    } else if (type == 105) {
+      // Enhanced temperature range
+      spot.temp += (((value - 1) & 1) ? -90 : 90) * ((value + 1) >> 1);
+    } else if (type == 106) {
+      // Enhanced voltage resolution
+      if (spot.voltage_res == undefined) {
+        spot.voltage += 0.05 * value / num_values;
+        spot.voltage_res = 0.05 / num_values;
+      }
+    } else if (type == 107) {
+      // Enhanced voltage range
+      spot.temp += (((value - 1) & 1) ? -2 : 2) * ((value + 1) >> 1);
+    } else if (type == 108) {
+      // Enhanced speed resolution
+      if (spot.speed_res == undefined) {
+        spot.speed += 2 * 1.852 * value / num_values;
+        spot.speed_res = 2 * 1.852 / num_values;
+      }
+    } else if (type == 109) {
+      // Enhanced speed range
+      spot.speed += 84 * 1.852 * value;
     }
   }
 }
@@ -912,9 +962,10 @@ function formatDistance(m, append_units = true) {
   return v + (append_units ? (params.units ? ' mi' : ' km') : '');
 }
 
-function formatSpeed(kph, append_units = true) {
+function formatSpeed([kph, precision], append_units = true) {
   const v = getSpeedInCurrentUnits(kph);
-  return v + (append_units ? (params.units ? ' mph' : ' km/h') : '');
+  return v.toFixed(precision) +
+      (append_units ? (params.units ? ' mph' : ' km/h') : '');
 }
 
 // Vertical speed, mpm = m/min
@@ -923,34 +974,24 @@ function formatVSpeed(mpm, append_units = true) {
   return v + (append_units ? (params.units ? ' ft/min' : ' m/min') : '');
 }
 
-function formatAltitude([m, resolution], append_units = true) {
+function formatAltitude([m, precision], append_units = true) {
   const v = getAltitudeInCurrentUnits(m);
-  const precision = params.units ? 0 : ((resolution < 10) ? 3 : 2);
   return v.toFixed(precision) +
       (append_units ? (params.units ? ' ft' : ' km') : '');
 }
 
-function formatTemperature(c, append_units = true) {
+function formatTemperature([c, precision], append_units = true) {
   const v = getTemperatureInCurrentUnits(c);
-  return v + (append_units ? (params.units ? '°F' : '°C') : '');
+  return v.toFixed(precision) +
+      (append_units ? (params.units ? '°F' : '°C') : '');
 }
 
-function formatVoltage(v, append_units = true) {
-  return v.toFixed(2) + (append_units ? 'V' : '');
+function formatVoltage([v, precision], append_units = true) {
+  return v.toFixed(precision) + (append_units ? 'V' : '');
 }
 
-function formatCoordinate([d, resolution], append_units = true) {
-  let value;
-  if (resolution >= 0.5) {
-    value = `${d.toFixed(1)}`;
-  } else if (resolution >= 1 / 100) {
-    value = `${d.toFixed(3)}`;
-  } else if (resolution >= 1 / 1000) {
-    value = `${d.toFixed(4)}`;
-  } else {
-    value = `${d.toFixed(5)}`;
-  }
-  return value + (append_units ? '°' : '')
+function formatCoordinate([d, precision], append_units = true) {
+  return d.toFixed(precision) + (append_units ? '°' : '');
 }
 
 function getDistanceInCurrentUnits(m) {
@@ -960,13 +1001,11 @@ function getDistanceInCurrentUnits(m) {
 }
 
 function getAltitudeInCurrentUnits(m) {
-  return (params.units == 0) ?
-      m / 1000 : Math.round(m * 3.28084);
+  return (params.units == 0) ? m / 1000 : m * 3.28084;
 }
 
 function getSpeedInCurrentUnits(kph) {
-  return (params.units == 0) ?
-       Math.round(kph) : Math.round(kph * 0.621371);
+  return (params.units == 0) ? kph : kph * 0.621371;
 }
 
 function getVSpeedInCurrentUnits(mpm) {
@@ -975,8 +1014,7 @@ function getVSpeedInCurrentUnits(mpm) {
 }
 
 function getTemperatureInCurrentUnits(c) {
-  return (params.units == 0) ?
-      Math.round(c) : Math.round(c * 9 / 5 + 32);
+  return (params.units == 0) ? c : c * 9 / 5 + 32;
 }
 
 function getSunElevation(ts, lat, lon) {
@@ -1020,21 +1058,37 @@ function getRXStats(spot) {
           Math.floor(freq_sum / (num_freqs || 1))];
 }
 
-function getLatitudeResolution(spot) {
-  if (spot.lat_res) return spot.lat_res;
-  if (spot.grid.length == 6) return 1 / 48;
-  return 1 / 2;
+function getLatitudePrecision(spot) {
+  const res = spot.lat_res || (spot.grid.length == 6 ? 1 / 48 : 1 / 2);
+  return Math.floor(-Math.log10(res)) + 1;
 }
 
-function getLongitudeResolution(spot) {
-  if (spot.lon_res) return spot.lon_res;
-  if (spot.grid.length == 6) return 1 / 24;
-  return 1;
+function getLongitudePrecision(spot) {
+  const res = spot.lon_res || (spot.grid.length == 6 ? 1 / 24 : 1);
+  return Math.floor(-Math.log10(res)) + 1;
 }
 
-function getAltitudeResolution(spot) {
-  if (spot.altitude_res) return spot.altitude_res;
-  return 20;
+function getAltitudePrecision(spot) {
+  const res = spot.altitude_res || 20;
+  const unit_res = params.units ? res * 3.28 : res / 1000;
+  return Math.max(0, Math.floor(-Math.log10(unit_res)) + 1);
+}
+
+function getTemperaturePrecision(spot) {
+  const res = spot.temp_res || 1;
+  const unit_res = params.units ? res * 9 / 5 : res;
+  return Math.floor(-Math.log10(unit_res * 1.01)) + 1;
+}
+
+function getVoltagePrecision(spot) {
+  const res = spot.voltage_res || 0.05;
+  return Math.floor(-Math.log10(res)) + 1;
+}
+
+function getSpeedPrecision(spot) {
+  const res = spot.speed_res || 2 * 1.852;
+  const unit_res = params.units ? res * 0.62 : res;
+  return Math.floor(-Math.log10(unit_res)) + 1;
 }
 
 // Units / localization
@@ -1337,16 +1391,22 @@ function displayTrack() {
     if ('altitude' in last_spot) {
       synopsis.innerHTML += '<br>Last altitude: <b>' +
           createToggleUnitsLink(formatAltitude(
-              [last_spot.altitude, getAltitudeResolution(last_spot)])) +
+              [last_spot.altitude, getAltitudePrecision(last_spot)])) +
           '</b>';
     }
     if ('speed' in last_spot) {
       synopsis.innerHTML += '<br>Last speed: <b>' +
-          createToggleUnitsLink(formatSpeed(last_spot.speed)) + '</b>';
+          createToggleUnitsLink(formatSpeed(
+              [last_spot.speed, getSpeedPrecision(last_spot)])) + '</b>';
+    }
+    if ('temp' in last_spot) {
+      synopsis.innerHTML += '<br>Last temp: <b>' +
+          createToggleUnitsLink(formatTemperature(
+              [last_spot.temp, getTemperaturePrecision(last_spot)])) + '</b>';
     }
     if ('voltage' in last_spot) {
-      synopsis.innerHTML +=
-          `<br>Last voltage: <b>${formatVoltage(last_spot.voltage)}</b>`;
+      synopsis.innerHTML += '<br>Last voltage: <b>' + formatVoltage(
+          [last_spot.voltage, getVoltagePrecision(last_spot)]) + '</b>';
     }
     const last_age = createToggleUTCLink(
         formatDuration(new Date(), last_spot.ts));
@@ -1528,20 +1588,23 @@ function displaySpotInfo(marker, point) {
         '<br><span style="color: red">Invalid GPS fix</span>';
   }
   spot_info.innerHTML += '<br>' +
-      formatCoordinate([spot.lat, getLatitudeResolution(spot)]) + ', ' +
-      formatCoordinate([spot.lon, getLongitudeResolution(spot)]);
+      formatCoordinate([spot.lat, getLatitudePrecision(spot)]) + ', ' +
+      formatCoordinate([spot.lon, getLongitudePrecision(spot)]);
   if ('altitude' in spot) {
     spot_info.innerHTML += '<br>Altitude: ' +
-        formatAltitude([spot.altitude, getAltitudeResolution(spot)]);
+        formatAltitude([spot.altitude, getAltitudePrecision(spot)]);
   }
   if ('speed' in spot) {
-    spot_info.innerHTML += `<br>Speed: ${formatSpeed(spot.speed)}`;
+    spot_info.innerHTML += '<br>Speed: ' +
+        formatSpeed([spot.speed, getSpeedPrecision(spot)]);
   }
   if ('temp' in spot) {
-    spot_info.innerHTML += `<br>Temp: ${formatTemperature(spot.temp)}`;
+    spot_info.innerHTML += '<br>Temp: ' +
+        formatTemperature([spot.temp, getTemperaturePrecision(spot)]);
   }
   if ('voltage' in spot) {
-    spot_info.innerHTML += `<br>Voltage: ${formatVoltage(spot.voltage)}`;
+    spot_info.innerHTML += '<br>Voltage: ' +
+        formatVoltage([spot.voltage, getVoltagePrecision(spot)]);
   }
   if (spot.raw_et && !spot.opaque_et) {
     // Display raw extended telemetry
@@ -1921,7 +1984,9 @@ const kDataFields = [
     'color': '#7b5d45',
     'type': 'timestamp'
   }],
-  ['grid', { 'align': 'left' }],
+  ['grid', {
+    'align': 'left'
+  }],
   ['gps_lock', {
     'label': 'GPS',
     'long_label': 'GPS Fix Validity'
@@ -1934,19 +1999,19 @@ const kDataFields = [
     'label': 'Lat',
     'color': '#0066cc',
     'type': 'angle',
-    'source': (s) => [s.lat, getLatitudeResolution(s)],
+    'source': (s) => [s.lat, getLatitudePrecision(s)],
     'formatter': formatCoordinate
   }],
   ['lon', {
     'label': 'Lon',
     'color': '#0066cc',
     'type': 'angle',
-    'source': (s) => [s.lon, getLongitudeResolution(s)],
+    'source': (s) => [s.lon, getLongitudePrecision(s)],
     'formatter': formatCoordinate
   }],
   ['altitude', {
     'source': (s) => (s.altitude == undefined) ?
-        undefined : [s.altitude, getAltitudeResolution(s)],
+        undefined : [s.altitude, getAltitudePrecision(s)],
     'graph': {}
   }],
   ['vspeed', {
@@ -1955,7 +2020,11 @@ const kDataFields = [
     'long_label': 'Vertical Speed',
     'graph': {}
   }],
-  ['speed', { 'graph': {} }],
+  ['speed', {
+    'source': (s) => (s.speed == undefined) ?
+        undefined : [s.speed, getSpeedPrecision(s)],
+    'graph': {}
+  }],
   ['cspeed', {
     'min_detail': 1,
     'type': 'speed',
@@ -1963,8 +2032,14 @@ const kDataFields = [
     'long_label': 'Computed Speed',
     'graph': {}
   }],
-  ['voltage', { 'graph': {} }],
+  ['voltage', {
+    'source': (s) => (s.voltage == undefined) ?
+        undefined : [s.voltage, getVoltagePrecision(s)],
+    'graph': {}
+  }],
   ['temp', {
+    'source': (s) => (s.temp == undefined) ?
+        undefined : [s.temp, getTemperaturePrecision(s)],
     'long_label': 'Temperature',
     'graph': {}
   }],
@@ -1992,8 +2067,8 @@ const kDataFields = [
     'min_detail': 1,
     'label': 'Freq',
     'long_label': 'Average RX Frequency',
+    'type': 'freq',
     'graph': {},
-    'type': 'freq'
   }],
   ['max_rx_dist', {
     'min_detail': 1,
@@ -2005,8 +2080,8 @@ const kDataFields = [
   ['max_snr', {
     'min_detail': 1,
     'label': 'Max SNR',
+    'type': 'snr',
     'graph': {},
-    'type': 'snr'
   }]
 ];
 
@@ -2015,7 +2090,7 @@ const kDerivedFields = [
   'vspeed', 'num_rx', 'max_rx_dist', 'max_snr', 'avg_freq'];
 
 const kFormatters = {
-  'timestamp': (v, au) => formatTimestamp(v),
+  'timestamp': v => formatTimestamp(v),
   'distance': formatDistance,
   'altitude': formatAltitude,
   'speed': formatSpeed,
@@ -2031,9 +2106,10 @@ const kFormatters = {
 const kFetchers = {
   'distance': getDistanceInCurrentUnits,
   'altitude': (v) => getAltitudeInCurrentUnits(v[0]),
-  'speed': getSpeedInCurrentUnits,
+  'speed': (v) => getSpeedInCurrentUnits(v[0]),
   'vspeed': getVSpeedInCurrentUnits,
-  'temp': getTemperatureInCurrentUnits
+  'temp': (v) => getTemperatureInCurrentUnits(v[0]),
+  'voltage': (v) => v[0]
 };
 
 function computeDerivedData(spots) {
@@ -2064,17 +2140,17 @@ function computeDerivedData(spots) {
           let ts_delta = (spot.ts - last_grid6_spot.ts) || 1;
           let cspeed = dist * 3600000 / ts_delta;
           const eps_deg = Math.max(
-              getLatitudeResolution(spot),
-              getLatitudeResolution(last_grid6_spot),
-              getLongitudeResolution(spot),
-              getLongitudeResolution(last_grid6_spot));
+              spot.lat_res || 1 / 48,
+              last_grid6_spot.lat_res || 1 / 48,
+              spot.lon_res || 1 / 24,
+              last_grid6_spot.lon_res || 1 / 24);
           const eps_km = 120 * eps_deg;
           let min_cspeed = Math.max(dist - eps_km, 0) * 3600000 / ts_delta;
           let max_cspeed = (dist + eps_km) * 3600000 / ts_delta;
           if (cspeed > (max_cspeed - min_cspeed) * 4 ||
               max_cspeed - min_cspeed <= 10) {
             // Close enough
-            derived_data['cspeed'][i] = Math.min(350, cspeed);
+            derived_data['cspeed'][i] = [Math.min(350, cspeed), 0];
             last_grid6_spot = spot;
           }
         } else {
@@ -2384,7 +2460,7 @@ function showDataView() {
       graph_labels.push(long_label);
       graph_data_indices.push(table_data.length);
       graph_fetchers.push(fetcher);
-      graph_formatters.push(spec.is_et ? formatter : null);
+      graph_formatters.push(formatter);
     }
 
     // Data for this field
@@ -2410,7 +2486,7 @@ function showDataView() {
   data_view.u_plots = [];  // references to created uPlot instances
   for (let i = 0; i < graph_data_indices.length; i++) {
     const fetcher = graph_fetchers[i] || ((v) => v);
-    const formatter = graph_formatters[i] || ((v) => v);
+    const formatter = graph_formatters[i] || ((v, au) => v);
     const opts = {
       tzDate: ts => params.use_utc ?
           uPlot.tzDate(new Date(ts * 1e3), 'Etc/UTC') :
@@ -2428,7 +2504,8 @@ function showDataView() {
       }, {
         label: graph_labels[i],
         stroke: 'blue',
-        value: (self, v) => ((v == undefined) ? undefined : formatter(v))
+        value: (self, v, _, seq) => (v == undefined) ?
+            undefined : formatter(table_data[index][seq], false /* au */)
       }],
       scales: [{ label: 'x' }],
       axes: [{
@@ -2627,20 +2704,19 @@ function parseExtendedTelemetrySpec() {
     if (filters_spec) {
       for (const filter_spec of filters_spec.split(',')) {
         let filter = filter_spec.split(':');
-        if (filter.length == 1 && filter[0] == 'et3') {
+        if (filter.length == 1 && filter[0] == 'et') {
           if (header_divisor != 1) return null;
-          filters.push([1, 4, 3]);
-          filters.push(['s', 2]);
-          header_divisor = 4;
+          filters.push([1, 5, 's']);
+          header_divisor = 5;
           continue;
         } else if (filter.length == 2 && ['et0', 's'].includes(filter[0])) {
           filter[1] = Number(filter[1]);
           if (!Number.isInteger(filter[1]) || filter[1] < 0) return null;
           if (filter[0] == 'et0') {
             if (header_divisor != 1) return null;
-            filters.push([1, 4, 0]);
-            filters.push([4, 16, filter[1]]);
-            filters.push([64, 5, 's']);
+            filters.push([1, 5, 's']);
+            filters.push([5, 4, 0]);
+            filters.push([20, 16, filter[1]]);
             header_divisor = 320;
             continue;
           }

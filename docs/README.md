@@ -467,48 +467,41 @@ for basic U4B telemetry and 0 for extended telemetry. As a result,
 extended telemetry messages provide approximately 37.5 bits of raw 
 payload.
 
-### ET0
+### Generic ET
 
-Historically, U4B extended telemetry was unstructured. This changed in 
-late 2024, when a new protocol for extended telemetry was proposed and 
-later adopted by the pico-ballooning community. The protocol adds the 
-following structure on top of `BigNumber`, starting from the least
-significant bit after `HdrTelemetryType`:
+Generic ET contains a single header after `HdrTelemetryType`, followed
+by an opaque ~35.2 bit value:
 
 ```
-HdrRESERVED - 4 values, set to 0 (used as the protocol version number)
-HdrType - 16 values, of which only 0 (USER_DEFINED) and 15 (VENDOR_DEFINED) are specified
 HdrSlot - 5 values, meant to prevent interference between adjacent U4B channels
 ```
 
-This header uses up another ~8.3 bits (320 values), with approximately 
-29.1 bits remaining for user data. The protocol allows extended 
-telemetry to be transmitted in all five slots -- including the regular 
-callsign slot -- without causing interference to nearby channels.
+Note that in Generic ET, `BigNumber` is encoded differently than in legacy
+ET (ET0). If `v` is `BigNumber` with the least significant bit removed
+(it is always 0 for extended telemetry), the following transformation of
+`v` is needed before `BigNumber` is sent over the wire:
 
-This protocol is known simply as "U4B Extended Telemetry". However, a 
-more descriptive name for it might be ET0, as it sets the two 
-`HdrRESERVED` bits to `0b00`.
+```
+v = (v / 320) * 320 + (v % 5) * 64 + ((v / 5) % 4) + ((v / 20) % 16) * 4
+```
 
-### ET3
+This transformation is necessary for compatibility with ET0, where
+`HdrSlot` was originally placed in the middle of `v`.
 
-Other encodings of extended telemetry can coexist with ET0 without 
-conflict, as long as the `HdrRESERVED` bits are set to values other than 
-`0b00`.
+### Traquito's ET
 
-We propose a new lightweight protocol, identified by `HdrRESERVED` = 
-`0b11` and referred to as ET3. This protocol is restricted to slot 2 
-(immediately following basic telemetry) and therefore does not require a 
-`HdrSlot` field. Aside from `HdrRESERVED`, it contains no additional 
-headers, leaving the full remaining 35.5 bits available for user 
-payload.
+Traquito's extended telemetry is a subtype of Generic ET, because it
+also starts with `HdrSlot`. The current version of the protocol, ET0,
+adds the following structure on top of the opaque data blob:
 
-Despite having no defined structure, ET3 can be used to transmit 
-multiple message types, multiplexed into the same slot, as demonstrated 
-later in this section.
+```
+HdrRESERVED - 4 values, set to 0 (used as the protocol version number)
+HdrType - 16 values, of which only 0 (`USER_DEFINED`) and 15
+(`VENDOR_DEFINED`) are specified
+```
 
-Note that unlike ET0, ET3 has not been standardized. Others may use
-`HdrRESERVED` bits in different -- and potentially conflicting -- ways.
+Traquito's headers use up ~8.3 bits (320 values), with approximately 
+29.1 bits remaining for user data.
 
 ### Value Packing / Unpacking
 
@@ -536,25 +529,40 @@ by 3) to extract the value of `value3`.
 Extended telemetry values can be **opaque** or **native**. Opaque values
 can be graphed and displayed in a table, but their meaning is otherwise
 not known to WSPR TV. By contrast, native values have a well-defined type,
-and can influence the site's UI at a deeper level.
+and can influence the site's function at a more fundamental level.
 
-Currently, three native types are supported:
+Currently, 10 native types are supported:
 
 - Type 100: enhanced longitude resolution 
 - Type 101: enhanced latitude resolution 
 - Type 102: enhanced altitude resolution
+- Type 103: enhanced altitude range
+- Type 104: enhanced temperature resolution
+- Type 105: enhanced temperature range
+- Type 106: enhanced voltage resolution
+- Type 107: enhanced voltage range
+- Type 108: enhanced speed resolution
+- Type 109: enhanced speed range
 
-These types increase the resolution of U4B telemetry by further subdividing
-longitude, latitude, and altitude values. The additional resolution depends
-on the size of the corresponding extended telemetry fields. For example,
-if 10 values are allocated to type 102, altitude resolution improves by a
-factor of 10, from 20m to 2m.
+These types increase the resolution or range of basic U4B telemetry.
+The additional resolution / range depend on the size of the corresponding
+extended telemetry fields. For example, if 10 values are allocated to type 102,
+altitude resolution improves by a factor of 10, from 20m to 2m. If 3 values are
+allocated to type 103, altitude range increases by a factor of 3, from
+0 - 21360 meters to 0 - 64080 meters.
+
+Temperature range and voltage range are special in that they extend in both
+directions, above the maximum value and below the minimum one. The direction
+alternates as the value of the range increases. For example, when type 107
+(enhanced voltage range) value is 1, the range spans 5 - 7V. When the value
+is 2, the range becomes 1 - 3V. Other ranges, such as speed and altitude,
+grow in the positive direction only.
 
 ### Extended Telemetry Message Definition
 
 WSPR TV has an extremely flexible extended telemetry definition 
-mechanism that is able to decode ET0, ET3, or any past or future 
-protocols that pack values into contiguous (but possibly fractional) 
+mechanism that is able to decode Generic ET, Traquito's ET0, or any past or
+future  protocols that pack values into contiguous (but possibly fractional) 
 bits of the U4B `BigNumber`.
 
 More precisely, WSPR TV operates on `BigNumber / 2`, with the least 
@@ -578,11 +586,11 @@ which are usually headers or message type selectors. For example, in the
 ET0 protocol, the following conditions should be true for a message to 
 be accepted:
 
-- `HdrRESERVED` (4 values) is set to 0
-- `HdrType` (16 values) is set to the desired type (e.g., 0 for 
-USER_DEFINED)
 - `HdrSlot` (5 values) is set to the slot in which the ET message was 
 received
+- `HdrRESERVED` (4 values) is set to 0
+- `HdrType` (16 values) is set to the desired type (e.g., 0 for 
+`USER_DEFINED`)
 
 The basic filter definition in WSPR TV is the tuple
 `(divisor, modulus, expected_value)`
@@ -592,33 +600,32 @@ expressing the following condition:
 (BigNumber / divisor) % modulus = expected_value
 ```
 
-To support ET0, a special variable `slot` is available to represent the 
-TX slot in which the extended telemetry message was received. This 
+To support Generic ET, a special variable `slot` is available to represent
+the TX slot in which the extended telemetry message was received. This 
 allows us to express the filter set for ET0 as follows:
 
 ```
-(BigNumber / 1) % 4 = 0
-(BigNumber / 4) % 16 = 0
-(BigNumber / 64) % 4 = slot
+(BigNumber / 1) % 5 = slot
+(BigNumber / 5) % 4 = 0
+(BigNumber / 20) % 16 = 0
 ```
 
 To explain, we first check that the truncated `BigNumber` (here again we 
 refer to our version of `BigNumber` with the `HdrTelemetryType` bit 
-removed) has 0 in its least significant 2 bits. To do this, we divide 
-`BigNumber` by 1 and then extract the 4 possible values of the 
-`HdrRESERVED` field using a modulus of 4. This value has to be equal to 
-0.
+removed) was received in the correct slot. To do this, we divide 
+`BigNumber` by 1 and then extract the 5 possible values of 
+`HdrSlot` field using a modulus of 5. This value has to be equal to 
+the special variable `slot`.
 
-We then access the adjacent `HdrType` field by dividing `BigNumber` by 4 
-(this skips over `HdrRESERVED`) and extracting 1 of 16 possible values 
-using a modulus of 16. This value also has to be equal to 0 (for 
-USER_DEFINED).
+We then access the adjacent `HdrRESERVED` field by dividing `BigNumber` by 5 
+(this skips over `HdrSlot`) and extracting 1 of 4 possible values 
+using a modulus of 4. This value also has to be equal to 0 (for 
+ET0).
 
-Finally, we check that `HdrSlot` matches the slot in which the message 
-was received. Now we have to skip over both the `HdrRESERVED` and 
-`HdrType` fields, hence the division is by 4 * 16 = 64. We use a modulus 
-of 5 to extract the 5 possible values. The expected value is the 
-variable `slot`.
+Finally, we check that `HdrType` is equal to 0. We skip over both the `HdrSlot`
+and `HdrRESERVED` fields, hence the division is by 5 * 4 = 20. We use a modulus 
+of 16 to extract the 16 possible values. This value also has to be equal to 0 (for
+`USER_DEFINED`).
 
 ### Temporal Filters
 
@@ -846,12 +853,12 @@ s:<slot>
 
 ```
 
-with the latter two representing temporal conditions. Shortcuts for ET0 
-user-defined telemetry and ET3 are also available:
+with the latter two representing temporal conditions. Shortcuts for
+Generic ET and Traquito's user-defined telemetry are available:
 
 ```
+et
 et0:0
-et3
 ```
 
 Hence the filter specification for ET0 user-defined telemetry in slot 2 

@@ -351,14 +351,17 @@ function createNativeExtractor(parent, extractor = null, spec = null) {
   const native_type = addSelectMenu(s,
       ['[100] Enhanced Longitude Resolution',
        '[101] Enhanced Latitude Resolution',
-       '[102] Enhanced Altitude Resolution'
+       '[102] Enhanced Altitude Resolution',
+       '[103] Enhanced Altitude Range',
+       '[104] Enhanced Temperature Resolution',
+       '[105] Enhanced Temperature Range',
+       '[106] Enhanced Voltage Resolution',
+       '[107] Enhanced Voltage Range',
+       '[108] Enhanced Speed Resolution',
+       '[109] Enhanced Speed Range'
       ], null);
-  if (extractor && extractor[2] == 't100') {
-    native_type.value = 0;
-  } else if (extractor && extractor[2] == 't101') {
-    native_type.value = 1;
-  } else if (extractor && extractor[2] == 't102') {
-    native_type.value = 2;
+  if (extractor && extractor[2][0] == 't') {
+    native_type.value = Number(extractor[2].slice(1)) - 100;
   }
   addButton(s, 'Delete', deleteExtractor);
 }
@@ -370,13 +373,13 @@ function createMessage(decoder = null, spec = null) {
   const message_type_selector = addSelectMenu(message_section,
       ['Message type',
        '────────────',
+       'Generic ET',
        'ET0 User Defined',
-       'ET3',
        'Custom'
       ], null);
-  if (decoder && decoder[0].some(f => f[0] == 'et0')) {
+  if (decoder && decoder[0].some(f => f[0] == 'et')) {
     message_type_selector.value = 2;
-  } else if (decoder && decoder[0].some(f => f[0] == 'et3')) {
+  } else if (decoder && decoder[0].some(f => f[0] == 'et0')) {
     message_type_selector.value = 3;
   } else {
     message_type_selector.value = 4;
@@ -384,17 +387,16 @@ function createMessage(decoder = null, spec = null) {
   const slot_selector = addSelectMenu(message_section,
       ['Message slot (0 = regular CS)',
        '────────────',
-       'Any slot',
        'Slot 1',
        'Slot 2',
        'Slot 3',
        'Slot 4',
       ], null);
-  slot_selector.value = 4;
+  slot_selector.value = 3;
   if (decoder) {
     for (let filter of decoder[0]) {
       if (filter[0] == 's') {
-        slot_selector.value = 2 + +filter[1];
+        slot_selector.value = 1 + +filter[1];
         break;
       }
     }
@@ -406,7 +408,7 @@ function createMessage(decoder = null, spec = null) {
   addTextElement(filters_section, 'h3', 'Custom Filters');
   if (decoder && decoder[0]) {
     for (const filter of decoder[0]) {
-      if (filter[0] == 's' || ['et0', 'et3'].includes(filter[0])) {
+      if (filter[0] == 's' || ['et', 'et0', 'et3'].includes(filter[0])) {
         continue;
       }
       createFilter(filters_section, filter);
@@ -623,25 +625,21 @@ function generateURL() {
     message_type_selector.className = '';
     slot_selector.className = '';
     if (message_type_selector.value == 2) {
+      // Generic ET
+      filters.push(['et']);
+      next_divisor = 5;
+    } else if (message_type_selector.value == 3) {
       // ET0
       filters.push(['et0', '0']);
       next_divisor = 320;
-    } else if (message_type_selector.value == 3) {
-      // ET3
-      filters.push(['et3']);
-      next_divisor = 4;
-      if (slot_selector.value != 4) {
-        alert('ET3 telemetry can only be in slot 2');
-        return;
-      }
     } else if (message_type_selector.value != 4) {
       alert('Invalid message type');
       message_type_selector.className = 'error';
       return;
     }
-    if (slot_selector.value >= 3 && slot_selector.value <= 6) {
-      filters.push(['s', slot_selector.value - 2]);
-    } else if (slot_selector.value == 0) {
+    if (slot_selector.value >= 2 && slot_selector.value <= 5) {
+      filters.push(['s', slot_selector.value - 1]);
+    } else if (slot_selector.value < 2) {
       alert('Invalid message slot');
       slot_selector.className = 'error';
       return;
@@ -667,7 +665,8 @@ function generateURL() {
       if (is_native) {
         extractor = [extractor_row.children[1].value,
                      extractor_row.children[3].value,
-                     ['t100', 't101', 't102']
+                     ['t100', 't101', 't102', 't103', 't104',
+                      't105', 't106', 't107', 't108', 't109']
                          [extractor_row.children[5].value]];
       } else {
         extractor = [extractor_row.children[1].value,
