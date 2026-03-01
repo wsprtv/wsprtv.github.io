@@ -469,39 +469,105 @@ payload.
 
 ### Generic ET
 
-Generic ET contains a single header after `HdrTelemetryType`, followed
-by an opaque ~35.2 bit value:
+In Generic ET, `BigNumber` contains a single header after `HdrTelemetryType`
+-- `HdrSlot` -- followed by an opaque vendor-defined value:
 
 ```
-HdrSlot - 5 values, meant to prevent interference between adjacent U4B channels
+[HdrTelemetryType] - 2 values, always 0 for extended telemetry
+[HdrSlot] - 5 values, used to minimize interference between adjacent U4B channels
+[OpaqueData] - around ~35.2 bits of payload
 ```
 
-Note that in Generic ET, `BigNumber` is encoded differently than in legacy
-ET (ET0). If `v` is `BigNumber` with the least significant bit removed
-(it is always 0 for extended telemetry), the following transformation of
-`v` is needed before `BigNumber` is sent over the wire:
+`HdrTelemetryType` is the least significant bit of `BigNumber`.
+
+### Generic ET Encoding
+
+To remain compatible with ET0, Generic ET `BigNumber` values are converted
+to special callsign WSPR messages differently than before. If `v` is
+`BigNumber` with its least significant bit (`HdrTelemetryType`) removed,
+the following transformation of `v` is needed before `BigNumber` is converted
+to a WSPR message:
 
 ```
 v = (v / 320) * 320 + (v % 5) * 64 + ((v / 5) % 4) + ((v / 20) % 16) * 4
 ```
 
-This transformation is necessary for compatibility with ET0, where
-`HdrSlot` was originally placed in the middle of `v`.
+This transformation effectively moves ET0's `HdrSlot` header from the middle
+of `BigNumber`, where it previously was, to the second position (right after
+`HdrTelemetryType`).
 
-### Traquito's ET
+### ET Encoding Example
+
+Suppose you want to send 3 values -- v1, v2, and v3 -- using a Generic ET
+message. Let's say the maximum number of values for each is
+
+```
+v1_size = 4000;
+v2_size = 4000;
+v3_size = 2000;
+```
+
+Together this is slightly less than 35 bits, so the values fit into a
+Generic ET message.
+
+The values can be loaded into `BigNumber` with multiplication and addition,
+starting with the last value:
+
+```
+uint64_t v = 0;
+v = v * v3_size + v3;
+v = v * v2_size + v2;
+v = v * v1_size + v1;
+```
+
+For Generic ET, we also need to add `HdrSlot`.
+Let's say you want to send your message in slot 2:
+
+```
+hdr_slot = 2;
+hdr_slot_size = 5;
+
+v = v * hdr_slot_size + hdr_slot;
+v = v << 1;  // add HdrTelemetryType = 0
+```
+
+Our `BigNumber` is now ready to be sent over the air:
+
+```
+SendBigNumber(v);
+```
+
+In Generic ET, basic and extended telemetry messages are encoded
+from `BigNumber` differently:
+
+```
+void SendBigNumber(uint64_t v) {
+  if ((v % 2) == 0) {
+    // Extended telemetry
+    v = v >> 1;  // temporarily discard HdrTelemetryType
+    v = (v / 320) * 320 + (v % 5) * 64 + ((v / 5) % 4) + ((v / 20) % 16) * 4;
+    v = v << 1;  // add HdrTelemetryType back
+  }
+  uint32_t m = v / 615600;
+  uint32_t n = v % 615600;
+
+  uint64_t wspr_message = CreateWSPRMessage(m, n);
+  SendWSPRMessage(wspr_message);
+}
+```
+
+### Traquito's ET (ET0)
 
 Traquito's extended telemetry (ET0) is a subtype of Generic ET,
-because it also starts with `HdrSlot`. ET0 adds the following
-structure on top of the opaque data blob:
+because it also starts with `HdrSlot` (assuming that `BigNumber` is
+encoded in a Generic ET-compliant manner). ET0 adds the following
+structure on top of the opaque data blob in Generic ET:
 
 ```
-HdrRESERVED - 4 values, set to 0 (used as the protocol version number)
-HdrType - 16 values, of which only 0 (USER_DEFINED) and 15
-(VENDOR_DEFINED) are specified
+[HdrRESERVED] - 4 values, set to 0 (used as the protocol version number)
+[HdrType] - 16 values, of which only 0 (USER_DEFINED) and 15 (VENDOR_DEFINED) are specified
+[HdrType-dependent data] - around ~29.2 bits of payload
 ```
-
-Traquito's headers use up ~8.3 bits (320 values), with approximately 
-29.1 bits remaining for user data.
 
 ### Value Packing / Unpacking
 
