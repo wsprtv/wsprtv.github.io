@@ -562,10 +562,13 @@ void SendBigNumber(uint64_t v) {
 
 Traquito's extended telemetry (ET0) is a subtype of Generic ET,
 because it also starts with `HdrSlot` (assuming that `BigNumber` is
-encoded in a Generic ET-compliant manner). ET0 adds the following
-structure on top of the opaque data blob in Generic ET:
+decoded in a Generic ET-compliant manner). ET0 has the following
+structure:
 
 ```
+[HdrTelemetryType] - 2 values, always 0 for extended telemetry
+[HdrSlot] - 5 values, used to minimize interference between adjacent U4B channels
+-- Generic ET OpaqueData starts here --
 [HdrRESERVED] - 4 values, set to 0 (used as the protocol version number)
 [HdrType] - 16 values, of which only 0 (USER_DEFINED) and 15 (VENDOR_DEFINED) are specified
 [HdrType-dependent data] - around ~29.2 bits of payload
