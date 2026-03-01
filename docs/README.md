@@ -482,6 +482,8 @@ In Generic ET, `BigNumber` contains a single header after `HdrTelemetryType`
 
 ### Generic ET Encoding
 
+This section is intended for U4B firmware developers.
+
 To remain compatible with ET0, Generic ET `BigNumber` values are converted
 to special callsign WSPR messages differently than before. If `v` is
 `BigNumber` with its least significant bit (`HdrTelemetryType`) removed,
@@ -496,7 +498,7 @@ This transformation effectively moves ET0's `HdrSlot` header from the middle
 of `BigNumber`, where it previously was, to the second position (right after
 `HdrTelemetryType`).
 
-### ET Encoding Example
+**ET Encoding Example:**
 
 Suppose you want to send 3 values -- v1, v2, and v3 -- using a Generic ET
 message. Let's say the maximum number of values for each is
@@ -520,7 +522,7 @@ v = v * v2_size + v2;
 v = v * v1_size + v1;
 ```
 
-For Generic ET, we also need to add `HdrSlot`.
+For Generic ET, we also need to add `HdrSlot` and `HdrTelemetryType`.
 Let's say you want to send your message in slot 2:
 
 ```

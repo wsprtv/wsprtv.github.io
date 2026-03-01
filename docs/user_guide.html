@@ -442,6 +442,7 @@ payload.</p>
 </code></pre>
 <p><code class="notranslate">HdrTelemetryType</code> is the least significant bit of <code class="notranslate">BigNumber</code>.</p>
 <h3 id="generic-et-encoding">Generic ET Encoding</h3>
+<p>This section is intended for U4B firmware developers.</p>
 <p>To remain compatible with ET0, Generic ET <code class="notranslate">BigNumber</code> values are converted
 to special callsign WSPR messages differently than before. If <code class="notranslate">v</code> is
 <code class="notranslate">BigNumber</code> with its least significant bit (<code class="notranslate">HdrTelemetryType</code>) removed,
@@ -452,7 +453,7 @@ to a WSPR message:</p>
 <p>This transformation effectively moves ET0's <code class="notranslate">HdrSlot</code> header from the middle
 of <code class="notranslate">BigNumber</code>, where it previously was, to the second position (right after
 <code class="notranslate">HdrTelemetryType</code>).</p>
-<h3 id="et-encoding-example">ET Encoding Example</h3>
+<p><strong>ET Encoding Example:</strong></p>
 <p>Suppose you want to send 3 values -- v1, v2, and v3 -- using a Generic ET
 message. Let's say the maximum number of values for each is</p>
 <pre class="notranslate"><code class="notranslate">v1_size = 4000;
@@ -468,7 +469,7 @@ v = v * v3_size + v3;
 v = v * v2_size + v2;
 v = v * v1_size + v1;
 </code></pre>
-<p>For Generic ET, we also need to add <code class="notranslate">HdrSlot</code>.
+<p>For Generic ET, we also need to add <code class="notranslate">HdrSlot</code> and <code class="notranslate">HdrTelemetryType</code>.
 Let's say you want to send your message in slot 2:</p>
 <pre class="notranslate"><code class="notranslate">hdr_slot = 2;
 hdr_slot_size = 5;
