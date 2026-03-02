@@ -450,9 +450,8 @@ the following transformation of <code class="notranslate">v</code> is needed bef
 to a WSPR message:</p>
 <pre class="notranslate"><code class="notranslate">v = (v / 320) * 320 + (v % 5) * 64 + ((v / 5) % 4) + ((v / 20) % 16) * 4
 </code></pre>
-<p>This transformation effectively moves ET0's <code class="notranslate">HdrSlot</code> header from the middle
-of <code class="notranslate">BigNumber</code>, where it previously was, to the second position (right after
-<code class="notranslate">HdrTelemetryType</code>).</p>
+<p>This transformation effectively moves ET0's <code class="notranslate">HdrSlot</code> header from the beginning of
+<code class="notranslate">BigNumber</code> to the middle, where it used to be before Generic ET was introduced.</p>
 <p><strong>ET Encoding Example:</strong></p>
 <p>Suppose you want to send 3 values -- v1, v2, and v3 -- using a Generic ET
 message. Let's say the maximum number of values for each is</p>

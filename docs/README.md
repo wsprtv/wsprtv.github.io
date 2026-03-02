@@ -494,9 +494,8 @@ to a WSPR message:
 v = (v / 320) * 320 + (v % 5) * 64 + ((v / 5) % 4) + ((v / 20) % 16) * 4
 ```
 
-This transformation effectively moves ET0's `HdrSlot` header from the middle
-of `BigNumber`, where it previously was, to the second position (right after
-`HdrTelemetryType`).
+This transformation effectively moves ET0's `HdrSlot` header from the beginning of
+`BigNumber` to the middle, where it used to be before Generic ET was introduced.
 
 **ET Encoding Example:**
 
