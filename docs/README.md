@@ -587,13 +587,13 @@ void ComputeBigNumber(uint32_t m, uint32_t n) {
 If a Generic-ET compatible decoder also supports ET0, the order of ET0 headers
 packed into `BigNumber` should be interpreted as
 `[HdrTelemetryType][HdrSlot][HdrRESERVED][HdrType]`, and NOT the legacy
-`[HdrTelemetryType][HdrRESERVED][HdrSlot]`. The two transformations --
+`[HdrTelemetryType][HdrRESERVED][HdrType][HdrSlot]`. The two transformations --
 rearranging of values in `BigNumber` as shown in the `ComputeBigNumber` function
 above and reshuffling of ET0 headers -- cancel each other out, allowing the ET0
 wire format to remain the same.
 
-There are no changes in how `m` and `n` are computed from a special-callsign WSPR
-message.
+There are no changes in how `m` and `n` are computed from special-callsign WSPR
+messages.
 
 ### Traquito's ET (ET0)
 
