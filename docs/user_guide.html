@@ -519,12 +519,12 @@ as shown below:</p>
 <p>If a Generic-ET compatible decoder also supports ET0, the order of ET0 headers
 packed into <code class="notranslate">BigNumber</code> should be interpreted as
 <code class="notranslate">[HdrTelemetryType][HdrSlot][HdrRESERVED][HdrType]</code>, and NOT the legacy
-<code class="notranslate">[HdrTelemetryType][HdrRESERVED][HdrSlot]</code>. The two transformations --
+<code class="notranslate">[HdrTelemetryType][HdrRESERVED][HdrType][HdrSlot]</code>. The two transformations --
 rearranging of values in <code class="notranslate">BigNumber</code> as shown in the <code class="notranslate">ComputeBigNumber</code> function
 above and reshuffling of ET0 headers -- cancel each other out, allowing the ET0
 wire format to remain the same.</p>
-<p>There are no changes in how <code class="notranslate">m</code> and <code class="notranslate">n</code> are computed from a special-callsign WSPR
-message.</p>
+<p>There are no changes in how <code class="notranslate">m</code> and <code class="notranslate">n</code> are computed from special-callsign WSPR
+messages.</p>
 <h3 id="traquito's-et-(et0)">Traquito's ET (ET0)</h3>
 <p>Traquito's extended telemetry (ET0) is a subtype of Generic ET,
 because it also starts with <code class="notranslate">HdrSlot</code> (assuming that <code class="notranslate">BigNumber</code> was
