@@ -100,7 +100,7 @@ minute (must be one of 0, 2, 4, 6, or 8).
   Example: `G4` if the first (type 2) message is transmitted 4 minutes
 into the 10-minute cycle.
 
-- **Zachtek 2 [`Z<M>`]**. A newer Zachtek protocol that is similar to 
+- **Zachtek 2 [`Z<M>`]**. A newer Zachtek protocol that is similar to
 `Generic 2`. The power fields of both WSPR messages are used to encode 
 the altitude to a resolution of ~60 m.
 
@@ -130,7 +130,7 @@ transmission (this data is used in radio propagation studies).
 ### Band
 
 Specifies the frequency band for WSPR transmissions. There may be 
-additional, band-unrelated options at the end of this menu, such as a 
+additional, band-unrelated options at the start of this menu, such as a
 link to this user guide.
 
 ### Start Date
@@ -203,7 +203,7 @@ Extended-telemetry-related URL parameters `et_dec`, `et_labels`,
 
 A track is rendered as a sequence of small white grid4 markers (low 
 resolution) and larger light blue grid6 markers (high resolution).
-Enhanced U4B telemetry spots (see [below](#u4b-extended-telemetry)
+Enhanced U4B telemetry spots (see [below](#value-types))
 are shaded in a darker blue. Markers are connected by green lines.
 
 <img src="images/img3.png" width=360>
@@ -527,7 +527,6 @@ Let's say you want to send your message in slot 2:
 ```
 hdr_slot = 2;
 hdr_slot_size = 5;
-
 v = v * hdr_slot_size + hdr_slot;
 v = v << 1;  // add HdrTelemetryType = 0
 ```
@@ -557,10 +556,49 @@ void SendBigNumber(uint64_t v) {
 }
 ```
 
+If a Generic-ET compatible tracker also supports ET0, the order of ET0 headers
+packed into `BigNumber` should be
+`[HdrTelemetryType][HdrSlot][HdrRESERVED][HdrType]`, and NOT the legacy
+`[HdrTelemetryType][HdrRESERVED][HdrType][HdrSlot]`. The two transformations --
+rearranging of values in `BigNumber` as shown in the `SendBigNumber` function
+above and reshuffling of ET0 headers -- cancel each other out, allowing the
+wire format of ET0 telemetry to remain exactly the same.
+
+### Generic ET Decoding
+
+This section is intended for U4B developers.
+
+A Generic ET-compatible tracker should compute `BigNumber` from `m` and `n`
+as shown below:
+
+```
+void ComputeBigNumber(uint32_t m, uint32_t n) {
+  uint64 v = m * 615600ULL + n;
+  if ((v % 2) == 0) {
+    // Extended telemetry
+    v = v >> 1;  // temporarily discard HdrTelemetryType
+    v = (v / 320) * 320 + ((v / 4) % 16) * 20 + (v % 4) * 5 + ((v / 64) % 5);
+    v = v << 1;  // add HdrTelemetryType back
+  }
+  return v;
+}
+```
+
+If a Generic-ET compatible decoder also supports ET0, the order of ET0 headers
+packed into `BigNumber` should be interpreted as
+`[HdrTelemetryType][HdrSlot][HdrRESERVED][HdrType]`, and NOT the legacy
+`[HdrTelemetryType][HdrRESERVED][HdrSlot]`. The two transformations --
+rearranging of values in `BigNumber` as shown in the `ComputeBigNumber` function
+above and reshuffling of ET0 headers -- cancel each other out, allowing the ET0
+wire format to remain the same.
+
+There are no changes in how `m` and `n` are computed from a special-callsign WSPR
+message.
+
 ### Traquito's ET (ET0)
 
 Traquito's extended telemetry (ET0) is a subtype of Generic ET,
-because it also starts with `HdrSlot` (assuming that `BigNumber` is
+because it also starts with `HdrSlot` (assuming that `BigNumber` was
 decoded in a Generic ET-compliant manner). ET0 has the following
 structure:
 

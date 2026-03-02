@@ -135,7 +135,7 @@ but it also correctly reports TX power in the regular callsign
 transmission (this data is used in radio propagation studies).</p>
 <h3 id="band">Band</h3>
 <p>Specifies the frequency band for WSPR transmissions. There may be
-additional, band-unrelated options at the end of this menu, such as a
+additional, band-unrelated options at the start of this menu, such as a
 link to this user guide.</p>
 <h3 id="start-date">Start Date</h3>
 <p>The start date should be in the <code class="notranslate">YYYY-mm-dd</code> format,
@@ -210,7 +210,7 @@ respectively) and will pre-fill the control panel parameters. Example:
 <h2 id="map-view">Map View</h2>
 <p>A track is rendered as a sequence of small white grid4 markers (low
 resolution) and larger light blue grid6 markers (high resolution).
-Enhanced U4B telemetry spots (see <a href="#u4b-extended-telemetry">below</a>
+Enhanced U4B telemetry spots (see <a href="#value-types">below</a>)
 are shaded in a darker blue. Markers are connected by green lines.</p>
 <p><a target="_blank" rel="noopener noreferrer" href="images/img3.png"><img src="images/img3.png" width="360" style="max-width: 100%;"></a></p>
 <p>Note that some spots may be <strong>unattached</strong> (i.e., not shown as
@@ -472,7 +472,6 @@ v = v * v1_size + v1;
 Let's say you want to send your message in slot 2:</p>
 <pre class="notranslate"><code class="notranslate">hdr_slot = 2;
 hdr_slot_size = 5;
-
 v = v * hdr_slot_size + hdr_slot;
 v = v &lt;&lt; 1;  // add HdrTelemetryType = 0
 </code></pre>
@@ -495,9 +494,40 @@ from <code class="notranslate">BigNumber</code> differently:</p>
   SendWSPRMessage(wspr_message);
 }
 </code></pre>
+<p>If a Generic-ET compatible tracker also supports ET0, the order of ET0 headers
+packed into <code class="notranslate">BigNumber</code> should be
+<code class="notranslate">[HdrTelemetryType][HdrSlot][HdrRESERVED][HdrType]</code>, and NOT the legacy
+<code class="notranslate">[HdrTelemetryType][HdrRESERVED][HdrType][HdrSlot]</code>. The two transformations --
+rearranging of values in <code class="notranslate">BigNumber</code> as shown in the <code class="notranslate">SendBigNumber</code> function
+above and reshuffling of ET0 headers -- cancel each other out, allowing the
+wire format of ET0 telemetry to remain exactly the same.</p>
+<h3 id="generic-et-decoding">Generic ET Decoding</h3>
+<p>This section is intended for U4B developers.</p>
+<p>A Generic ET-compatible tracker should compute <code class="notranslate">BigNumber</code> from <code class="notranslate">m</code> and <code class="notranslate">n</code>
+as shown below:</p>
+<pre class="notranslate"><code class="notranslate">void ComputeBigNumber(uint32_t m, uint32_t n) {
+  uint64 v = m * 615600ULL + n;
+  if ((v % 2) == 0) {
+    // Extended telemetry
+    v = v &gt;&gt; 1;  // temporarily discard HdrTelemetryType
+    v = (v / 320) * 320 + ((v / 4) % 16) * 20 + (v % 4) * 5 + ((v / 64) % 5);
+    v = v &lt;&lt; 1;  // add HdrTelemetryType back
+  }
+  return v;
+}
+</code></pre>
+<p>If a Generic-ET compatible decoder also supports ET0, the order of ET0 headers
+packed into <code class="notranslate">BigNumber</code> should be interpreted as
+<code class="notranslate">[HdrTelemetryType][HdrSlot][HdrRESERVED][HdrType]</code>, and NOT the legacy
+<code class="notranslate">[HdrTelemetryType][HdrRESERVED][HdrSlot]</code>. The two transformations --
+rearranging of values in <code class="notranslate">BigNumber</code> as shown in the <code class="notranslate">ComputeBigNumber</code> function
+above and reshuffling of ET0 headers -- cancel each other out, allowing the ET0
+wire format to remain the same.</p>
+<p>There are no changes in how <code class="notranslate">m</code> and <code class="notranslate">n</code> are computed from a special-callsign WSPR
+message.</p>
 <h3 id="traquito's-et-(et0)">Traquito's ET (ET0)</h3>
 <p>Traquito's extended telemetry (ET0) is a subtype of Generic ET,
-because it also starts with <code class="notranslate">HdrSlot</code> (assuming that <code class="notranslate">BigNumber</code> is
+because it also starts with <code class="notranslate">HdrSlot</code> (assuming that <code class="notranslate">BigNumber</code> was
 decoded in a Generic ET-compliant manner). ET0 has the following
 structure:</p>
 <pre class="notranslate"><code class="notranslate">[HdrTelemetryType] - 2 values, always 0 for extended telemetry
