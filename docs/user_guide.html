@@ -503,7 +503,7 @@ above and reshuffling of ET0 headers -- cancel each other out, allowing the
 wire format of ET0 telemetry to remain exactly the same.</p>
 <h3 id="generic-et-decoding">Generic ET Decoding</h3>
 <p>This section is intended for U4B developers.</p>
-<p>A Generic ET-compatible tracker should compute <code class="notranslate">BigNumber</code> from <code class="notranslate">m</code> and <code class="notranslate">n</code>
+<p>A Generic ET-compatible decoder should compute <code class="notranslate">BigNumber</code> from <code class="notranslate">m</code> and <code class="notranslate">n</code>
 as shown below:</p>
 <pre class="notranslate"><code class="notranslate">void ComputeBigNumber(uint32_t m, uint32_t n) {
   uint64 v = m * 615600ULL + n;

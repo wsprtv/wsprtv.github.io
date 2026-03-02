@@ -568,7 +568,7 @@ wire format of ET0 telemetry to remain exactly the same.
 
 This section is intended for U4B developers.
 
-A Generic ET-compatible tracker should compute `BigNumber` from `m` and `n`
+A Generic ET-compatible decoder should compute `BigNumber` from `m` and `n`
 as shown below:
 
 ```
