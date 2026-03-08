@@ -11,7 +11,7 @@
 //
 // This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU Affero General Public License for more details.
 //
 // You should have received a copy of the GNU Affero General Public License
@@ -539,7 +539,7 @@ function matchTelemetry(data) {
         // Always a match
         last_spot.slots[slot] = row;
       } else if (params.tracker == 'wb8elk') {
-        if (last_spot.slots[0].grid == row.grid) {
+        if (last_spot.slots[0].grid.slice(0, 4) == row.grid.slice(0, 4)) {
           last_spot.slots[slot] = row;
         }
       } else if (params.tracker == 'u4b') {
@@ -642,7 +642,7 @@ function processU4BSlot1Message(spot) {
   const p = Math.floor(m / 1068);
   spot.grid = spot.grid + String.fromCharCode(97 + Math.floor(p / 24)) +
       String.fromCharCode(97 + (p % 24));
-  spot.altitude = (m % 1068) * 20;;
+  spot.altitude = (m % 1068) * 20;
 
   if (params.version >= 100) {
     handleU4BVariants(spot, is_valid_gps);
@@ -899,8 +899,8 @@ function categorizeSpots() {
   let last_attached_spot;
   for (let i = 0; i < spots.length; i++) {
     const spot = spots[i];
-    if (spot.is_invalid_gps || params.tracker == 'unknown' ||
-        (detach_grid4_param != null &&  spot.grid.length < 6)) {
+    if (spot.is_invalid_gps ||
+        (detach_grid4_param != null && spot.grid.length < 6)) {
       spot.is_unattached = true;
       continue;
     }
@@ -920,7 +920,7 @@ function categorizeSpots() {
 
       if (spot.grid.length < 6) {
         // Grid4 spot
-        if (!['zachtek1', 'generic1'].includes(params.tracker) &&
+        if (!['zachtek1', 'generic1', 'unknown'].includes(params.tracker) &&
             ((spot.ts - last_attached_spot.ts) < 2 * 3600 * 1000) &&
             (getDistance(last_attached_spot, spot) < 200000)) {
           // Do not attach grid4 spots unless there are no other spots nearby
@@ -1185,7 +1185,7 @@ function clearTrack() {
   if (marker_group) {
     marker_group.clearLayers();
     map.removeLayer(marker_group);
-    map.removeLayer(marker_line);
+    if (marker_line) map.removeLayer(marker_line);
     markers = [];
     marker_group = null;
     marker_line = null;
@@ -1295,8 +1295,7 @@ function displayTrack() {
 
   for (let i = 0; i < spots.length; i++) {
     let spot = spots[i];
-    if (spot.is_unattached &&
-        show_unattached_param == null && params.tracker != 'unknown') {
+    if (spot.is_unattached && show_unattached_param == null) {
       continue;
     }
 
@@ -1344,19 +1343,17 @@ function displayTrack() {
     last_attached_marker = marker;
   }
 
-  marker_line = L.polyline(path, { color: '#00cc00' });
-  marker_line.addTo(map);
+  if (params.tracker != 'unknown') {
+    marker_line = L.polyline(path, { color: '#00cc00' });
+    marker_line.addTo(map);
+  }
 
   // Highlight first / last markers
   if (first_attached_marker) {
     first_attached_marker.setStyle({ fillColor: '#3cb371' });
-  } else if (markers.length > 0 && params.tracker == 'unknown') {
-    markers[0].setStyle({ fillColor: '#3cb371' });
   }
   if (last_attached_marker) {
     last_attached_marker.setStyle({ fillColor: 'red' });
-  } else if (markers.length > 0 && params.tracker == 'unknown') {
-    markers[markers.length - 1].setStyle({ fillColor: 'red' });
   }
 
   marker_group.addTo(map);
@@ -2170,16 +2167,14 @@ function computeDerivedData(spots) {
       delete derived_data[field];
     }
   }
-  // Only keep power and track attachment if some values are different
-  for (const field of ['power', 'track_attachment']) {
-    if (derived_data[field] &&
-        new Set(derived_data[field].filter(v => v != undefined)).size < 2) {
-      delete derived_data[field];
-    }
+  // Only keep power if some values are different
+  if (derived_data['power'] &&
+      new Set(derived_data['power'].filter(v => v != undefined)).size < 2) {
+    delete derived_data['power'];
   }
-  // Only keep track attachment in detailed view or if the
-  // show_unattached parameter is used
-  if (!params.detail && show_unattached_param == null) {
+  // Only keep track attachment if at least some
+  // values are false
+  if (derived_data['track_attachment'].every(v => v == 1)) {
     delete derived_data['track_attachment'];
   }
   // Only keep gps_lock if some values are set to 0
@@ -2383,7 +2378,6 @@ function showDataView() {
   let graph_formatters = [];
   let graph_labels = [];
   let graph_data_indices = [];  // indices into table_data
-  const ts_values = spots.map(spot => spot.ts.getTime() / 1000);
 
   let can_show_more = false;
   let can_show_less = false;
@@ -2484,9 +2478,14 @@ function showDataView() {
 
   // Add graphs
   data_view.u_plots = [];  // references to created uPlot instances
+  const first_graphed_idx = spots.findIndex(spot => !spot.is_unattached);
+  const last_graphed_idx = spots.findLastIndex(spot => !spot.is_unattached);
+  const ts_values = spots.map(spot => spot.ts.getTime() / 1000).slice(
+      first_graphed_idx, last_graphed_idx + 1);
   for (let i = 0; i < graph_data_indices.length; i++) {
     const fetcher = graph_fetchers[i] || ((v) => v);
     const formatter = graph_formatters[i] || ((v, au) => v);
+    const table_idx  = graph_data_indices[i];
     const opts = {
       tzDate: ts => params.use_utc ?
           uPlot.tzDate(new Date(ts * 1e3), 'Etc/UTC') :
@@ -2504,8 +2503,9 @@ function showDataView() {
       }, {
         label: graph_labels[i],
         stroke: 'blue',
-        value: (self, v, _, seq) => (v == undefined) ?
-            undefined : formatter(table_data[index][seq], false /* au */)
+        value: (self, v, _, idx) => (v == undefined) ?
+            undefined : formatter(
+                table_data[table_idx][idx + first_graphed_idx], false /* au */)
       }],
       scales: [{ label: 'x' }],
       axes: [{
@@ -2527,12 +2527,12 @@ function showDataView() {
       }, { size: 52 }]
     };
 
-    const index  = graph_data_indices[i];
-    data_view.u_plots.push(
-        new uPlot(opts, [ts_values, table_data[index].map((v, idx) =>
-            (v == undefined ||
-             (spots[idx].is_unattached && params.tracker != 'unknown')) ?
-                undefined : fetcher(v))], div));
+    const y_values = table_data[table_idx].map(
+        (v, idx) => (v == undefined || spots[idx].is_unattached) ?
+            undefined : fetcher(v)).slice(
+        first_graphed_idx, last_graphed_idx + 1);
+    if (y_values.length == 0) continue;
+    data_view.u_plots.push(new uPlot(opts, [ts_values, y_values], div));
   }
 
   div.appendChild(document.createElement('br'));
@@ -2609,7 +2609,8 @@ function toggleDataViewDetail() {
 
 function getDownloadFilename(ext) {
   const raw_ch = document.getElementById('ch').value.trim().toUpperCase();
-  return params.cs.toUpperCase().replace(/\//g, '_') + '_' + raw_ch + '_' +
+  return params.cs.toUpperCase().replace(/\//g, '_') + '_' +
+      raw_ch + '_' + params.band + '_' +
       formatTimestamp(params.start_date).slice(0, 10).replace(/-/g, '') + '-' +
       formatTimestamp(params.end_date).slice(0, 10).replace(/-/g, '') +
       '.' + ext;
