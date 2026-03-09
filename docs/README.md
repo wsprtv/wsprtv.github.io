@@ -678,7 +678,8 @@ timestamp. All of these values can be as large as necessary (e.g. 2000
 minutes). Do not specify more than one time delta type.
 
 `Grid4 override` is used to replace the grid4 value received in the regular
-callsign message.
+callsign message, as well as to set `is_gps_value = true` in the basic
+telemetry message.
 
 The recommended way to send historical data is as follows:
 

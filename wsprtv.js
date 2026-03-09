@@ -900,7 +900,7 @@ function processNativeExtendedTelemetry(spot) {
       spot.tx_ts = spot.ts;
       spot.fill = '#7abfb1';
       let offset = { 120 : 60, 121 : 600, 122 : 3600, 123 : 86400 }[type];
-      spot.ts = new Date(spot.ts.getTime() - offset * 1000);
+      spot.ts = new Date(spot.ts.getTime() - offset * value * 1000);
     }
     if (type == 124) {
       // Grid4 override
@@ -908,7 +908,9 @@ function processNativeExtendedTelemetry(spot) {
           String.fromCharCode(65 + Math.floor(value / 100) % 24) +
           Math.floor(value / 10) % 10 + value % 10;
       delete spot.is_invalid_gps;
-      processU4BSlot1Message(spot, true);
+      if (spot.slots[1]) {
+        processU4BSlot1Message(spot, true);
+      }
       [spot.lat, spot.lon] = maidenheadToLatLon(spot.grid);
     }
   }

@@ -593,7 +593,8 @@ grow in the positive direction only.</p>
 timestamp. All of these values can be as large as necessary (e.g. 2000
 minutes). Do not specify more than one time delta type.</p>
 <p><code class="notranslate">Grid4 override</code> is used to replace the grid4 value received in the regular
-callsign message.</p>
+callsign message, as well as to set <code class="notranslate">is_gps_value = true</code> in the basic
+telemetry message.</p>
 <p>The recommended way to send historical data is as follows:</p>
 <ul>
 <li>Send a regular callsign message with the current location. If no other
