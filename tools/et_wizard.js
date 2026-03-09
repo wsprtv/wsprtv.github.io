@@ -358,10 +358,17 @@ function createNativeExtractor(parent, extractor = null, spec = null) {
        '[106] Enhanced Voltage Resolution',
        '[107] Enhanced Voltage Range',
        '[108] Enhanced Speed Resolution',
-       '[109] Enhanced Speed Range'
+       '[109] Enhanced Speed Range',
+       '[120] Time delta, minutes',
+       '[121] Time delta, slots',
+       '[122] Time delta, hours',
+       '[123] Time delta, days',
+       '[124] Grid4 override (32400 values)',
       ], null);
   if (extractor && extractor[2][0] == 't') {
-    native_type.value = Number(extractor[2].slice(1)) - 100;
+    let value = Number(extractor[2].slice(1)) - 100;
+    if (value >= 20) value -= 10;  // account for gap
+    native_type.value = value;
   }
   addButton(s, 'Delete', deleteExtractor);
 }
@@ -391,15 +398,19 @@ function createMessage(decoder = null, spec = null) {
        'Slot 2',
        'Slot 3',
        'Slot 4',
+       'Any slot',
       ], null);
   slot_selector.value = 3;
   if (decoder) {
+    let found_slot = false;
     for (let filter of decoder[0]) {
       if (filter[0] == 's') {
         slot_selector.value = 1 + +filter[1];
+        found_slot = true;
         break;
       }
     }
+    if (!found_slot) slot_selector.value = 6;  // any slot
   }
   // Filters
   let filters_wrapper = addSection(message_section, 'box');
@@ -666,7 +677,8 @@ function generateURL() {
         extractor = [extractor_row.children[1].value,
                      extractor_row.children[3].value,
                      ['t100', 't101', 't102', 't103', 't104',
-                      't105', 't106', 't107', 't108', 't109']
+                      't105', 't106', 't107', 't108', 't109',
+                      't120', 't121', 't122', 't123', 't124']
                          [extractor_row.children[5].value]];
       } else {
         extractor = [extractor_row.children[1].value,

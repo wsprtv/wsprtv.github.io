@@ -555,6 +555,7 @@ by 3) to extract the value of <code class="notranslate">value3</code>.</p>
 can be graphed and displayed in a table, but their meaning is otherwise
 not known to WSPR TV. By contrast, native values have a well-defined type,
 and can influence the site's function at a more fundamental level.</p>
+<p><strong>Resolution / range</strong></p>
 <p>Currently, 10 native types are supported:</p>
 <ul>
 <li>Type 100: enhanced longitude resolution</li>
@@ -580,6 +581,29 @@ alternates as the value of the range increases. For example, when type 107
 (enhanced voltage range) value is 1, the range spans 5 - 7V. When the value
 is 2, the range becomes 1 - 3V. Other ranges, such as speed and altitude,
 grow in the positive direction only.</p>
+<p><strong>Historical Data</strong></p>
+<ul>
+<li>Type 120: Time delta, minutes</li>
+<li>Type 121: Time delta, slots</li>
+<li>Type 122: Time delta, hours</li>
+<li>Type 123: Time delta, days</li>
+<li>Type 124: Grid4 override (32400 values)</li>
+</ul>
+<p>To send historical data, a time offset can be specified relative to the TX
+timestamp. All of these values can be as large as necessary (e.g. 2000
+minutes). Do not specify more than one time delta type.</p>
+<p><code class="notranslate">Grid4 override</code> is used to replace the grid4 value received in the regular
+callsign message.</p>
+<p>The recommended way to send historical data is as follows:</p>
+<ul>
+<li>Send a regular callsign message with the current location. If no other
+messages are received, this data will still be valid.</li>
+<li>Send a basic telemetry message with <code class="notranslate">is_valid_gps = false</code> and all other
+fields pertaining to the historical spot. If no other messages are
+received, this message will be ignored.</li>
+<li>Send an extended telemetry message specifying the time delta and replacing
+the <code class="notranslate">grid4</code> value in the regular callsign message with the historical value.</li>
+</ul>
 <h3 id="extended-telemetry-message-definition">Extended Telemetry Message Definition</h3>
 <p>WSPR TV has an extremely flexible extended telemetry definition
 mechanism that is able to decode Generic ET, Traquito's ET0, or any past or

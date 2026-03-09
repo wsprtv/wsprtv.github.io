@@ -636,6 +636,8 @@ can be graphed and displayed in a table, but their meaning is otherwise
 not known to WSPR TV. By contrast, native values have a well-defined type,
 and can influence the site's function at a more fundamental level.
 
+**Resolution / range**
+
 Currently, 10 native types are supported:
 
 - Type 100: enhanced longitude resolution 
@@ -662,6 +664,31 @@ alternates as the value of the range increases. For example, when type 107
 (enhanced voltage range) value is 1, the range spans 5 - 7V. When the value
 is 2, the range becomes 1 - 3V. Other ranges, such as speed and altitude,
 grow in the positive direction only.
+
+**Historical Data**
+
+- Type 120: Time delta, minutes
+- Type 121: Time delta, slots
+- Type 122: Time delta, hours
+- Type 123: Time delta, days
+- Type 124: Grid4 override (32400 values)
+
+To send historical data, a time offset can be specified relative to the TX
+timestamp. All of these values can be as large as necessary (e.g. 2000
+minutes). Do not specify more than one time delta type.
+
+`Grid4 override` is used to replace the grid4 value received in the regular
+callsign message.
+
+The recommended way to send historical data is as follows:
+
+- Send a regular callsign message with the current location. If no other
+messages are received, this data will still be valid.
+- Send a basic telemetry message with `is_valid_gps = false` and all other
+fields pertaining to the historical spot. If no other messages are
+received, this message will be ignored.
+- Send an extended telemetry message specifying the time delta and replacing
+the `grid4` value in the regular callsign message with the historical value.
 
 ### Extended Telemetry Message Definition
 

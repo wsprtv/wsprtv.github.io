@@ -617,7 +617,7 @@ function extractU4BQ01Payload(p) {
   return [m, n];
 }
 
-function processU4BSlot1Message(spot) {
+function processU4BSlot1Message(spot, ignore_is_valid_gps = false) {
   if (spot.slots[1].cs.length != 6) {
     return false;
   }
@@ -633,18 +633,18 @@ function processU4BSlot1Message(spot) {
   spot.voltage = ((Math.floor(n / 168) + 20) % 40) * 0.05 + 3;
   spot.temp = (Math.floor(n / 6720) % 90) - 50;
   const is_valid_gps = Math.floor(n / 2) % 2;
-  if (!is_valid_gps && params.version < 100) {
+  if (!ignore_is_valid_gps && !is_valid_gps && params.version < 100) {
     // Invalid GPS bit
     spot.is_invalid_gps = true;
     return false;
   }
-  spot.speed = (Math.floor(n / 4) % 42) * 2 * 1.852;
   const p = Math.floor(m / 1068);
   spot.grid = spot.grid + String.fromCharCode(97 + Math.floor(p / 24)) +
       String.fromCharCode(97 + (p % 24));
+  spot.speed = (Math.floor(n / 4) % 42) * 2 * 1.852;
   spot.altitude = (m % 1068) * 20;
 
-  if (params.version >= 100) {
+  if (!ignore_is_valid_gps && params.version >= 100) {
     handleU4BVariants(spot, is_valid_gps);
   }
   return true;
@@ -718,6 +718,10 @@ function processWB8ELKSlot1Message(spot) {
 // Annotates telemetry spots (appends lat, lon, speed, etc)
 function decodeSpots() {
   spots = spots.filter(spot => decodeSpot(spot));
+  // Resort spots as timestamps may have changed (e.g. due to
+  // time delta native types).
+  spots.sort((s1, s2) =>
+      (s1.ts - s2.ts) || ((s1.tx_ts || 0) - (s2.tx_ts || 0)));
 }
 
 // Decodes and annotates a spot
@@ -764,11 +768,11 @@ function decodeSpot(spot) {
       }
     }
   }
+  if (spot.raw_et) decodeExtendedTelemetry(spot);
   if (spot.lat == undefined) {
     [spot.lat, spot.lon] = maidenheadToLatLon(spot.grid);
   }
-  if (spot.raw_et) decodeExtendedTelemetry(spot);
-  if (spot.grid.length == 6 && spot.native_et) {
+  if (spot.slots[1] && spot.native_et) {
     processNativeExtendedTelemetry(spot);
   }
   return true;
@@ -891,6 +895,22 @@ function processNativeExtendedTelemetry(spot) {
       // Enhanced speed range
       spot.speed += 84 * 1.852 * value;
     }
+    if (type >= 120 && type <= 123) {
+      // Historical spot
+      spot.tx_ts = spot.ts;
+      spot.fill = '#7abfb1';
+      let offset = { 120 : 60, 121 : 600, 122 : 3600, 123 : 86400 }[type];
+      spot.ts = new Date(spot.ts.getTime() - offset * 1000);
+    }
+    if (type == 124) {
+      // Grid4 override
+      spot.grid = String.fromCharCode(65 + Math.floor(value / 2400)) +
+          String.fromCharCode(65 + Math.floor(value / 100) % 24) +
+          Math.floor(value / 10) % 10 + value % 10;
+      delete spot.is_invalid_gps;
+      processU4BSlot1Message(spot, true);
+      [spot.lat, spot.lon] = maidenheadToLatLon(spot.grid);
+    }
   }
 }
 
@@ -906,6 +926,16 @@ function categorizeSpots() {
     }
 
     if (last_attached_spot) {
+      if (spot.ts == last_attached_spot.ts) {
+        // This can happen when historical data is resent
+        if (spot.grid.length > last_attached_spot.length) {
+          last_attached_spot.is_unattached = true;
+          last_attached_spot = spot;
+        } else {
+          spot.is_unattached = true;
+        }
+        continue;
+      }
       let dist = getDistance(last_attached_spot, spot) / 1000;
       dist -= spot.grid.length < 6 ? 125 : 5.2;
       dist -= last_attached_spot.grid.length < 6 ? 125 : 5.2;
@@ -1304,16 +1334,16 @@ function displayTrack() {
       // Grid4
       marker = L.circleMarker([spot.lat, spot.lon],
           { radius: 5, color: 'black',
-            fillColor: spot.fill ? spot.fill :
-                (spot.is_invalid_gps ? '#fbb' : 'white'),
+            fillColor: spot.is_invalid_gps ?
+                '#fbb' : (spot.fill || 'white'),
             weight: 1,
             stroke: true, fillOpacity: 1 });
     } else {
       // Grid6
       marker = L.circleMarker([spot.lat, spot.lon],
           { radius: 7, color: 'black',
-            fillColor: spot.fill ? spot.fill :
-                (spot.is_unattached ? 'white' : '#add8e6'),
+            fillColor: spot.is_unattached ?
+                'white' : (spot.fill || '#add8e6'),
             weight: 1,
             stroke: true, fillOpacity: 1 });
     }
@@ -1487,32 +1517,34 @@ function onMarkerClick(e) {
     }
     selected_marker = marker;
     displaySpotInfo(marker, e.containerPoint);
-    marker.rx_markers = [];
-    marker.rx_paths = [];
-    const unique_rx = [...new Map(spot.slots.flatMap(slot => slot.rx).
-        map(rx => [rx.cs, rx])).values()];
-    unique_rx.forEach(rx => {
-      let rx_lat_lon = maidenheadToLatLon(rx.grid);
-      let rx_marker = L.circleMarker(
-          rx_lat_lon,
-          { radius: 6, color: 'black',
-            fillColor: 'yellow', weight: 1, stroke: true,
-            fillOpacity: 1 }).addTo(map);
-      rx_marker.on('click', function(e) {
-        L.DomEvent.stopPropagation(e);
+    if (!spot.tx_ts) {
+      marker.rx_markers = [];
+      marker.rx_paths = [];
+      const unique_rx = [...new Map(spot.slots.flatMap(slot => slot.rx).
+          map(rx => [rx.cs, rx])).values()];
+      unique_rx.forEach(rx => {
+        let rx_lat_lon = maidenheadToLatLon(rx.grid);
+        let rx_marker = L.circleMarker(
+            rx_lat_lon,
+            { radius: 6, color: 'black',
+              fillColor: 'yellow', weight: 1, stroke: true,
+              fillOpacity: 1 }).addTo(map);
+        rx_marker.on('click', function(e) {
+          L.DomEvent.stopPropagation(e);
+        });
+        let dist = marker.getLatLng().distanceTo(rx_lat_lon);
+        rx_marker.bindTooltip(
+            `${rx.cs} ${formatDistance(dist)} ${rx.snr} dB`,
+              { direction: 'top', opacity: 0.8 });
+        marker.rx_markers.push(rx_marker);
+        let path = [[[marker.getLatLng().lat, marker.getLatLng().lng]]];
+        extendPath(path, rx_lat_lon[0], rx_lat_lon[1], true);
+        let rx_path = L.polyline(path,
+            { weight: 2, color: 'blue', opacity: 0.4 }
+            ).addTo(map).bringToBack();
+        marker.rx_paths.push(rx_path);
       });
-      let dist = marker.getLatLng().distanceTo(rx_lat_lon);
-      rx_marker.bindTooltip(
-          `${rx.cs} ${formatDistance(dist)} ${rx.snr} dB`,
-          { direction: 'top', opacity: 0.8 });
-      marker.rx_markers.push(rx_marker);
-      let path = [[[marker.getLatLng().lat, marker.getLatLng().lng]]];
-      extendPath(path, rx_lat_lon[0], rx_lat_lon[1], true);
-      let rx_path = L.polyline(path,
-          { weight: 2, color: 'blue', opacity: 0.4 }
-          ).addTo(map).bringToBack();
-      marker.rx_paths.push(rx_path);
-    });
+    }
   }
   L.DomEvent.stopPropagation(e);
 }
@@ -1570,9 +1602,14 @@ function displaySpotInfo(marker, point) {
   spot_info.style.left = point.x + 50 + 'px';
   spot_info.style.top = point.y - 20 + 'px';
   const ts = formatTimestamp(spot.ts);
-  let tz = params.use_utc ? ' UTC' : '';
+  const tz = params.use_utc ? ' UTC' : '';
   spot_info.innerHTML =
       `<span style="color: #ffc">${ts}${tz}</span>`;
+  if (spot.tx_ts) {
+    const ts = formatTimestamp(spot.tx_ts);
+    spot_info.innerHTML +=
+        `<br>TX: ${ts}${tz}`;
+  }
   for (let i = 0; i < spot.slots.length; i++) {
     const slot = spot.slots[i];
     if (slot && !slot.is_invalid) {
@@ -1621,12 +1658,14 @@ function displaySpotInfo(marker, point) {
   }
   const sun_elevation = getSunElevation(spot.ts, spot.lat, spot.lon);
   spot_info.innerHTML += `<br>Sun elevation: ${sun_elevation}&deg;`
-  const [num_rx, max_rx_dist, max_snr, avg_freq] = getRXStats(spot);
-  spot_info.innerHTML += `<br> ${num_rx} report` +
-        ((num_rx == 1) ? '' : 's');
-  spot_info.innerHTML += ` | ${max_snr} dB`;
-  spot_info.innerHTML +=
-      `<br> ${formatDistance(max_rx_dist)} | ${avg_freq} Hz`;
+  if (!spot.tx_ts) {
+    const [num_rx, max_rx_dist, max_snr, avg_freq] = getRXStats(spot);
+    spot_info.innerHTML += `<br> ${num_rx} report` +
+          ((num_rx == 1) ? '' : 's');
+    spot_info.innerHTML += ` | ${max_snr} dB`;
+    spot_info.innerHTML +=
+        `<br> ${formatDistance(max_rx_dist)} | ${avg_freq} Hz`;
+  }
 
   if (marker == selected_marker) {
     // Add GoogleEarth view
@@ -1981,6 +2020,10 @@ const kDataFields = [
     'color': '#7b5d45',
     'type': 'timestamp'
   }],
+  ['tx_ts', {
+    'color': '#7b5d45',
+    'type': 'timestamp'
+  }],
   ['grid', {
     'align': 'left'
   }],
@@ -2158,9 +2201,11 @@ function computeDerivedData(spots) {
     }
     derived_data['sun_elev'][i] =
         getSunElevation(spot.ts, spot.lat, spot.lon);
-    [derived_data['num_rx'][i], derived_data['max_rx_dist'][i],
-     derived_data['max_snr'][i], derived_data['avg_freq'][i]] =
-        getRXStats(spot);
+    if (!spot.tx_ts) {
+      [derived_data['num_rx'][i], derived_data['max_rx_dist'][i],
+       derived_data['max_snr'][i], derived_data['avg_freq'][i]] =
+          getRXStats(spot);
+    }
   }
   for (const field of kDerivedFields) {
     if (derived_data[field].every(v => v == undefined)) {
@@ -2434,12 +2479,16 @@ function showDataView() {
     table_formatters.push(formatter);
 
     // Add table / graph labels
-    const default_label = (field == 'ts') ?
-        (params.use_utc ? 'UTC Time' : 'Local Time') :
-        field[0].toUpperCase() + field.slice(1);
-    let table_header = spec['label'] || default_label;
-    let long_label =
-        spec['long_label'] || spec['label'] || default_label;
+    let table_header;
+    if (field == 'ts') {
+      table_header = params.use_utc ? 'UTC Time' : 'Local Time';
+    } else if (field == 'tx_ts') {
+      table_header = params.use_utc ? 'UTC TX Time' : 'Local TX Time';
+    } else {
+      table_header = spec['label'] ||
+          (field[0].toUpperCase() + field.slice(1));
+    }
+    let long_label = spec['long_label'] || table_header;
     let units = spec['units'] ||
         (kUnitInfo[type] && kUnitInfo[type][params.units]);
     if (units) {
