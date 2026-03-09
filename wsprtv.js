@@ -904,8 +904,8 @@ function processNativeExtendedTelemetry(spot) {
     }
     if (type == 124) {
       // Grid4 override
-      spot.grid = String.fromCharCode(65 + Math.floor(value / 2400)) +
-          String.fromCharCode(65 + Math.floor(value / 100) % 24) +
+      spot.grid = String.fromCharCode(65 + Math.floor(value / 1800)) +
+          String.fromCharCode(65 + Math.floor(value / 100) % 18) +
           Math.floor(value / 10) % 10 + value % 10;
       delete spot.is_invalid_gps;
       if (spot.slots[1]) {
