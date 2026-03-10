@@ -359,11 +359,11 @@ function createNativeExtractor(parent, extractor = null, spec = null) {
        '[107] Enhanced Voltage Range',
        '[108] Enhanced Speed Resolution',
        '[109] Enhanced Speed Range',
-       '[120] Time delta, minutes',
-       '[121] Time delta, slots',
-       '[122] Time delta, hours',
-       '[123] Time delta, days',
-       '[124] Grid4 override (32400 values)',
+       '[120] Time Delta, Minutes',
+       '[121] Time Delta, 10 Minute Cycles',
+       '[122] Time Delta, Hours',
+       '[123] Time Delta, Days',
+       '[124] Grid4 Override (32400 Values)',
       ], null);
   if (extractor && extractor[2][0] == 't') {
     let value = Number(extractor[2].slice(1)) - 100;

@@ -190,6 +190,11 @@ spots from the track. Removed spots can still be seen in the data table
 and on the map with <code class="notranslate">show_unattached</code>.</p>
 </li>
 <li>
+<p><strong>min_match=<code class="notranslate">&lt;score&gt;</code></strong> specifies the minimum co-reception match
+score needed to link U4B telemetry. Defaults to 1. Setting the score
+to 0 disables co-reception matching.</p>
+</li>
+<li>
 <p><strong>show_unattached</strong> (no value needed) causes WSPR TV to display
 spots that are not attached to the track.</p>
 </li>
@@ -584,7 +589,7 @@ grow in the positive direction only.</p>
 <p><strong>Historical Data</strong></p>
 <ul>
 <li>Type 120: Time delta, minutes</li>
-<li>Type 121: Time delta, slots</li>
+<li>Type 121: Time delta, 10 minute cycles</li>
 <li>Type 122: Time delta, hours</li>
 <li>Type 123: Time delta, days</li>
 <li>Type 124: Grid4 override (32400 values)</li>

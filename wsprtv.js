@@ -49,6 +49,7 @@ let end_date_param;
 let ate1y_param;  // ate1y = allow tracks exceeding 1 year
 let dnu_param;  // dnu = do not update
 let detach_grid4_param;
+let min_match_param;
 let show_unattached_param;
 let sun_elevation_param;
 
@@ -519,6 +520,8 @@ function matchTelemetry(data) {
   let starting_minute = getU4BSlotMinute(0);
   let last_spot;
   let max_score = 0;
+  const min_match_score =
+      min_match_param ? (Number(min_match_param) || 0) : 1;
 
   for (let i = 0; i < data.length; i++) {
     row = data[i];
@@ -556,7 +559,8 @@ function matchTelemetry(data) {
           if (last_spot.slots[j]) {
             const score =
                 matchOnCoreception(last_spot.slots[j].rx, row.rx, score_all);
-            if ((!last_spot.slots[slot] && score > 0) || score > max_score) {
+            if ((!last_spot.slots[slot] && score >= min_match_score) ||
+                score > max_score) {
               last_spot.slots[slot] = row;
               max_score = score;
               break;
@@ -1937,6 +1941,9 @@ function getCurrentURL() {
   if (detach_grid4_param != null) {
     url += '&detach_grid4';
   }
+  if (min_match_param != null) {
+    url += '&min_match=' + encodeURIComponent(min_match_param);
+  }
   if (sun_elevation_param != null) {
     url += '&sun_elev=' + encodeURIComponent(sun_elevation_param);
   }
@@ -1991,6 +1998,7 @@ function processSubmission(e, on_load = false) {
       ate1y_param = null;
       dnu_param = null;
       detach_grid4_param = null;
+      min_match_param = null;
       show_unattached_param = null;
       units_param = null;
       time_param = null;
@@ -2882,6 +2890,7 @@ function start() {
   ate1y_param = getURLParameter('ate1y');
   dnu_param = getURLParameter('dnu');
   detach_grid4_param = getURLParameter('detach_grid4');
+  min_match_param = getURLParameter('min_match');
   show_unattached_param = getURLParameter('show_unattached');
   units_param = getURLParameter('units');
   time_param = getURLParameter('time');
