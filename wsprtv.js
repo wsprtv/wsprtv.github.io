@@ -554,13 +554,14 @@ function matchTelemetry(data) {
         // Score all coreception matches only if there are multiple rows
         // in the same slot
         const score_all = (i > 0 && +data[i - 1].ts == +row.ts) ||
-            (i < data.length - 1 && +data[i + 1].ts == +row.ts);
+            (i < data.length - 1 && +data[i + 1].ts == +row.ts) ||
+            min_match_score > 1;
         for (let j = 0; j < slot; j++) {
           if (last_spot.slots[j]) {
             const score =
                 matchOnCoreception(last_spot.slots[j].rx, row.rx, score_all);
-            if ((!last_spot.slots[slot] && score >= min_match_score) ||
-                score > max_score) {
+            if ((score >= min_match_score) &&
+                (!last_spot.slots[slot] || score > max_score)) {
               last_spot.slots[slot] = row;
               max_score = score;
               break;
