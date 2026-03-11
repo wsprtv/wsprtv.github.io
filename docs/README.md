@@ -596,9 +596,9 @@ in `BigNumber` should be interpreted as
 There are no changes in how `m` and `n` are computed from special-callsign WSPR
 messages.
 
-### Traquito's ET (ET0)
+### Legacy ET (ET0)
 
-Traquito's extended telemetry (ET0) is a subtype of Generic ET,
+Legacy extended telemetry (ET0) is a subtype of Generic ET,
 because it also starts with `HdrSlot` (assuming that `BigNumber` was
 decoded in a Generic ET-compliant manner). ET0 has the following
 structure:
@@ -698,7 +698,7 @@ the `grid4` value in the regular callsign message with the historical value.
 ### Extended Telemetry Message Definition
 
 WSPR TV has an extremely flexible extended telemetry definition 
-mechanism that is able to decode Generic ET, Traquito's ET0, or any past or
+mechanism that is able to decode Generic ET, ET0, or any past or
 future  protocols that pack values into contiguous (but possibly fractional) 
 bits of the U4B `BigNumber`.
 
@@ -866,16 +866,6 @@ becomes:
 (90, 0, 4)
 ```
 
-Note that the `(modulus aka num_values, offset, slope)` format differs 
-from Traquito's `(min_value, high_value, step_size)`. However, there is 
-a straightforward mapping between the two:
-
-```
-num_values = 1 + (max_value - min_value) / step_size
-offset = min_value
-slope = step_size
-```
-
 ### Value Annotation
 
 Extracted values can optionally be annotated with a
@@ -991,7 +981,7 @@ s:<slot>
 ```
 
 with the latter two representing temporal conditions. Shortcuts for
-Generic ET and Traquito's user-defined telemetry are available:
+Generic ET and ET0 user-defined telemetry are available:
 
 ```
 et
@@ -1126,10 +1116,9 @@ active for the next 30 days.
 - After a tracker stops transmitting, the channel will automatically 
 revert to green after 30 days.
 
-Note that this is just a proposal at this time. Other reservation
-mechanisms -- such as databases maintained by Traquito, lu7aa and QRP Labs
--- remain in active use. You should not use the channel map for
-reservations unless your only alternative is selecting a channel at random.
+Note that this is just a proposal at this time. You should not use the
+channel map for reservations unless your only alternative is selecting
+a channel at random.
 
 ## License
 

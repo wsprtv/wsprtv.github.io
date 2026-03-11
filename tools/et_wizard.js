@@ -105,74 +105,12 @@ function importWSPRTVURL(url) {
   createMessages(spec);
 }
 
-function importTraquitoURL(url) {
-  let spec = {};
-  spec.cs = getURLParameter(url, 'callsign');
-  spec.ch = getURLParameter(url, 'channel');
-  spec.band = getURLParameter(url, 'band');
-  spec.start_date = getURLParameter(url, 'dtGte');
-  spec.end_date = getURLParameter(url, 'dtLte');
-  for (let i = 0; i < 4; i++) {
-    const slot_param = getURLParameter(url, `slot${i + 1}MsgDefUserDefined`);
-    if (!slot_param) continue;
-    const slot_spec =  JSON.parse(
-        '[' + slot_param.replace(/\/\/.*$/gm, '').replace(/,\s*$/, '') + ']');
-    spec[i] = slot_spec;
-  }
-  importTraquitoSpec(spec);
-}
-
-function importTraquitoJSON(json) {
-  const parsed_json = JSON.parse(json);
-  let spec = [];
-  for (let i = 0; i < 4; i++) {
-    const slot_param = parsed_json[`slot${i + 1}MsgDef`];
-    if (!slot_param) continue;
-    const slot_spec =  JSON.parse('[' +
-        slot_param.replace(/\/\/.*$/gm, '').replace(/,\s*$/, '') + ']');
-    spec[i] = slot_spec;
-  }
-  importTraquitoSpec(spec);
-}
-
-function importTraquitoSpec(traquito_spec) {
-  let decoders = [];
-  let labels = [];
-  let units = [];
-  for (let i = 2; i <= 4; i++) {
-    if (traquito_spec[i]) {
-      let filters = [['et0', '0'], ['s', i]];
-      let extractors = [];
-      for (let extractor_spec of traquito_spec[i]) {
-        let offset = extractor_spec.lowValue;
-        let slope = extractor_spec.stepSize;
-        let modulus = Math.ceil(
-            (extractor_spec.highValue - extractor_spec.lowValue) /
-            extractor_spec.stepSize) + 1;
-        extractors.push(['', modulus + '', offset + '', slope + '']);
-        labels.push(extractor_spec.name);
-        units.push(extractor_spec.unit);
-      }
-      decoders.push([filters, extractors]);
-    }
-  }
-  let spec = { 'decoders': decoders, 'labels': labels, 'units': units };
-  if (traquito_spec.cs) spec.cs = traquito_spec.cs;
-  if (traquito_spec.ch) spec.ch = traquito_spec.ch;
-  if (traquito_spec.band) spec.band = traquito_spec.band;
-  if (traquito_spec.start_date) spec.start_date = traquito_spec.start_date;
-  if (traquito_spec.end_date) spec.end_date = traquito_spec.end_date;
-  createMessages(spec);
-  return;
-}
-
 function handleImport(type) {
   const input = document.getElementById('import_field');
   input.disabled = true;
   tail.remove();
   try {
-    [importWSPRTVURL, importTraquitoURL,
-     importTraquitoJSON][type](input.value);
+    [importWSPRTVURL][type](input.value);
   } catch (err) {
     alert(err);
     setOver();
@@ -863,8 +801,6 @@ function start() {
        '────────────',
        'Create a new definition',
        'Import a WSPR TV URL',
-       'Import a Traquito URL',
-       'Import a Traquito JSON file'
       ], handleRootAction);
   // Add the user guide link
   const link = document.createElement('a');
