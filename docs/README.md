@@ -562,7 +562,7 @@ void SendBigNumber(uint64_t v) {
 
 If a Generic ET-compatible tracker also supports ET0, the order of ET0 headers
 packed into `BigNumber` should be
-`[HdrTelemetryType][HdrSlot][HdrRESERVED][HdrType]`, and NOT the legacy
+`[HdrTelemetryType][HdrSlot][HdrRESERVED][HdrType]`, and NOT the older
 `[HdrTelemetryType][HdrRESERVED][HdrType][HdrSlot]`. The two transformations --
 rearranging of values in `BigNumber` as shown in the `SendBigNumber` function
 above and reshuffling of ET0 headers -- cancel each other out, allowing the
@@ -590,15 +590,15 @@ void ComputeBigNumber(uint32_t m, uint32_t n) {
 
 If a Generic ET-compatible decoder also supports ET0, the order of ET0 headers
 in `BigNumber` should be interpreted as
-`[HdrTelemetryType][HdrSlot][HdrRESERVED][HdrType]`, and NOT the legacy
+`[HdrTelemetryType][HdrSlot][HdrRESERVED][HdrType]`, and NOT the older
 `[HdrTelemetryType][HdrRESERVED][HdrType][HdrSlot]`.
 
 There are no changes in how `m` and `n` are computed from special-callsign WSPR
 messages.
 
-### Legacy ET (ET0)
+### ET0
 
-Legacy extended telemetry (ET0) is a subtype of Generic ET,
+ET0 is a subtype of Generic ET,
 because it also starts with `HdrSlot` (assuming that `BigNumber` was
 decoded in a Generic ET-compliant manner). ET0 has the following
 structure:

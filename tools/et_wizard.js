@@ -288,7 +288,7 @@ function createOpaqueExtractor(parent, extractor = null, spec = null) {
   addLabel(s, 'Long label',
       'Longer label such as "GPS Satellites", shown where more space is ' +
       'available. If left blank, defaults to the value of "Label".');
-  f = addInputField(s, '', 100, '= label');
+  f = addInputField(s, '', 100, '= Label');
   if (spec && spec.long_labels && spec.long_labels[num_opaque_extractors]) {
     f.value = spec.long_labels[num_opaque_extractors];
   }
@@ -489,7 +489,7 @@ function createMessages(spec = null) {
       'then click "Generate URL" at the bottom of the page.<br><br>' +
       '<b>Generic ET</b> = newer protocol offering 35.5 bits of payload ' +
       '(not supported by all trackers yet)<br>' +
-      '<b>ET0</b> = legacy protocol offering 29.5 bits of payload<br><br>' +
+      '<b>ET0</b> = older protocol offering 29.5 bits of payload<br><br>' +
       '<b>Slot</b> - TX slot for this ET message, which is usually 2+' +
       ' (basic telemetry is in slot 1)<br><br>' +
       'Fields are packed starting with the least significant position ' +
