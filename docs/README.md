@@ -812,16 +812,16 @@ extracted. Generally, extraction is specified using the following tuple
 of parameters:
 
 ```
-(divisor, modulus, offset, slope)
+(divisor, modulus, start_value, step)
 ```
 
 `divisor` and `modulus` here specify how to extract the raw value from 
-`BigNum`, while `offset` and `slope` are used to linearly transform the 
+`BigNum`, while `start_value` and `step` are used to linearly transform the 
 raw value into its decoded form:
 
 ```
 raw_value = (BigNumber / divisor) % modulus
-value = offset + raw_value * slope
+value = start_value + raw_value * step
 ```
 
 As an example, suppose an ET0 message has 110 values of `Pressure` in 
@@ -831,7 +831,7 @@ while `Heading` starts at 0 and increments by 4 degrees. These values
 can then be extracted as follows:
 
 ```
-[divisor, modulus, offset, slope]
+[divisor, modulus, start_value, step]
 
 (320, 110, 0.1, 0.001)
 (35200, 90, 0, 4)
@@ -845,7 +845,7 @@ Because extracted values are often contiguous, a **simplified 3-term
 extractor** specification is also available:
 
 ```
-(modulus, offset, slope)
+(modulus, start_value, step)
 ```
 
 The divisor here is **implied** by taking the previous divisor and 
@@ -860,7 +860,7 @@ For the previous Pressure / Heading example, the extractor specification
 becomes:
 
 ```
-[modulus, offset, slope]
+[modulus, start_value, step]
 
 (110, 0.1, 0.001)
 (90, 0, 4)
@@ -904,7 +904,7 @@ tuple of parameters:
 (divisor, modulus, type_id)
 ```
 
-Note that there is no offset, slope, or value annotation, since the
+Note that there is no start_value, step, or value annotation, since the
 type of the value is already known to WSPR TV.
 
 When the divisor is implied, a **simplified 2-term extractor**
@@ -999,8 +999,8 @@ An opaque value extractor can have either a 3-term or 4-term format,
 depending on whether the divisor is explicit or implicit:
 
 ```
-<modulus>:<offset>:<slope>
-<divisor>:<modulus>:<offset>:<slope>
+<modulus>:<start_value>:<step>
+<divisor>:<modulus>:<start_value>:<step>
 ```
 
 Native value extractors specify their type after the modulus:

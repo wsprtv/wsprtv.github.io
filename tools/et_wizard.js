@@ -20,6 +20,7 @@
 // Global vars
 let debug = 0;  // controls console logging
 let seq = 0;  // DOM element id sequence
+let mode;  // basic / advanced
 let tail;
 let message_sections;
 let num_opaque_extractors = 0;
@@ -55,6 +56,7 @@ function importWSPRTVURL(url) {
   const units_param = getURLParameter(url, 'et_units');
   const resolutions_param = getURLParameter(url, 'et_res');
 
+  mode = 'advanced';
   if (!decoders_param) {
     createMessages(spec);
     return;
@@ -130,18 +132,21 @@ function handleRootAction() {
   const wizard = document.getElementById('wizard');
   wizard.appendChild(document.createElement('p'));
   if (this.value == '2') {
+    mode = 'basic';
     createMessages();
-  } else if (['3', '4', '5'].includes(this.value)) {
+  } else if (this.value == '3') {
+    mode = 'advanced';
+    createMessages();
+  } else if (['4'].includes(this.value)) {
     const import_field = document.createElement('textarea');
     import_field.id = 'import_field';
     import_field.rows = '8';
     import_field.cols = '70';
-    import_field.placeholder =
-        `Copy-paste the ${this.value == 5 ? 'JSON' : 'URL'} here`;
+    import_field.placeholder = `Copy-paste the URL here`;
     wizard.appendChild(import_field);
     wizard.appendChild(document.createElement('p'));
     tail = addSection(wizard);
-    addButton(tail, 'Import', () => handleImport(this.value - 3));
+    addButton(tail, 'Import', () => handleImport(this.value - 4));
     addButton(tail, 'Start Over', startOver);
   }
 }
@@ -194,8 +199,10 @@ function addTextElement(parent, type, text, style = '') {
   return element;
 }
 
-function addLabel(parent, text) {
-  return addTextElement(parent, 'span', text + ':', 'margin-right: 5px');
+function addLabel(parent, text, tooltip = '') {
+  let label = addTextElement(parent, 'span', text + ':', 'margin-right: 5px');
+  if (tooltip) label.title = tooltip;
+  return label;
 }
 
 function addInputField(parent, value = '', width = 30, placeholder = '') {
@@ -220,19 +227,22 @@ function addVerticalSpace(parent, space = 20) {
 
 function createFilter(parent, filter = null) {
   let s = addSection(parent);
-  addLabel(s, 'Type');
+  addLabel(s, 'Type', 'Filter type');
   const filter_type = addSelectMenu(s, ['Regular', 'Temporal'], null);
   if (filter && filter[0] == 't') {
     filter_type.value = 1;
     filter = filter.slice(1);
   }
-  addLabel(s, 'Div');
+  addLabel(s, 'Div',
+      'Divisor needed to shift BigNum right');
   let f = addInputField(s, '', 50);
   if (filter) f.value = filter[0];
-  addLabel(s, 'Mod');
+  addLabel(s, 'Mod',
+      'Modulus (typically equal to field size)');
   f = addInputField(s, '', 50);
   if (filter) f.value = filter[1];
-  addLabel(s, 'Value');
+  addLabel(s, 'Value',
+      'Expected value of extracted field');
   f = addInputField(s, '', 50);
   if (filter) f.value = filter[2];
   addButton(s, 'Delete', deleteFilter);
@@ -241,40 +251,91 @@ function createFilter(parent, filter = null) {
 
 function createOpaqueExtractor(parent, extractor = null, spec = null) {
   let s = addSection(parent);
-  addLabel(s, 'Div');
+  let label = addLabel(s, 'Div',
+      'Divisor needed to shift BigNum right for value extraction');
   let f = addInputField(s, '', 50, 'implied');
+  if (mode == 'basic') {
+    label.hidden = true;
+    f.hidden = true;
+  }
   if (extractor) f.value = extractor[0];
-  addLabel(s, 'Mod');
-  f = addInputField(s, '', 50);
-  if (extractor) f.value = extractor[1];
-  addLabel(s, 'Offset');
+  addLabel(s, (mode == 'basic') ? 'Size' : 'Mod',
+      (mode == 'basic') ?
+          'Field size (number of possible values)' :
+          'Modulus (typically equal to field size)');
+  let size_f = addInputField(s, '', 50);
+  if (extractor) size_f.value = extractor[1];
+  if (mode == 'basic') {
+    size_f.oninput = (e) => {
+      updateMessageInfo(parent.parentElement);
+    };
+  }
+  addLabel(s, 'First value',
+      'Value at index 0');
   f = addInputField(s, 0, 50);
   if (extractor) f.value = extractor[2];
-  addLabel(s, 'Slope');
+  addLabel(s, 'Step',
+      'Difference between successive values, can be negative');
   f = addInputField(s, 1, 50);
   if (extractor) f.value = extractor[3];
-  addLabel(s, 'Label');
-  f = addInputField(s, '', 75);
+  addLabel(s, 'Label',
+      'Short label such as "GpsSats", shown where space is tight. ' +
+      'Defaults to a value such as "ET13".');
+  f = addInputField(s, '', 75, 'default');
   if (spec && spec.labels && spec.labels[num_opaque_extractors]) {
     f.value = spec.labels[num_opaque_extractors];
   }
-  addLabel(s, 'Long label');
-  f = addInputField(s, '', 100);
+  addLabel(s, 'Long label',
+      'Longer label such as "GPS Satellites", shown where more space is ' +
+      'available. If left blank, defaults to the value of "Label".');
+  f = addInputField(s, '', 100, '= label');
   if (spec && spec.long_labels && spec.long_labels[num_opaque_extractors]) {
     f.value = spec.long_labels[num_opaque_extractors];
   }
-  addLabel(s, 'Units');
-  f = addInputField(s, '', 50);
+  addLabel(s, 'Units',
+      'Units such as " mph". Can be left blank. The space before units is ' +
+      'significant: "4 V" vs. "4V".');
+  f = addInputField(s, '', 50, 'none');
   if (spec && spec.units && spec.units[num_opaque_extractors]) {
     f.value = spec.units[num_opaque_extractors];
   }
-  addLabel(s, 'Resolution');
-  f = addInputField(s, '', 30);
+  addLabel(s, 'Resolution',
+      'Number of digits to display after the decimal point ' +
+      '(e.g. 2 for "4.45V"). If blank or zero, values are shown as integers.');
+  f = addInputField(s, '', 30, '0');
   if (spec && spec.resolutions && spec.resolutions[num_opaque_extractors]) {
     f.value = spec.resolutions[num_opaque_extractors];
   }
   addButton(s, 'Delete', deleteExtractor);
   num_opaque_extractors++;
+}
+
+function updateMessageInfo(message) {
+  let info = message.lastElementChild;
+  let fields = [...message.children[0].children].slice(1);
+  const message_type = message.parentElement.children[1].value - 2;
+  const capacity = 194756140800.0 / [5, 320][message_type];
+  let total_size = 1;
+  for (const field of fields) {
+    const raw_size = field.children[3].value;
+    if (!raw_size) continue;
+    let size = Number(raw_size);
+    if (!size || size < 0) {
+      info.innerHTML = '';
+      return;
+    }
+    total_size *= size;
+  }
+  const size_left = capacity / total_size;
+  if (size_left >= 2) {
+    info.innerHTML =
+        `<font color="darkgreen">[ ${Math.log2(size_left).toFixed(2)} ` +
+        `bits remaining (${Math.floor(size_left)} values) ]</font>`;
+  } else if (size_left >= 1) {
+    info.innerHTML = '<font color="darkgreen">[ Full ]</font>';
+  } else {
+    info.innerHTML = '<font color="red">[ Overflow ]</font>';
+  }
 }
 
 function createNativeExtractor(parent, extractor = null, spec = null) {
@@ -312,32 +373,99 @@ function createNativeExtractor(parent, extractor = null, spec = null) {
 }
 
 function createMessage(decoder = null, spec = null) {
+  let info;
+
   let message_section = addSection(message_sections, 'box');
   message_section.style.backgroundColor = '#eee';
-  addTextElement(message_section, 'h2', 'Message Definition');
-  const message_type_selector = addSelectMenu(message_section,
-      ['Message type',
-       '────────────',
-       'Generic ET',
-       'ET0 User Defined',
-       'Custom'
-      ], null);
+  addTextElement(message_section, 'h2', 'ET Message Definition');
+  addTypeAndSlotSelectors(message_section, decoder, spec)
+  if (mode == 'advanced') {
+    // Filters
+    let filters_wrapper = addSection(message_section, 'box');
+    filters_wrapper.style.backgroundColor = '#fff';
+    let filters_section = addSection(filters_wrapper);
+    addTextElement(filters_section, 'h3', 'Custom Filters');
+    if (decoder && decoder[0]) {
+      for (const filter of decoder[0]) {
+        if (filter[0] == 's' || ['et', 'et0', 'et3'].includes(filter[0])) {
+          continue;
+        }
+        createFilter(filters_section, filter);
+      }
+    }
+    addButton(filters_wrapper, 'Add',
+        () => createFilter(filters_section));
+  }
+
+  // Extractors
+  let extractors_wrapper = addSection(message_section, 'box');
+  extractors_wrapper.style.backgroundColor = '#fff';
+  let extractors_section = addSection(extractors_wrapper);
+  addTextElement(extractors_section, 'h3',
+      (mode == 'basic') ? 'Fields' : 'Value Extractors');
+  if (decoder && decoder[1]) {
+    for (const extractor of decoder[1]) {
+      if (extractor && extractor[extractor.length - 1].startsWith('t')) {
+        createNativeExtractor(extractors_section, extractor, spec);
+      } else {
+        createOpaqueExtractor(extractors_section, extractor, spec);
+      }
+    }
+  }
+
+  if (mode == 'basic') {
+    createOpaqueExtractor(extractors_section);
+  }
+  addButton(extractors_wrapper,
+      (mode == 'basic')? 'Add Another Field' : 'Add Opaque',
+      () => createOpaqueExtractor(extractors_section));
+
+  if (mode == 'advanced') {
+    addButton(extractors_wrapper, 'Add Native',
+        () => createNativeExtractor(extractors_section));
+  }
+
+  if (mode == 'basic') {
+    info = addTextElement(extractors_wrapper, 'span');
+    updateMessageInfo(extractors_wrapper);
+  }
+
+  addButton(message_section, 'Delete Message', deleteMessage);
+}
+
+function addTypeAndSlotSelectors(message_section,
+                                 decoder = null, spec = null) {
+  let message_type_choices = [
+    'Message type',
+    '────────────',
+    'Generic ET',
+    'ET0 User Defined'
+  ];
+  if (mode == 'advanced') message_type_choices.push('Custom');
+  const message_type_selector =
+      addSelectMenu(message_section, message_type_choices, null);
+  if (mode == 'basic') {
+    message_type_selector.onchange = () => {
+      updateMessageInfo(message_section.children[3]);
+    };
+  }
   if (decoder && decoder[0].some(f => f[0] == 'et')) {
     message_type_selector.value = 2;
   } else if (decoder && decoder[0].some(f => f[0] == 'et0')) {
     message_type_selector.value = 3;
   } else {
-    message_type_selector.value = 4;
+    message_type_selector.value = (mode == 'advanced') ? 4 : 2;
   }
-  const slot_selector = addSelectMenu(message_section,
-      ['Message slot (0 = regular CS)',
-       '────────────',
-       'Slot 1',
-       'Slot 2',
-       'Slot 3',
-       'Slot 4',
-       'Any slot',
-      ], null);
+  let slot_choices = [
+      'Message slot (0 = regular CS)',
+      '────────────',
+      'Slot 1 (basic telemetry)',
+      'Slot 2',
+      'Slot 3',
+      'Slot 4'
+  ];
+  if (mode == 'advanced') slot_choices.push('Any slot');
+  const slot_selector = addSelectMenu(message_section, slot_choices, null);
   slot_selector.value = 3;
   if (decoder) {
     let found_slot = false;
@@ -350,48 +478,26 @@ function createMessage(decoder = null, spec = null) {
     }
     if (!found_slot) slot_selector.value = 6;  // any slot
   }
-  // Filters
-  let filters_wrapper = addSection(message_section, 'box');
-  filters_wrapper.style.backgroundColor = '#fff';
-  let filters_section = addSection(filters_wrapper);
-  addTextElement(filters_section, 'h3', 'Custom Filters');
-  if (decoder && decoder[0]) {
-    for (const filter of decoder[0]) {
-      if (filter[0] == 's' || ['et', 'et0', 'et3'].includes(filter[0])) {
-        continue;
-      }
-      createFilter(filters_section, filter);
-    }
-  }
-  addButton(filters_wrapper, 'Add',
-      () => createFilter(filters_section));
-
-  // Extractors
-  let extractors_wrapper = addSection(message_section, 'box');
-  extractors_wrapper.style.backgroundColor = '#fff';
-  let extractors_section = addSection(extractors_wrapper);
-  addTextElement(extractors_section, 'h3', 'Value Extractors');
-  if (decoder && decoder[1]) {
-    for (const extractor of decoder[1]) {
-      if (extractor && extractor[extractor.length - 1].startsWith('t')) {
-        createNativeExtractor(extractors_section, extractor, spec);
-      } else {
-        createOpaqueExtractor(extractors_section, extractor, spec);
-      }
-    }
-  }
-  addButton(extractors_wrapper, 'Add Opaque',
-      () => createOpaqueExtractor(extractors_section));
-
-  addButton(extractors_wrapper, 'Add Native',
-      () => createNativeExtractor(extractors_section));
-
-  addButton(message_section, 'Delete Message', deleteMessage);
 }
 
 function createMessages(spec = null) {
   num_opaque_extractors = 0;
   const wizard = document.getElementById('wizard');
+
+  let info_section = addSection(wizard, 'box');
+  let info = '<h3>Instructions</h3><br>Add one or more message definitions, ' +
+      'then click "Generate URL" at the bottom of the page.<br><br>' +
+      '<b>Generic ET</b> = newer protocol offering 35.5 bits of payload ' +
+      '(not supported by all trackers yet)<br>' +
+      '<b>ET0</b> = legacy protocol offering 29.5 bits of payload<br><br>' +
+      '<b>Slot</b> - TX slot for this ET message, which is usually 2+' +
+      ' (basic telemetry is in slot 1)<br><br>' +
+      'Fields are packed starting with the least significant position ' +
+      'in BigNum.<br><br>Hover over labels such as "Size" and "Step" to see ' +
+      'their meaning.';
+  info_section.innerHTML = info;
+  if (mode == 'advanced') info_section.hidden = true;
+
   message_sections = addSection(wizard);
   if (spec && spec.decoders) {
     for (let decoder of spec.decoders) {
@@ -400,8 +506,13 @@ function createMessages(spec = null) {
   } else {
     createMessage();
   }
-  addButton(wizard, 'Add Another Message', () => createMessage());
+  addButton(wizard, 'Add Another ET Message', () => createMessage());
 
+  createMainParams(spec);
+}
+
+function createMainParams(spec = null) {
+  const wizard = document.getElementById('wizard');
   const template = document.getElementById('main_params_template');
   let main_params = template.content.cloneNode(true).firstElementChild;
   main_params.id = 'main_params';
@@ -434,7 +545,11 @@ function deleteFilter() {
 }
 
 function deleteExtractor() {
+  const message_wrapper = this.parentElement.parentElement.parentElement;
   this.parentElement.remove();
+  if (mode == 'basic') {
+    updateMessageInfo(message_wrapper);
+  }
 }
 
 function deleteMessage() {
@@ -486,19 +601,27 @@ function checkExtractor(extractor, implied_div, row) {
     }
     const mod = Number(extractor[1] || 'none');
     if (!Number.isInteger(mod) || mod < 2) {
-      throw ['Extractor modulus must be an integer >= 2', 3];
+      if (mode == 'basic') {
+        throw ['Field size must be an integer >= 2', 3];
+      } else {
+        throw ['Extractor modulus must be an integer >= 2', 3];
+      }
     }
     if (div * mod > 194756140800) {
-      throw ['Extractor modulus is too large for BigNum', 3];
+      if (mode == 'basic') {
+        throw ['Field size is too large for BigNum', 3];
+      } else {
+        throw ['Extractor modulus is too large for BigNum', 3];
+      }
     }
     if (!is_native) {
-      const offset = Number(extractor[2] || 'none');
-      if (Number.isNaN(offset)) {
-        throw ['Invalid offset', 5];
+      const first_value = Number(extractor[2] || 'none');
+      if (Number.isNaN(first_value)) {
+        throw ['Invalid first value', 5];
       }
-      const slope = Number(extractor[3] || 'none');
-      if (Number.isNaN(slope) || slope <= 0) {
-        throw ['Invalid slope', 7];
+      const step = Number(extractor[3] || 'none');
+      if (Number.isNaN(step) || step <= 0) {
+        throw ['Invalid step', 7];
       }
     }
   } catch ([error, field]) {
@@ -593,8 +716,10 @@ function generateURL() {
       slot_selector.className = 'error';
       return;
     }
-    let filter_rows = message_section.children[3].children[0].children;
-    for (let i = 1; i < filter_rows.length; i++) {
+    let filter_rows =
+        (mode == 'basic') ? [] :
+        [...message_section.children[3].children[0].children].slice(1);
+    for (let i = 0; i < filter_rows.length; i++) {
       const filter_row = filter_rows[i];
       let filter = [filter_row.children[3].value,
                     filter_row.children[5].value,
@@ -606,8 +731,10 @@ function generateURL() {
       }
       filters.push(filter);
     }
-    let extractor_rows = message_section.children[4].children[0].children;
-    for (let i = 1; i < extractor_rows.length; i++) {
+    const index = (mode == 'basic') ? 3 : 4;
+    let extractor_rows =
+        [...message_section.children[index].children[0].children].slice(1);
+    for (let i = 0; i < extractor_rows.length; i++) {
       const extractor_row = extractor_rows[i];
       const is_native = (extractor_row.children.length == 7);
       let extractor;
@@ -799,7 +926,8 @@ function start() {
   addSelectMenu(wizard,
       ['What would you like to do?',
        '────────────',
-       'Create a new definition',
+       'Create a new definition [basic]',
+       'Create a new definition [advanced]',
        'Import a WSPR TV URL',
       ], handleRootAction);
   // Add the user guide link

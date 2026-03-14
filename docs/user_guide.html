@@ -696,20 +696,20 @@ versus slot 3.</p>
 <p>Once all filters in a message definition pass, a set of values are
 extracted. Generally, extraction is specified using the following tuple
 of parameters:</p>
-<pre class="notranslate"><code class="notranslate">(divisor, modulus, offset, slope)
+<pre class="notranslate"><code class="notranslate">(divisor, modulus, start_value, step)
 </code></pre>
 <p><code class="notranslate">divisor</code> and <code class="notranslate">modulus</code> here specify how to extract the raw value from
-<code class="notranslate">BigNum</code>, while <code class="notranslate">offset</code> and <code class="notranslate">slope</code> are used to linearly transform the
+<code class="notranslate">BigNum</code>, while <code class="notranslate">start_value</code> and <code class="notranslate">step</code> are used to linearly transform the
 raw value into its decoded form:</p>
 <pre class="notranslate"><code class="notranslate">raw_value = (BigNumber / divisor) % modulus
-value = offset + raw_value * slope
+value = start_value + raw_value * step
 </code></pre>
 <p>As an example, suppose an ET0 message has 110 values of <code class="notranslate">Pressure</code> in
 its least significant bits, and then 90 values of <code class="notranslate">Heading</code> immediately
 after. <code class="notranslate">Pressure</code> starts at 0.1 and increments 0.001 Bar with every step,
 while <code class="notranslate">Heading</code> starts at 0 and increments by 4 degrees. These values
 can then be extracted as follows:</p>
-<pre class="notranslate"><code class="notranslate">[divisor, modulus, offset, slope]
+<pre class="notranslate"><code class="notranslate">[divisor, modulus, start_value, step]
 
 (320, 110, 0.1, 0.001)
 (35200, 90, 0, 4)
@@ -719,7 +719,7 @@ header (which has 320 values). 35200 is 320 * 110 -- we are skipping
 over both the header and the <code class="notranslate">Pressure</code> value.</p>
 <p>Because extracted values are often contiguous, a <strong>simplified 3-term
 extractor</strong> specification is also available:</p>
-<pre class="notranslate"><code class="notranslate">(modulus, offset, slope)
+<pre class="notranslate"><code class="notranslate">(modulus, start_value, step)
 </code></pre>
 <p>The divisor here is <strong>implied</strong> by taking the previous divisor and
 multiplying it by the modulus of the previous extractor. In other words,
@@ -730,7 +730,7 @@ the headers for known protocols (e.g., initial_divisor = 320 when one of
 the filters in the message definition is <code class="notranslate">et0</code>).</p>
 <p>For the previous Pressure / Heading example, the extractor specification
 becomes:</p>
-<pre class="notranslate"><code class="notranslate">[modulus, offset, slope]
+<pre class="notranslate"><code class="notranslate">[modulus, start_value, step]
 
 (110, 0.1, 0.001)
 (90, 0, 4)
@@ -773,7 +773,7 @@ decimal point. By default, values are displayed as integers (resolution
 tuple of parameters:</p>
 <pre class="notranslate"><code class="notranslate">(divisor, modulus, type_id)
 </code></pre>
-<p>Note that there is no offset, slope, or value annotation, since the
+<p>Note that there is no start_value, step, or value annotation, since the
 type of the value is already known to WSPR TV.</p>
 <p>When the divisor is implied, a <strong>simplified 2-term extractor</strong>
 specification is also available:</p>
@@ -836,8 +836,8 @@ may be expressed as follows:</p>
 </code></pre>
 <p>An opaque value extractor can have either a 3-term or 4-term format,
 depending on whether the divisor is explicit or implicit:</p>
-<pre class="notranslate"><code class="notranslate">&lt;modulus&gt;:&lt;offset&gt;:&lt;slope&gt;
-&lt;divisor&gt;:&lt;modulus&gt;:&lt;offset&gt;:&lt;slope&gt;
+<pre class="notranslate"><code class="notranslate">&lt;modulus&gt;:&lt;start_value&gt;:&lt;step&gt;
+&lt;divisor&gt;:&lt;modulus&gt;:&lt;start_value&gt;:&lt;step&gt;
 </code></pre>
 <p>Native value extractors specify their type after the modulus:</p>
 <pre class="notranslate"><code class="notranslate">&lt;modulus&gt;:t&lt;type_id&gt;

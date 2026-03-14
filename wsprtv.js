@@ -829,9 +829,9 @@ function decodeExtendedTelemetry(spot) {
             has_native_et = true;
           } else {
             // Opaque type
-            const [divisor, modulus, offset, slope] = extractor.slice(1);
-            opaque_et[opaque_index++] = offset +
-                (Math.trunc(raw_et / divisor) % modulus) * slope;
+            const [divisor, modulus, first_value, step] = extractor.slice(1);
+            opaque_et[opaque_index++] = first_value +
+                (Math.trunc(raw_et / divisor) % modulus) * step;
           }
         }
         break;  // do not try other decoders
