@@ -334,7 +334,8 @@ function updateMessageInfo(message) {
   } else if (size_left >= 1) {
     info.innerHTML = '<font color="darkgreen">[ Full ]</font>';
   } else {
-    info.innerHTML = '<font color="red">[ Overflow ]</font>';
+    info.innerHTML = `<font color="darkred">[ Overflow by ` +
+        `${-Math.log2(size_left).toFixed(2)} bits ]</font>`;
   }
 }
 
