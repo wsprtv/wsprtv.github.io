@@ -571,6 +571,7 @@ function matchTelemetry(data) {
         if (!min_match_param && !last_spot.slots[slot] && !last_spot.tx_ts) {
           for (let j = spots.length - 2; j > spots.length - 8 && j >= 0; j--) {
             const old_spot = spots[j];
+            if (old_spot.tx_ts) continue;
             if (last_spot.ts - old_spot.ts > 6 * 3600 * 1000) break;
             const score =
                 matchOnCoreception(old_spot.slots[0].rx, row.rx, false);
@@ -1338,6 +1339,26 @@ function extendPath(path, lat, lon, great_circle = false,
   last_path.push([lat, lon]);
 }
 
+function mirrorTrack() {
+  for (const marker of markers) {
+    let marker1 = L.circleMarker(
+        [marker.getLatLng().lat, marker.getLatLng().lng + 360],
+        marker.options).addTo(marker_group);
+    marker1.spot = marker.spot;
+    let marker2 = L.circleMarker(
+        [marker.getLatLng().lat, marker.getLatLng().lng - 360],
+        marker.options).addTo(marker_group);
+    marker2.spot = marker.spot;
+  }
+  // Mirror marker line
+  const lat_lons1 = marker_line.getLatLngs().map(l =>
+      l.map((p) => [p.lat, p.lng + 360]));
+  const lat_lons2 = marker_line.getLatLngs().map(l =>
+      l.map((p) => [p.lat, p.lng - 360]));
+  marker_line.setLatLngs(
+      [...marker_line.getLatLngs(), lat_lons1, lat_lons2]);
+}
+
 // Draws the track on the map
 function displayTrack() {
   clearTrack();
@@ -1407,6 +1428,8 @@ function displayTrack() {
   }
 
   marker_group.addTo(map);
+
+  mirrorTrack();
 
   // Populate flight synopsis
   let synopsis = document.getElementById('synopsis');
@@ -1544,25 +1567,31 @@ function onMarkerClick(e) {
           map(rx => [rx.cs, rx])).values()];
       unique_rx.forEach(rx => {
         let rx_lat_lon = maidenheadToLatLon(rx.grid);
-        let rx_marker = L.circleMarker(
-            rx_lat_lon,
-            { radius: 6, color: 'black',
-              fillColor: 'yellow', weight: 1, stroke: true,
-              fillOpacity: 1 }).addTo(map);
-        rx_marker.on('click', function(e) {
-          L.DomEvent.stopPropagation(e);
-        });
         let dist = marker.getLatLng().distanceTo(rx_lat_lon);
-        rx_marker.bindTooltip(
-            `${rx.cs} ${formatDistance(dist)} ${rx.snr} dB`,
-              { direction: 'top', opacity: 0.8 });
-        marker.rx_markers.push(rx_marker);
-        let path = [[[marker.getLatLng().lat, marker.getLatLng().lng]]];
-        extendPath(path, rx_lat_lon[0], rx_lat_lon[1], true);
-        let rx_path = L.polyline(path,
-            { weight: 2, color: 'blue', opacity: 0.4 }
-            ).addTo(map).bringToBack();
-        marker.rx_paths.push(rx_path);
+        const marker_lat_lon = marker.getLatLng().wrap();
+        let path = [[[marker_lat_lon.lat, marker_lat_lon.lng]]];
+        extendPath(path, rx_lat_lon[0], rx_lat_lon[1],
+                   (spots.length < 20000) ? true : false);
+        for (const offset of [0, 360, -360]) {
+          let rx_marker = L.circleMarker(
+              [rx_lat_lon[0], rx_lat_lon[1] + offset],
+              { radius: 6, color: 'black',
+                fillColor: 'yellow', weight: 1, stroke: true,
+                fillOpacity: 1 }).addTo(map);
+          rx_marker.on('click', function(e) {
+            L.DomEvent.stopPropagation(e);
+          });
+          rx_marker.bindTooltip(
+              `${rx.cs} ${formatDistance(dist)} ${rx.snr} dB`,
+                { direction: 'top', opacity: 0.8 });
+          marker.rx_markers.push(rx_marker);
+          const offset_path =
+              path.map(l => l.map((p) => [p[0], p[1] + offset]));
+          let rx_path = L.polyline(offset_path,
+              { weight: 2, color: 'blue', opacity: 0.4 }
+              ).addTo(map).bringToBack();
+          marker.rx_paths.push(rx_path);
+        }
       });
     }
   }
@@ -2942,7 +2971,8 @@ function start() {
   // Use local English-label tiles for lower levels
   L.tileLayer(
       'osm_tiles/{z}/{x}/{y}.png',
-      { maxZoom: 6,
+      { minZoom: 1,
+        maxZoom: 6,
         attribution:
             '<a href="https://github.com/wsprtv/wsprtv.github.io">' +
             'WSPR TV</a> | &copy; <a href="https://www.openstreetmap.org' +
@@ -2963,37 +2993,26 @@ function start() {
 
   // Add day / night visualization and the scale indicator
   let terminator = L.terminator(
-      { opacity: 0, fillOpacity: 0.3, interactive: false }).addTo(map);
+      { opacity: 0, fillOpacity: 0.3, interactive: false,
+        longitudeRange: 1080 }).addTo(map);
 
   let sun_elevation = Number(sun_elevation_param);
   solar_isoline = L.solar_isoline({
       elevation: sun_elevation, dashArray: '8,5',
-      opacity: 0.4 }).addTo(map);
+      opacity: 0.4, longitudeRange: 1080 }).addTo(map);
 
   L.control.scale().addTo(map);
 
   // Draw the antimeridian
   L.polyline([[90, 180], [-90, 180]],
-      { color: 'gray', weight: 2, dashArray: '8,5', opacity: 0.4 })
+      { color: 'gray', weight: 1, opacity: 0.2 })
       .addTo(map).bringToBack();
   L.polyline([[90, -180], [-90, -180]],
-      { color: 'gray', weight: 2, dashArray: '8,5', opacity: 0.4 })
+      { color: 'gray', weight: 1, opacity: 0.2 })
       .addTo(map).bringToBack();
 
-  // Grey out areas beyond the antimeridian to indicate there is no
-  // data there
-  L.polygon([[[-90, -1440], [90, -1440], [90, -180], [-90, -180]]], {
-    fillColor: 'black', fillOpacity: 0.12, stroke: false,
-    interactive: false
-  }).addTo(map);
-
-  L.polygon([[[-90, 180], [90, 180], [90, 1440], [-90, 1440]]], {
-    fillColor: 'black', fillOpacity: 0.12, stroke: false,
-    interactive: false
-  }).addTo(map);
-
   // Draw the equator
-  L.polyline([[0, -180], [0, 180]],
+  L.polyline([[0, -360], [0, 360]],
       { color: 'gray', weight: 1, opacity: 0.2 })
       .addTo(map).bringToBack();
 

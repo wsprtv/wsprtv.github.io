@@ -233,15 +233,6 @@ relative to adjacent spots.</li>
 shown on the map when the <code class="notranslate">show_unattached</code>
 <a href="#url-parameters">URL parameter</a> is set.</p>
 <p><a target="_blank" rel="noopener noreferrer" href="images/img16.png"><img src="images/img16.png" width="360" style="max-width: 100%;"></a></p>
-<p>One peculiarity of the mapping framework used by WSPR TV (Leaflet) is
-that data is not duplicated across the antimeridian (i.e., -180/180
-longitude). Therefore, as you pan, you may suddenly notice the track
-disappear from view. This is not a bug -- the track is still there, but
-it's now on the other side of the map (zoom out to see it). WSPR TV
-provides a visual cue when you are close to the antimeridian: the
-antimeridian is shown as a dashed line, and the side of the map that has
-no data is shaded in grey.</p>
-<p><a target="_blank" rel="noopener noreferrer" href="images/img4.png"><img src="images/img4.png" width="360" style="max-width: 100%;"></a></p>
 <p>The Equator is shown as a grey horizontal line. The first spot in the
 track (after <code class="notranslate">start_date</code>) is green, while the last one is red. Night /
 day regions are indicated on the map by grey shading.</p>
@@ -501,7 +492,7 @@ from <code class="notranslate">BigNumber</code> differently:</p>
 </code></pre>
 <p>If a Generic ET-compatible tracker also supports ET0, the order of ET0 headers
 packed into <code class="notranslate">BigNumber</code> should be
-<code class="notranslate">[HdrTelemetryType][HdrSlot][HdrRESERVED][HdrType]</code>, and NOT the legacy
+<code class="notranslate">[HdrTelemetryType][HdrSlot][HdrRESERVED][HdrType]</code>, and NOT the older
 <code class="notranslate">[HdrTelemetryType][HdrRESERVED][HdrType][HdrSlot]</code>. The two transformations --
 rearranging of values in <code class="notranslate">BigNumber</code> as shown in the <code class="notranslate">SendBigNumber</code> function
 above and reshuffling of ET0 headers -- cancel each other out, allowing the
@@ -523,12 +514,12 @@ as shown below:</p>
 </code></pre>
 <p>If a Generic ET-compatible decoder also supports ET0, the order of ET0 headers
 in <code class="notranslate">BigNumber</code> should be interpreted as
-<code class="notranslate">[HdrTelemetryType][HdrSlot][HdrRESERVED][HdrType]</code>, and NOT the legacy
+<code class="notranslate">[HdrTelemetryType][HdrSlot][HdrRESERVED][HdrType]</code>, and NOT the older
 <code class="notranslate">[HdrTelemetryType][HdrRESERVED][HdrType][HdrSlot]</code>.</p>
 <p>There are no changes in how <code class="notranslate">m</code> and <code class="notranslate">n</code> are computed from special-callsign WSPR
 messages.</p>
-<h3 id="legacy-et-(et0)">Legacy ET (ET0)</h3>
-<p>Legacy extended telemetry (ET0) is a subtype of Generic ET,
+<h3 id="et0">ET0</h3>
+<p>ET0 is a subtype of Generic ET,
 because it also starts with <code class="notranslate">HdrSlot</code> (assuming that <code class="notranslate">BigNumber</code> was
 decoded in a Generic ET-compliant manner). ET0 has the following
 structure:</p>

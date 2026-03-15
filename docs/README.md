@@ -229,17 +229,6 @@ shown on the map when the `show_unattached`
 
 <img src="images/img16.png" width=360>
 
-One peculiarity of the mapping framework used by WSPR TV (Leaflet) is 
-that data is not duplicated across the antimeridian (i.e., -180/180 
-longitude). Therefore, as you pan, you may suddenly notice the track 
-disappear from view. This is not a bug -- the track is still there, but 
-it's now on the other side of the map (zoom out to see it). WSPR TV 
-provides a visual cue when you are close to the antimeridian: the 
-antimeridian is shown as a dashed line, and the side of the map that has 
-no data is shaded in grey.
-
-<img src="images/img4.png" width=360>
-
 The Equator is shown as a grey horizontal line. The first spot in the 
 track (after `start_date`) is green, while the last one is red. Night / 
 day regions are indicated on the map by grey shading.
