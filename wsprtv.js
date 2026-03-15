@@ -568,6 +568,19 @@ function matchTelemetry(data) {
             }
           }
         }
+        if (!min_match_param && !last_spot.slots[slot] && !last_spot.tx_ts) {
+          for (let j = spots.length - 2; j > spots.length - 8 && j >= 0; j--) {
+            const old_spot = spots[j];
+            if (last_spot.ts - old_spot.ts > 6 * 3600 * 1000) break;
+            const score =
+                matchOnCoreception(old_spot.slots[0].rx, row.rx, false);
+            if (score > 0) {
+              last_spot.slots[slot] = row;
+              max_score = score;
+              break;
+            }
+          }
+        }
       }
     }
   }

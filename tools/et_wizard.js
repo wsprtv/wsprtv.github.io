@@ -487,11 +487,11 @@ function createMessages(spec = null) {
 
   let info_section = addSection(wizard, 'box');
   let info = '<h3>Instructions</h3><br>Add one or more message definitions, ' +
-      'then click "Generate URL" at the bottom of the page.<br><br>' +
+      'then click "<b>Generate URL</b>" at the bottom of the page.<br><br>' +
       '<b>Generic ET</b> = newer protocol offering 35.5 bits of payload ' +
       '(not supported by all trackers yet)<br>' +
       '<b>ET0</b> = older protocol offering 29.5 bits of payload<br><br>' +
-      '<b>Slot</b> - TX slot for this ET message, which is usually 2+' +
+      '<b>Slot</b> - TX slot for this ET message, usually 2 - 4' +
       ' (basic telemetry is in slot 1)<br><br>' +
       'Fields are packed starting with the least significant position ' +
       'in BigNum.<br><br>Hover over labels such as "Size" and "Step" to see ' +
