@@ -1350,13 +1350,15 @@ function mirrorTrack() {
         marker.options).addTo(marker_group);
     marker2.spot = marker.spot;
   }
-  // Mirror marker line
-  const lat_lons1 = marker_line.getLatLngs().map(l =>
-      l.map((p) => [p.lat, p.lng + 360]));
-  const lat_lons2 = marker_line.getLatLngs().map(l =>
-      l.map((p) => [p.lat, p.lng - 360]));
-  marker_line.setLatLngs(
-      [...marker_line.getLatLngs(), lat_lons1, lat_lons2]);
+  if (marker_line) {
+    // Mirror marker line
+    const lat_lons1 = marker_line.getLatLngs().map(l =>
+        l.map((p) => [p.lat, p.lng + 360]));
+    const lat_lons2 = marker_line.getLatLngs().map(l =>
+        l.map((p) => [p.lat, p.lng - 360]));
+    marker_line.setLatLngs(
+        [...marker_line.getLatLngs(), lat_lons1, lat_lons2]);
+  }
 }
 
 // Draws the track on the map
