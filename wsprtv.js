@@ -47,7 +47,8 @@ let num_fetch_retries = 0;
 // URL-only parameters
 let end_date_param;
 let ate1y_param;  // ate1y = allow tracks exceeding 1 year
-let dnu_param;  // dnu = do not update
+let noupdate_param;
+let nomirror_param;
 let detach_grid4_param;
 let min_match_param;
 let show_unattached_param;
@@ -1431,7 +1432,7 @@ function displayTrack() {
 
   marker_group.addTo(map);
 
-  mirrorTrack();
+  if (nomirror_param == null) mirrorTrack();
 
   // Populate flight synopsis
   let synopsis = document.getElementById('synopsis');
@@ -1574,7 +1575,7 @@ function onMarkerClick(e) {
         let path = [[[marker_lat_lon.lat, marker_lat_lon.lng]]];
         extendPath(path, rx_lat_lon[0], rx_lat_lon[1],
                    (spots.length < 20000) ? true : false);
-        for (const offset of [0, 360, -360]) {
+        for (const offset of (nomirror_param == null) ? [0, 360, -360] : [0]) {
           let rx_marker = L.circleMarker(
               [rx_lat_lon[0], rx_lat_lon[1] + offset],
               { radius: 6, color: 'black',
@@ -1924,7 +1925,7 @@ async function update(incremental_update = false) {
     last_update_ts = now;
 
     if (incremental_update ||
-        ((dnu_param == null) && now < params.end_date)) {
+        ((noupdate_param == null) && now < params.end_date)) {
       // Only schedule updates for current flights
       scheduleNextUpdate();
     }
@@ -1980,8 +1981,11 @@ function getCurrentURL() {
   if (show_unattached_param != null) {
     url += '&show_unattached';
   }
-  if (dnu_param != null) {
-    url += '&dnu';
+  if (noupdate_param != null) {
+    url += '&noupdate';
+  }
+  if (nomirror_param != null) {
+    url += '&nomirror';
   }
   if (detach_grid4_param != null) {
     url += '&detach_grid4';
@@ -2041,7 +2045,8 @@ function processSubmission(e, on_load = false) {
       // Discard URL-only params when looking up new flights
       end_date_param = null;
       ate1y_param = null;
-      dnu_param = null;
+      noupdate_param = null;
+      nomirror_param = null;
       detach_grid4_param = null;
       min_match_param = null;
       show_unattached_param = null;
@@ -2933,7 +2938,8 @@ function start() {
 
   end_date_param = getURLParameter('end_date');
   ate1y_param = getURLParameter('ate1y');
-  dnu_param = getURLParameter('dnu');
+  noupdate_param = getURLParameter('noupdate') || getURLParameter('dnu');
+  nomirror_param = getURLParameter('nomirror');
   detach_grid4_param = getURLParameter('detach_grid4');
   min_match_param = getURLParameter('min_match');
   show_unattached_param = getURLParameter('show_unattached');
@@ -2996,22 +3002,38 @@ function start() {
   // Add day / night visualization and the scale indicator
   let terminator = L.terminator(
       { opacity: 0, fillOpacity: 0.3, interactive: false,
-        longitudeRange: 1080 }).addTo(map);
+        longitudeRange: (nomirror_param == null) ? 1080 : 720 })
+      .addTo(map);
 
   let sun_elevation = Number(sun_elevation_param);
   solar_isoline = L.solar_isoline({
       elevation: sun_elevation, dashArray: '8,5',
-      opacity: 0.4, longitudeRange: 1080 }).addTo(map);
+      opacity: 0.4, longitudeRange: (nomirror_param == null) ? 1080 : 360 })
+      .addTo(map);
 
   L.control.scale().addTo(map);
 
   // Draw the antimeridian
-  L.polyline([[90, 180], [-90, 180]],
-      { color: 'gray', weight: 1, opacity: 0.2 })
+  const am_options = (nomirror_param == null) ?
+      { color: 'gray', weight: 1, opacity: 0.2 } :
+      { color: 'gray', weight: 2, dashArray: '8,5', opacity: 0.4 };
+  L.polyline([[90, 180], [-90, 180]], am_options)
       .addTo(map).bringToBack();
-  L.polyline([[90, -180], [-90, -180]],
-      { color: 'gray', weight: 1, opacity: 0.2 })
+  L.polyline([[90, -180], [-90, -180]], am_options)
       .addTo(map).bringToBack();
+
+  if (nomirror_param != null) {
+    // Shade map portions beyond the antimeridian
+    L.polygon([[[-90, -720], [90, -720], [90, -180], [-90, -180]]], {
+      fillColor: 'black', fillOpacity: 0.12, stroke: false,
+      interactive: false
+    }).addTo(map);
+
+    L.polygon([[[-90, 180], [90, 180], [90, 720], [-90, 720]]], {
+      fillColor: 'black', fillOpacity: 0.12, stroke: false,
+      interactive: false
+    }).addTo(map);
+  }
 
   // Draw the equator
   L.polyline([[0, -360], [0, 360]],

@@ -178,11 +178,16 @@ other ways to switch units in WSPR TV (see <a href="#unit-conversion">below</a>)
 <p><strong>detail=<code class="notranslate">&lt;0|1&gt;</code></strong> controls the amount of detail shown in the data view.</p>
 </li>
 <li>
-<p><strong>dnu</strong> (abbreviation for "do not update", no value needed) instructs
-WSPR TV not to update the track every 10 minutes. <code class="notranslate">dnu</code> is implied if
+<p><strong>noupdate</strong> (no value needed) instructs WSPR TV
+not to update the track every 10 minutes. <code class="notranslate">noupdate</code> is implied if
 <code class="notranslate">end_date</code> is in the past. Adding this parameter may make sense when
 sharing WSPR TV links widely to minimize the additional load on WSPR
 Live servers.</p>
+</li>
+<li>
+<p><strong>nomirror</strong> (no value needed) disables mirroring of the
+track across the antimeridian. Use this parameter if the UI
+becomes sluggish because of too many spots.</p>
 </li>
 <li>
 <p><strong>detach_grid4</strong> (no value needed) removes low-resolution (grid4)
@@ -266,7 +271,7 @@ of a marker.</p>
 <p>A summary of telemetry is displayed in the control panel below the
 parameter fields. These should be self-explanatory. The track updates
 automatically every 10 minutes (unless <code class="notranslate">end_date</code> is in the past or the
-<code class="notranslate">dnu</code> URL parameter was used), and the time of the next update is shown
+<code class="notranslate">noupdate</code> URL parameter was used), and the time of the next update is shown
 in light yellow.</p>
 <p><a target="_blank" rel="noopener noreferrer" href="images/img7.png"><img src="images/img7.png" width="360" style="max-width: 100%;"></a></p>
 <p>Some of the values in the Flight Synopsis also serve as <strong>toggles</strong> --

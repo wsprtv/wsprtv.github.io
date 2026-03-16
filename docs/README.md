@@ -172,11 +172,15 @@ other ways to switch units in WSPR TV (see [below](#unit-conversion)).
 
 - **detail=`<0|1>`** controls the amount of detail shown in the data view.
 
-- **dnu** (abbreviation for "do not update", no value needed) instructs 
-WSPR TV not to update the track every 10 minutes. `dnu` is implied if 
+- **noupdate** (no value needed) instructs WSPR TV
+not to update the track every 10 minutes. `noupdate` is implied if 
 `end_date` is in the past. Adding this parameter may make sense when 
 sharing WSPR TV links widely to minimize the additional load on WSPR 
 Live servers.
+
+- **nomirror** (no value needed) disables mirroring of the
+track across the antimeridian. Use this parameter if the UI
+becomes sluggish because of too many spots.
 
 - **detach_grid4** (no value needed) removes low-resolution (grid4)
 spots from the track. Removed spots can still be seen in the data table
@@ -266,7 +270,7 @@ of a marker.
 A summary of telemetry is displayed in the control panel below the 
 parameter fields. These should be self-explanatory. The track updates 
 automatically every 10 minutes (unless `end_date` is in the past or the 
-`dnu` URL parameter was used), and the time of the next update is shown 
+`noupdate` URL parameter was used), and the time of the next update is shown 
 in light yellow.
 
 <img src="images/img7.png" width=360>
