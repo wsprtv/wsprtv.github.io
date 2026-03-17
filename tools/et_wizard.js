@@ -877,8 +877,8 @@ function displayURL(url, extractors, labels, long_labels, units, resolutions) {
         '<p>Here is how extended telemetry values will be displayed in ' +
         '<b>long format</b> (used in charts and CVS headers):<p>';
     for (let i = 0; i < extractors.length; i++) {
-      let extractor = extractors[i];
-      if (extractor.length == 4) extractor = extractor.shift();
+      let extractor = [...extractors[i]];
+      if (extractor.length == 4) extractor = extractor.slice(1);
       const value = Number(extractor[1]) +
           Math.floor(Number(extractor[0]) / 2) * Number(extractor[2]);
       const label = labels[i] || `ET${i}`;
