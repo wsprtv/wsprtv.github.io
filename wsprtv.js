@@ -959,6 +959,22 @@ function categorizeSpots() {
         continue;
       }
       let dist = getDistance(last_attached_spot, spot) / 1000;
+      if (i < spots.length - 1) {
+        // Try to detect a sharp turn back between spots due to GPS spoofing
+        const next_spot = spots[i + 1];
+        const min_dist = (last_attached_spot.grid.length + spot.grid.length +
+            next_spot.grid.length == 18) ? 25 : 250;
+        if (dist > min_dist &&
+            next_spot.ts - last_attached_spot.ts < 86400 * 1000) {
+          const dist2 = getDistance(last_attached_spot, next_spot) / 1000;
+          if (dist2 < dist / 3) {
+            // Unlikely sharp turn
+            spot.is_unattached = true;
+            continue;
+          }
+        }
+      }
+      // Compute speed between spot and last_attached_spot
       dist -= spot.grid.length < 6 ? 125 : 5.2;
       dist -= last_attached_spot.grid.length < 6 ? 125 : 5.2;
       const delta_ts = Math.max(1, (spot.ts - last_attached_spot.ts) / 1000);
