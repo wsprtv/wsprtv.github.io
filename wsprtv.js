@@ -2820,7 +2820,7 @@ function initializeFormFields() {
 
 function parseCustomTelemetrySpec() {
   if (!ct_decoders_param) return null;
-  if (!/^[0-9ets,:_~.-]+$/.test(ct_decoders_param)) return null;
+  if (!/^[0-9cets,:_~.-]+$/.test(ct_decoders_param)) return null;
   let decoders = [];
   for (const decoder_spec of ct_decoders_param.toLowerCase().split('~')) {
     let header_divisor = 1;
