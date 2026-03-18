@@ -34,8 +34,8 @@ a <code class="notranslate">User Guide</code> option at the top.</p>
 <li><code class="notranslate">History</code> -- displays recently viewed telemetry.</li>
 <li><code class="notranslate">Channel Map</code> -- shows
 <a href="https://wsprtv.com/tools/channel_map.html" rel="nofollow">activity</a> on U4B channels.</li>
-<li><code class="notranslate">ET Wizard</code> -- opens the
-<a href="https://wsprtv.com/tools/et_wizard.html" rel="nofollow">U4B Extended Telemetry Wizard</a>.</li>
+<li><code class="notranslate">CT Wizard</code> -- opens the
+<a href="https://wsprtv.com/tools/ct_wizard.html" rel="nofollow">U4B Custom Telemetry Wizard</a>.</li>
 </ul>
 <p>Additionally, a small WSPR TV
 <a href="https://github.com/wsprtv/wsprtv.github.io">link</a> next to the OSM
@@ -67,8 +67,8 @@ frequency "lanes".</p>
 special callsigns, begin 2 minutes into the 10-minute cycle, and
 transmit in the last 40 Hz of the band.</p>
 <p>Additional special callsign messages may follow in slots 2-4,
-representing <strong>extended telemetry (ET)</strong>. Extended telemetry is
-discussed in detail <a href="#u4b-extended-telemetry">below</a>.</p>
+representing <strong>custom telemetry (CT)</strong>. Custom telemetry is
+discussed in detail <a href="#u4b-custom-telemetry">below</a>.</p>
 <p>U4B channels are allowed to have a <code class="notranslate">V&lt;variant&gt;</code> suffix, such as
 <code class="notranslate">321V100</code>, to enable
 <a href="#u4b-experimental-extensions">certain experimental extensions</a>.</p>
@@ -214,9 +214,9 @@ approximately known. See more <a href="#solar-isoline">below</a>.</p>
 parameters as well (using <code class="notranslate">cs</code>, <code class="notranslate">ch</code>, <code class="notranslate">start_date</code>, and <code class="notranslate">band</code>
 respectively) and will pre-fill the control panel parameters. Example:
 <code class="notranslate">cs=AB1CDE&amp;ch=321&amp;band=10m&amp;start_date=2025-07-15</code>.</p>
-<p>Extended-telemetry-related URL parameters <code class="notranslate">et_dec</code>, <code class="notranslate">et_labels</code>,
-<code class="notranslate">et_llabels</code>, <code class="notranslate">et_units</code>, and <code class="notranslate">et_res</code> are discussed in the
-<a href="#u4b-extended-telemetry">Extended Telemetry section</a> of this guide.</p>
+<p>Custom-telemetry-related URL parameters <code class="notranslate">ct_dec</code>, <code class="notranslate">ct_labels</code>,
+<code class="notranslate">ct_llabels</code>, <code class="notranslate">ct_units</code>, and <code class="notranslate">ct_res</code> are discussed in the
+<a href="#u4b-custom-telemetry">Custom Telemetry section</a> of this guide.</p>
 <h2 id="map-view">Map View</h2>
 <p>A track is rendered as a sequence of small white grid4 markers (low
 resolution) and larger light blue grid6 markers (high resolution).
@@ -244,7 +244,7 @@ day regions are indicated on the map by grey shading.</p>
 <h3 id="spot-info">Spot Info</h3>
 <p>Hovering over a spot (or touching it on a mobile device) brings up the
 Spot Info panel. This displays most of the available telemetry,
-including raw WSPR messages, reception statistics, and up to 8 extended
+including raw WSPR messages, reception statistics, and up to 8 custom
 telemetry values.</p>
 <p><a target="_blank" rel="noopener noreferrer" href="images/img5.png"><img src="images/img5.png" width="360" style="max-width: 100%;"></a></p>
 <p><em>Clicking</em> on a spot (vs. hovering) also opens the Spot Info panel, but
@@ -315,7 +315,7 @@ buttons) will close the map view and open the data view. The data view
 contains:</p>
 <ul>
 <li>A variety of charts for all tracked telemetry values, including
-extended telemetry.</li>
+custom telemetry.</li>
 <li>A table showing all received spots, including grid4 spots not
 displayed on the map.</li>
 <li>Buttons to export spots as a CSV table, all raw data as a JSON file,
@@ -394,7 +394,7 @@ the control panel of the map view.</p>
 vice versa. The preference affects all displayed, charted, and CSV
 exported values in both the map and data views, and is remembered across
 browser sessions.</p>
-<p>Extended telemetry units are opaque to WSPR TV and are not impacted by
+<p>Custom telemetry units are opaque to WSPR TV and are not impacted by
 unit conversion.</p>
 <p>Another way to switch units is to click on the <code class="notranslate">Distance</code>, <code class="notranslate">Speed</code>, or
 <code class="notranslate">Altitude</code> values in the control panel of the map view.</p>
@@ -425,43 +425,43 @@ information.</p>
 <p>Raw data is always exported in metric units and does not depend on the
 current unit selection.</p>
 <p>The format of raw records may change in future versions of WSPR TV.</p>
-<h2 id="u4b-extended-telemetry">U4B Extended Telemetry</h2>
-<p>The U4B protocol includes a provision for transmitting extended
+<h2 id="u4b-custom-telemetry-(ct)">U4B Custom Telemetry (CT)</h2>
+<p>The U4B protocol includes a provision for transmitting custom
 telemetry as additional <code class="notranslate">Q/0/1</code> messages. The informational content of
 each WSPR message is first converted to a so-called <code class="notranslate">BigNumber</code> -- a
 value ranging from 0 to 389,512,281,599 (approximately ~38.5 bits). The
 least significant bit of this message (<code class="notranslate">HdrTelemetryType</code>) is set to 1
-for basic U4B telemetry and 0 for extended telemetry. As a result,
-extended telemetry messages provide approximately 37.5 bits of raw
+for standard U4B telemetry and 0 for custom telemetry. As a result,
+custom telemetry messages provide approximately 37.5 bits of raw
 payload.</p>
-<h3 id="generic-et">Generic ET</h3>
-<p>In Generic ET, <code class="notranslate">BigNumber</code> contains a single header after <code class="notranslate">HdrTelemetryType</code>
--- <code class="notranslate">HdrSlot</code> -- followed by an opaque vendor-defined value:</p>
-<pre class="notranslate"><code class="notranslate">[HdrTelemetryType] - 2 values, always 0 for extended telemetry
+<p>In Custom Telemetry (CT), <code class="notranslate">BigNumber</code> contains a single header
+after <code class="notranslate">HdrTelemetryType</code> -- <code class="notranslate">HdrSlot</code> -- followed by an opaque
+vendor-defined value:</p>
+<pre class="notranslate"><code class="notranslate">[HdrTelemetryType] - 2 values, always 0 for custom telemetry
 [HdrSlot] - 5 values, used to minimize interference between adjacent U4B channels
 [OpaqueData] - around ~35.2 bits of payload
 </code></pre>
 <p><code class="notranslate">HdrTelemetryType</code> is the least significant bit of <code class="notranslate">BigNumber</code>.</p>
-<h3 id="generic-et-encoding">Generic ET Encoding</h3>
+<h3 id="ct-encoding">CT Encoding</h3>
 <p>This section is intended for U4B firmware developers.</p>
-<p>To remain compatible with ET0, Generic ET <code class="notranslate">BigNumber</code> values are converted
-to special callsign WSPR messages differently than before. If <code class="notranslate">v</code> is
+<p>To remain compatible with ET0, custom telemetry <code class="notranslate">BigNumber</code> values are
+converted to special callsign WSPR messages differently than before. If <code class="notranslate">v</code> is
 <code class="notranslate">BigNumber</code> with its least significant bit (<code class="notranslate">HdrTelemetryType</code>) removed,
 the following transformation of <code class="notranslate">v</code> is needed before <code class="notranslate">BigNumber</code> is converted
 to a WSPR message:</p>
 <pre class="notranslate"><code class="notranslate">v = (v / 320) * 320 + (v % 5) * 64 + ((v / 5) % 4) + ((v / 20) % 16) * 4
 </code></pre>
 <p>This transformation effectively moves ET0's <code class="notranslate">HdrSlot</code> header from the beginning of
-<code class="notranslate">BigNumber</code> to the middle, where it used to be before Generic ET was introduced.</p>
-<p><strong>ET Encoding Example:</strong></p>
-<p>Suppose you want to send 3 values -- v1, v2, and v3 -- using a Generic ET
+<code class="notranslate">BigNumber</code> to the middle, where it used to be before Custom Telemetry was introduced.</p>
+<p><strong>CT Encoding Example:</strong></p>
+<p>Suppose you want to send 3 values -- v1, v2, and v3 -- using a CT
 message. Let's say the maximum number of values for each is</p>
 <pre class="notranslate"><code class="notranslate">v1_size = 4000;
 v2_size = 4000;
 v3_size = 2000;
 </code></pre>
 <p>Together this is slightly less than 35 bits, so the values fit into a
-Generic ET message.</p>
+CT message.</p>
 <p>The values can be loaded into <code class="notranslate">BigNumber</code> with multiplication and addition,
 starting with the last value:</p>
 <pre class="notranslate"><code class="notranslate">uint64_t v = 0;
@@ -469,7 +469,7 @@ v = v * v3_size + v3;
 v = v * v2_size + v2;
 v = v * v1_size + v1;
 </code></pre>
-<p>For Generic ET, we also need to add <code class="notranslate">HdrSlot</code> and <code class="notranslate">HdrTelemetryType</code>.
+<p>For CT, we also need to add <code class="notranslate">HdrSlot</code> and <code class="notranslate">HdrTelemetryType</code>.
 Let's say you want to send your message in slot 2:</p>
 <pre class="notranslate"><code class="notranslate">hdr_slot = 2;
 hdr_slot_size = 5;
@@ -479,11 +479,11 @@ v = v &lt;&lt; 1;  // add HdrTelemetryType = 0
 <p>Our <code class="notranslate">BigNumber</code> is now ready to be sent over the air:</p>
 <pre class="notranslate"><code class="notranslate">SendBigNumber(v);
 </code></pre>
-<p>In Generic ET, basic and extended telemetry messages are encoded
-from <code class="notranslate">BigNumber</code> differently:</p>
+<p>With the introduction of CT, standard and custom telemetry messages
+are encoded from <code class="notranslate">BigNumber</code> differently:</p>
 <pre class="notranslate"><code class="notranslate">void SendBigNumber(uint64_t v) {
   if ((v % 2) == 0) {
-    // Extended telemetry
+    // Custom telemetry
     v = v &gt;&gt; 1;  // temporarily discard HdrTelemetryType
     v = (v / 320) * 320 + (v % 5) * 64 + ((v / 5) % 4) + ((v / 20) % 16) * 4;
     v = v &lt;&lt; 1;  // add HdrTelemetryType back
@@ -495,21 +495,21 @@ from <code class="notranslate">BigNumber</code> differently:</p>
   SendWSPRMessage(wspr_message);
 }
 </code></pre>
-<p>If a Generic ET-compatible tracker also supports ET0, the order of ET0 headers
+<p>If a CT-compatible tracker also supports ET0, the order of ET0 headers
 packed into <code class="notranslate">BigNumber</code> should be
-<code class="notranslate">[HdrTelemetryType][HdrSlot][HdrRESERVED][HdrType]</code>, and NOT the older
+<code class="notranslate">[HdrTelemetryType][HdrSlot][HdrRESERVED][HdrType]</code>, and NOT the previous
 <code class="notranslate">[HdrTelemetryType][HdrRESERVED][HdrType][HdrSlot]</code>. The two transformations --
 rearranging of values in <code class="notranslate">BigNumber</code> as shown in the <code class="notranslate">SendBigNumber</code> function
 above and reshuffling of ET0 headers -- cancel each other out, allowing the
 wire format of ET0 telemetry to remain exactly the same.</p>
-<h3 id="generic-et-decoding">Generic ET Decoding</h3>
+<h3 id="ct-decoding">CT Decoding</h3>
 <p>This section is intended for U4B developers.</p>
-<p>A Generic ET-compatible decoder should compute <code class="notranslate">BigNumber</code> from <code class="notranslate">m</code> and <code class="notranslate">n</code>
+<p>A CT-compatible decoder should compute <code class="notranslate">BigNumber</code> from <code class="notranslate">m</code> and <code class="notranslate">n</code>
 as shown below:</p>
 <pre class="notranslate"><code class="notranslate">void ComputeBigNumber(uint32_t m, uint32_t n) {
   uint64 v = m * 615600ULL + n;
   if ((v % 2) == 0) {
-    // Extended telemetry
+    // Custom telemetry
     v = v &gt;&gt; 1;  // temporarily discard HdrTelemetryType
     v = (v / 320) * 320 + ((v / 4) % 16) * 20 + (v % 4) * 5 + ((v / 64) % 5);
     v = v &lt;&lt; 1;  // add HdrTelemetryType back
@@ -517,20 +517,20 @@ as shown below:</p>
   return v;
 }
 </code></pre>
-<p>If a Generic ET-compatible decoder also supports ET0, the order of ET0 headers
+<p>If a CT-compatible decoder also supports ET0, the order of ET0 headers
 in <code class="notranslate">BigNumber</code> should be interpreted as
-<code class="notranslate">[HdrTelemetryType][HdrSlot][HdrRESERVED][HdrType]</code>, and NOT the older
+<code class="notranslate">[HdrTelemetryType][HdrSlot][HdrRESERVED][HdrType]</code>, and NOT the previous
 <code class="notranslate">[HdrTelemetryType][HdrRESERVED][HdrType][HdrSlot]</code>.</p>
 <p>There are no changes in how <code class="notranslate">m</code> and <code class="notranslate">n</code> are computed from special-callsign WSPR
 messages.</p>
 <h3 id="et0">ET0</h3>
-<p>ET0 is a subtype of Generic ET,
+<p>ET0 is a subtype of CT,
 because it also starts with <code class="notranslate">HdrSlot</code> (assuming that <code class="notranslate">BigNumber</code> was
-decoded in a Generic ET-compliant manner). ET0 has the following
+decoded in a CT-compliant manner). ET0 has the following
 structure:</p>
-<pre class="notranslate"><code class="notranslate">[HdrTelemetryType] - 2 values, always 0 for extended telemetry
+<pre class="notranslate"><code class="notranslate">[HdrTelemetryType] - 2 values, always 0 for custom telemetry
 [HdrSlot] - 5 values, used to minimize interference between adjacent U4B channels
--- Generic ET OpaqueData starts here --
+-- CT OpaqueData starts here --
 [HdrRESERVED] - 4 values, set to 0 (used as the protocol version number)
 [HdrType] - 16 values, of which only 0 (USER_DEFINED) and 15 (VENDOR_DEFINED) are specified
 [HdrType-dependent data] - around ~29.2 bits of payload
@@ -544,20 +544,20 @@ creating space, while the addition inserts the new value at the end.</p>
 The modulus (i.e., the remainder from division) extracts the value from
 the end of the message, while the division shifts the message right,
 effectively removing the extracted value.</p>
-<p>As an example, suppose a message ends with three packed values:
-<code class="notranslate">value3</code>, <code class="notranslate">value5</code>, and <code class="notranslate">value7</code>, where each spans a specific range --
-<code class="notranslate">value3</code> in [0, 3), <code class="notranslate">value5</code> in [0, 5), and so on.</p>
+<p>As an example, suppose a message ends with three packed fields:
+<code class="notranslate">value3</code>, <code class="notranslate">value5</code>, and <code class="notranslate">value7</code>, which respectively hold 3, 5, and 7
+values.</p>
 <p>To unpack <code class="notranslate">value3</code>, we first shift the message right by dividing it by
 5 * 7, which removes <code class="notranslate">value5</code> and <code class="notranslate">value7</code>, and moves <code class="notranslate">value3</code> to the end.
 Then, we apply a modulus of 3 (i.e., take the remainder after dividing
 by 3) to extract the value of <code class="notranslate">value3</code>.</p>
 <h3 id="value-types">Value Types</h3>
-<p>Extended telemetry values can be <strong>opaque</strong> or <strong>native</strong>. Opaque values
+<p>Custom telemetry values can be <strong>opaque</strong> or <strong>native</strong>. Opaque values
 can be graphed and displayed in a table, but their meaning is otherwise
 not known to WSPR TV. By contrast, native values have a well-defined type,
 and can influence the site's function at a more fundamental level.</p>
 <p><strong>Resolution / range</strong></p>
-<p>Currently, 10 native types are supported:</p>
+<p>Currently, 10 native resolution / range types are supported:</p>
 <ul>
 <li>Type 100: enhanced longitude resolution</li>
 <li>Type 101: enhanced latitude resolution</li>
@@ -572,7 +572,7 @@ and can influence the site's function at a more fundamental level.</p>
 </ul>
 <p>These types increase the resolution or range of basic U4B telemetry.
 The additional resolution / range depend on the size of the corresponding
-extended telemetry fields. For example, if 10 values are allocated to type 102,
+custom telemetry fields. For example, if 10 values are allocated to type 102,
 altitude resolution improves by a factor of 10, from 20m to 2m. If 3 values are
 allocated to type 103, altitude range increases by a factor of 3, from
 0 - 21360 meters to 0 - 64080 meters.</p>
@@ -603,19 +603,19 @@ messages are received, this data will still be valid.</li>
 <li>Send a basic telemetry message with <code class="notranslate">is_valid_gps = false</code> and all other
 fields pertaining to the historical spot. If no other messages are
 received, this message will be ignored.</li>
-<li>Send an extended telemetry message specifying the time delta and replacing
+<li>Send an custom telemetry message specifying the time delta and replacing
 the <code class="notranslate">grid4</code> value in the regular callsign message with the historical value.</li>
 </ul>
-<h3 id="extended-telemetry-message-definition">Extended Telemetry Message Definition</h3>
-<p>WSPR TV has an extremely flexible extended telemetry definition
-mechanism that is able to decode Generic ET, ET0, or any past or
+<h3 id="custom-telemetry-message-definition">Custom Telemetry Message Definition</h3>
+<p>WSPR TV has an extremely flexible custom telemetry definition
+mechanism that is able to decode CT, ET0, or any past or
 future  protocols that pack values into contiguous (but possibly fractional)
 bits of the U4B <code class="notranslate">BigNumber</code>.</p>
 <p>More precisely, WSPR TV operates on <code class="notranslate">BigNumber / 2</code>, with the least
 significant bit (<code class="notranslate">HdrTelemetryType</code>) removed since it is always 0. When
 <code class="notranslate">BigNumber</code> is mentioned later in this section, it will always be this
 truncated, 37.5 bit version.</p>
-<p>The basic building block of WSPR TV's extended telemetry specification
+<p>The basic building block of WSPR TV's custom telemetry specification
 is the <strong>message definition</strong>. A message definition includes:</p>
 <ul>
 <li>A set of <strong>filters</strong> that define the conditions a message must meet in
@@ -641,8 +641,8 @@ received</li>
 expressing the following condition:</p>
 <pre class="notranslate"><code class="notranslate">(BigNumber / divisor) % modulus = expected_value
 </code></pre>
-<p>To support Generic ET, a special variable <code class="notranslate">slot</code> is available to represent
-the TX slot in which the extended telemetry message was received. This
+<p>To support CT, a special variable <code class="notranslate">slot</code> is available to represent
+the TX slot in which the custom telemetry message was received. This
 allows us to express the filter set for ET0 as follows:</p>
 <pre class="notranslate"><code class="notranslate">(BigNumber / 1) % 5 = slot
 (BigNumber / 5) % 4 = 0
@@ -668,7 +668,7 @@ types within the same slot -- without using any extra bits to indicate
 which schema is in use -- via the <code class="notranslate">tx_seq</code> variable.</p>
 <p><code class="notranslate">tx_seq</code> represents the transmission slot sequence number, which
 increments every 2 minutes and resets every month. If the GPS <strong>UTC</strong>
-time of the <strong>regular callsign</strong> transmission preceding an extended
+time of the <strong>regular callsign</strong> transmission preceding an custom
 telemetry message is <code class="notranslate">YYY-MM-DD HH:MM</code>, <code class="notranslate">tx_seq</code> is calculated as
 follows:</p>
 <pre class="notranslate"><code class="notranslate">tx_seq = ((DD - 1) * 720) + (HH * 30) + (MM / 2)
@@ -681,7 +681,7 @@ follows:</p>
 <p>This allows WSPR TV to decode messages differently based on transmission
 time -- for example, every other transmission, during odd-numbered
 hours, or on even-numbered days. Multiple message types can be
-multiplexed into the same ET slot.</p>
+multiplexed into the same CT slot.</p>
 <p>Another time-dependent filter uses the variable <code class="notranslate">slot</code> and expresses the
 condition:</p>
 <pre class="notranslate"><code class="notranslate">slot = value
@@ -740,14 +740,14 @@ becomes:</p>
 for "Vertical Speed". It can be up to 32 characters long and may only
 contain alphanumeric characters, spaces, <code class="notranslate">#</code>, and <code class="notranslate">_</code>. Short labels are
 shown in space-constrained areas, such as Spot Info panels and table
-headers. If not specified, they default to <code class="notranslate">ET0</code>, <code class="notranslate">ET1</code>, etc.</p>
+headers. If not specified, they default to <code class="notranslate">CT0</code>, <code class="notranslate">CT1</code>, etc.</p>
 </li>
 <li>
 <p><strong>Long label</strong> is a full descriptive name, such as <code class="notranslate">Vertical Speed</code>.
 It can be up to 64 characters long and may only contain alphanumeric
 characters, spaces, and the characters <code class="notranslate">#</code> and <code class="notranslate">_</code>. Long labels are
 shown where more space is available, such as in chart legends. If not
-specified, long labels default to short labels, or to <code class="notranslate">ET0</code>, <code class="notranslate">ET1</code>, etc.
+specified, long labels default to short labels, or to <code class="notranslate">CT0</code>, <code class="notranslate">CT1</code>, etc.
 if short labels are also missing.</p>
 </li>
 <li>
@@ -775,9 +775,9 @@ type of the value is already known to WSPR TV.</p>
 specification is also available:</p>
 <pre class="notranslate"><code class="notranslate">(modulus, type_id)
 </code></pre>
-<h3 id="extended-telemetry-wizard">Extended Telemetry Wizard</h3>
-<p>WSPR TV provides a <a href="https://wsprtv.com/tools/et_wizard.html" rel="nofollow">wizard</a> to
-create new extended telemetry specifications or to import existing ones
+<h3 id="custom-telemetry-wizard">Custom Telemetry Wizard</h3>
+<p>WSPR TV provides a <a href="https://wsprtv.com/tools/ct_wizard.html" rel="nofollow">wizard</a> to
+create new custom telemetry specifications or to import existing ones
 from other formats.</p>
 <p><a target="_blank" rel="noopener noreferrer" href="images/img14.png"><img src="images/img14.png" width="900" style="max-width: 100%;"></a></p>
 <p>In this example, a single message is defined based on ET0 in slot 2. Two
@@ -799,15 +799,15 @@ extracted values will appear:</p>
 <p>You can create as many message definitions as needed, as long as the
 total number of extractors does not exceed 32. Once your message
 definitions are finalized, click "Generate URL" to create the WSPR TV
-link for your extended telemetry specification.</p>
-<h3 id="extended-telemetry-url-parameters">Extended Telemetry URL Parameters</h3>
-<p>While most extended telemetry definitions should be generated using the
-<a href="https://wsprtv.com/tools/et_wizard.html" rel="nofollow">ET Wizard</a>, it can be useful
-to understand how extended telemetry URL parameters are constructed
+link for your custom telemetry specification.</p>
+<h3 id="custom-telemetry-url-parameters">Custom Telemetry URL Parameters</h3>
+<p>While most custom telemetry definitions should be generated using the
+<a href="https://wsprtv.com/tools/ct_wizard.html" rel="nofollow">ET Wizard</a>, it can be useful
+to understand how custom telemetry URL parameters are constructed
 from a specification.</p>
-<p>The <code class="notranslate">et_dec</code> URL parameters consists of one or more <em>decoders</em>,
+<p>The <code class="notranslate">ct_dec</code> URL parameters consists of one or more <em>decoders</em>,
 separated by the <code class="notranslate">~</code> character:</p>
-<pre class="notranslate"><code class="notranslate">et_dec=&lt;decoder1_spec&gt;~&lt;decoder2_spec&gt;~...
+<pre class="notranslate"><code class="notranslate">ct_dec=&lt;decoder1_spec&gt;~&lt;decoder2_spec&gt;~...
 </code></pre>
 <p>Each decoder in turn consists of zero or more filters and one or more
 extractors. The filters are separated from the extractors with
@@ -822,8 +822,8 @@ s:&lt;slot&gt;
 
 </code></pre>
 <p>with the latter two representing temporal conditions. Shortcuts for
-Generic ET and ET0 user-defined telemetry are available:</p>
-<pre class="notranslate"><code class="notranslate">et
+CT and ET0 user-defined telemetry are available:</p>
+<pre class="notranslate"><code class="notranslate">ct
 et0:0
 </code></pre>
 <p>Hence the filter specification for ET0 user-defined telemetry in slot 2
@@ -839,16 +839,16 @@ depending on whether the divisor is explicit or implicit:</p>
 <pre class="notranslate"><code class="notranslate">&lt;modulus&gt;:t&lt;type_id&gt;
 &lt;divisor&gt;:&lt;modulus&gt;:t&lt;type_id&gt;
 </code></pre>
-<p>Finally, a set of annotation parameters -- <code class="notranslate">et_labels</code>, <code class="notranslate">et_llabels</code>,
-<code class="notranslate">et_units</code>, and <code class="notranslate">et_res</code> -- can be used to customize the display of opaque ET
+<p>Finally, a set of annotation parameters -- <code class="notranslate">ct_labels</code>, <code class="notranslate">ct_llabels</code>,
+<code class="notranslate">ct_units</code>, and <code class="notranslate">ct_res</code> -- can be used to customize the display of opaque CT
 values. All of these are a comma-separated list of parameters, with one
 value per extractor specification. For example, if there are 2 decoders
 containing 4 and 5 extractors respectively, then the 7th item in
-<code class="notranslate">et_units</code> corresponds to the 3rd extractor of the second decoder.</p>
+<code class="notranslate">ct_units</code> corresponds to the 3rd extractor of the second decoder.</p>
 <p>Only non-default values need to be specified in the above URL
 parameters. Here is how to assign units to the 4th extractor while
 keeping all the other values unitless.</p>
-<pre class="notranslate"><code class="notranslate">et_units=,,,mph
+<pre class="notranslate"><code class="notranslate">ct_units=,,,mph
 </code></pre>
 <h2 id="u4b-experimental-extensions">U4B Experimental Extensions</h2>
 <p>U4B messages include the <code class="notranslate">gps_valid</code> bit, which many trackers always
@@ -890,7 +890,7 @@ each row. To locate a specific U4B channel, first identify the row
 containing the range, then scan across that row to find the channel.</p>
 <p><strong>The number in each bucket</strong> indicates how many <strong>unique 1-hour slots</strong>
 contained basic telemetry for that channel during the specified period
-(extended telemetry is excluded). For a slot to be counted, at least two
+(custom telemetry is excluded). For a slot to be counted, at least two
 basic telemetry transmissions must occur within the hour. This threshold
 helps eliminate noise caused by corrupt messages, non-U4B use of special
 Q/0/1 callsigns, and various other corner cases.</p>
@@ -903,7 +903,7 @@ incorrectly set receiver clocks, which can result in telemetry being
 assigned to the wrong time slot.</p>
 <p>Buckets are color-coded based on their count: <strong>green</strong> indicates that
 no basic telemetry has been observed in any 1-hour slots, while <strong>red</strong>
-represents multiple hours of daily use over an extended period. For
+represents multiple hours of daily use over an custom period. For
 example, a tracker that transmits for 10 hours every day will show a
 count of about 300 after 30 days. <strong>Yellow and orange</strong> fall in between,
 with yellow in particular sometimes reflecting leakage from a nearby

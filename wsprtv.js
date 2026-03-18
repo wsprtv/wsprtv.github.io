@@ -54,12 +54,12 @@ let min_match_param;
 let show_unattached_param;
 let sun_elevation_param;
 
-// Extended telemetry URL parameters
-let et_decoders_param;
-let et_labels_param;
-let et_long_labels_param;
-let et_units_param;
-let et_resolutions_param;
+// Custom telemetry URL parameters
+let ct_decoders_param;
+let ct_labels_param;
+let ct_long_labels_param;
+let ct_units_param;
+let ct_resolutions_param;
 
 // Other URL parameters
 let units_param;
@@ -295,19 +295,19 @@ function parseParameters() {
     return null;
   }
 
-  const et_spec = et_decoders_param ? parseExtendedTelemetrySpec() : null;
-  if (et_decoders_param && !et_spec) {
-    alert('Invalid ET spec');
+  const ct_spec = ct_decoders_param ? parseCustomTelemetrySpec() : null;
+  if (ct_decoders_param && !ct_spec) {
+    alert('Invalid CT spec');
     return null;
   }
 
-  const et_slots = getExtendedTelemetrySlots(et_spec);
+  const ct_slots = getCustomTelemetrySlots(ct_spec);
 
   // Successful validation
   return { 'cs': cs, 'ch': ch, 'band': band, 'tracker': tracker,
            'start_date': start_date, 'end_date': end_date,
-           'et_slots': et_slots, 'units': units, 'use_utc': use_utc,
-           'detail': detail, 'et_spec': et_spec,
+           'ct_slots': ct_slots, 'units': units, 'use_utc': use_utc,
+           'detail': detail, 'ct_spec': ct_spec,
            'version': version };
 }
 
@@ -342,11 +342,11 @@ function updateHistory() {
   if (debug > 0) console.log(updated_history);
 }
 
-// Returns the list of slots that may have U4B extended telemetry
-function getExtendedTelemetrySlots(et_spec) {
-  if (!et_spec) return [];
+// Returns the list of slots that may have U4B custom telemetry
+function getCustomTelemetrySlots(ct_spec) {
+  if (!ct_spec) return [];
   let slots = new Set();
-  for (const decoder of et_spec.decoders) {
+  for (const decoder of ct_spec.decoders) {
     for (const filter of decoder[0]) {
       if (filter[0] == 's') {
         slots.add(filter[1]);
@@ -644,9 +644,9 @@ function processU4BSlot1Message(spot, ignore_is_valid_gps = false) {
   // Extract values from callsign
   const [m, n] = extractU4BQ01Payload(spot.slots[1]);
   if (!(n % 2)) {
-    if (params.et_slots.includes(1)) {
-      // Possible extended telemetry in slot1
-      return processExtendedTelemetryMessage(spot, 1);
+    if (params.ct_slots.includes(1)) {
+      // Possible custom telemetry in slot1
+      return processCustomTelemetryMessage(spot, 1);
     }
     return false;
   }
@@ -702,20 +702,20 @@ function handleU4BVariants(spot, flag) {
   }
 }
 
-function processExtendedTelemetryMessage(spot, slot) {
+function processCustomTelemetryMessage(spot, slot) {
   const [m, n] = extractU4BQ01Payload(spot.slots[slot]);
   if (n % 2) {
-    // Not an extended telemetry message
+    // Not an custom telemetry message
     return false;
   }
-  if (!spot.raw_et) {
-    spot.raw_et = [];
+  if (!spot.raw_ct) {
+    spot.raw_ct = [];
   }
   let v = m * 307800 + (n >> 1);
-  // Rearrange n to support Generic ET (needed for ET0 compatibility)
+  // Rearrange n to support Custom Telemetry (needed for ET0 compatibility)
   v = Math.floor(v / 320) * 320 + (Math.floor(v / 4) % 16) * 20 +
       (v % 4) * 5 + (Math.floor(v / 64) % 5);
-  spot.raw_et[slot] = v;
+  spot.raw_ct[slot] = v;
   return true;
 }
 
@@ -781,36 +781,36 @@ function decodeSpot(spot) {
         spot.slots[1].is_invalid = true;
       }
     }
-    // Process extended telemetry, if any
+    // Process custom telemetry, if any
     for (let i = 2; i < spot.slots.length; i++) {
-      if (spot.slots[i] && !processExtendedTelemetryMessage(spot, i)) {
+      if (spot.slots[i] && !processCustomTelemetryMessage(spot, i)) {
         spot.slots[i].is_invalid = true;
       }
     }
   }
-  if (spot.raw_et) decodeExtendedTelemetry(spot);
+  if (spot.raw_ct) decodeCustomTelemetry(spot);
   if (spot.lat == undefined) {
     [spot.lat, spot.lon] = maidenheadToLatLon(spot.grid);
   }
-  if (spot.slots[1] && spot.native_et) {
-    processNativeExtendedTelemetry(spot);
+  if (spot.slots[1] && spot.native_ct) {
+    processNativeCustomTelemetry(spot);
   }
   return true;
 }
 
-function decodeExtendedTelemetry(spot) {
-  if (!params.et_spec || !spot.raw_et) return null;
-  let opaque_et = [];  // opaque type values
-  let native_et = {};  // native type values
-  let has_native_et = false;
+function decodeCustomTelemetry(spot) {
+  if (!params.ct_spec || !spot.raw_ct) return null;
+  let opaque_ct = [];  // opaque type values
+  let native_ct = {};  // native type values
+  let has_native_ct = false;
   let tx_seq = (spot.ts.getUTCDate() - 1) * 720 +
       spot.ts.getUTCHours() * 30 +
       Math.floor(spot.ts.getUTCMinutes() / 2);
-  for (let i = 0; i < spot.raw_et.length; i++) {
+  for (let i = 0; i < spot.raw_ct.length; i++) {
     let opaque_index = 0;  // index within data
-    const raw_et = spot.raw_et[i];
-    if (raw_et == undefined) continue;
-    const decoders = params.et_spec.decoders;
+    const raw_ct = spot.raw_ct[i];
+    if (raw_ct == undefined) continue;
+    const decoders = params.ct_spec.decoders;
     for (let j = 0; j < decoders.length; j++) {
       const [filters, extractors] = decoders[j];
       let matched = true;
@@ -828,7 +828,7 @@ function decodeExtendedTelemetry(spot) {
         if (filter.length != 3) continue;
         let [divisor, modulus, expected_value] = filter;
         if (expected_value == 's') expected_value = i; // slot
-        if (Math.trunc(raw_et / divisor) % modulus != expected_value) {
+        if (Math.trunc(raw_ct / divisor) % modulus != expected_value) {
           matched = false;
           break;
         }
@@ -839,14 +839,14 @@ function decodeExtendedTelemetry(spot) {
           if (extractor[0]) {
             // Native type
             const [divisor, modulus, type_id] = extractor.slice(1);
-            native_et[type_id] =
-                [Math.trunc(raw_et / divisor) % modulus, modulus];
-            has_native_et = true;
+            native_ct[type_id] =
+                [Math.trunc(raw_ct / divisor) % modulus, modulus];
+            has_native_ct = true;
           } else {
             // Opaque type
             const [divisor, modulus, first_value, step] = extractor.slice(1);
-            opaque_et[opaque_index++] = first_value +
-                (Math.trunc(raw_et / divisor) % modulus) * step;
+            opaque_ct[opaque_index++] = first_value +
+                (Math.trunc(raw_ct / divisor) % modulus) * step;
           }
         }
         break;  // do not try other decoders
@@ -858,14 +858,14 @@ function decodeExtendedTelemetry(spot) {
       }
     }
   }
-  if (opaque_et.length) spot.opaque_et = opaque_et;
-  if (has_native_et) spot.native_et = native_et;
+  if (opaque_ct.length) spot.opaque_ct = opaque_ct;
+  if (has_native_ct) spot.native_ct = native_ct;
   return data;
 }
 
-function processNativeExtendedTelemetry(spot) {
+function processNativeCustomTelemetry(spot) {
   spot.fill = '#7ab1c9';
-  for (const [type, [value, num_values]] of Object.entries(spot.native_et)) {
+  for (const [type, [value, num_values]] of Object.entries(spot.native_ct)) {
     if (type == 100) {
       // Enhanced longitude
       if (spot.lon_res == undefined) {
@@ -1708,18 +1708,18 @@ function displaySpotInfo(marker, point) {
     spot_info.innerHTML += '<br>Voltage: ' +
         formatVoltage([spot.voltage, getVoltagePrecision(spot)]);
   }
-  if (spot.raw_et && !spot.opaque_et) {
-    // Display raw extended telemetry
-    spot.raw_et.forEach((v, i) =>
-        spot_info.innerHTML += `<br>Raw ET${i}: ${v}`);
+  if (spot.raw_ct && !spot.opaque_ct) {
+    // Display raw custom telemetry
+    spot.raw_ct.forEach((v, i) =>
+        spot_info.innerHTML += `<br>Raw CT${i}: ${v}`);
   }
-  if (spot.opaque_et) {
-    // Display decoded extended telemetry
+  if (spot.opaque_ct) {
+    // Display decoded custom telemetry
     let count = 0;
-    spot.opaque_et.forEach((v, i) => {
+    spot.opaque_ct.forEach((v, i) => {
       if (count++ < 8) {
         const [label, long_label, units, formatter] =
-            getExtendedTelemetryAttributes(i);
+            getCustomTelemetryAttributes(i);
         spot_info.innerHTML += `<br>${label}: ${formatter(v, true)}`
       }
     });
@@ -1815,7 +1815,7 @@ function scheduleNextUpdate(update_ts = null) {
     // Number of slots in telemetry sequence
     const num_slots = Math.max(
         ['zachtek1', 'generic1'].includes(params.tracker) ? 0 : 1,
-        ...params.et_slots) + 1;
+        ...params.ct_slots) + 1;
     const tx_end_minute = (params.tracker == 'custom') ?
         0 : getU4BSlotMinute(num_slots);
     const refresh_interval = (params.tracker == 'custom') ? 2 : 10;
@@ -1874,7 +1874,7 @@ async function updateFromCustomSource(incremental_update) {
 async function updateFromWSPRLive(incremental_update) {
   let new_data = [];
 
-  const u4b_extra_slots = [...new Set([1, ...params.et_slots])];
+  const u4b_extra_slots = [...new Set([1, ...params.ct_slots])];
 
   const query = createWSPRLiveQuery(
       { 'zachtek2': [0, 1], 'generic2': [0, 1],
@@ -2012,20 +2012,20 @@ function getCurrentURL() {
   if (sun_elevation_param != null) {
     url += '&sun_elev=' + encodeURIComponent(sun_elevation_param);
   }
-  if (et_decoders_param) {
-    url += '&et_dec=' + encodeURLParameter(et_decoders_param);
+  if (ct_decoders_param) {
+    url += '&ct_dec=' + encodeURLParameter(ct_decoders_param);
   }
-  if (et_labels_param) {
-    url += '&et_labels=' + encodeURLParameter(et_labels_param);
+  if (ct_labels_param) {
+    url += '&ct_labels=' + encodeURLParameter(ct_labels_param);
   }
-  if (et_long_labels_param) {
-    url += '&et_llabels=' + encodeURLParameter(et_long_labels_param);
+  if (ct_long_labels_param) {
+    url += '&ct_llabels=' + encodeURLParameter(ct_long_labels_param);
   }
-  if (et_units_param) {
-    url += '&et_units=' + encodeURLParameter(et_units_param);
+  if (ct_units_param) {
+    url += '&ct_units=' + encodeURLParameter(ct_units_param);
   }
-  if (et_resolutions_param) {
-    url += '&et_res=' + encodeURLParameter(et_resolutions_param);
+  if (ct_resolutions_param) {
+    url += '&ct_res=' + encodeURLParameter(ct_resolutions_param);
   }
   return url;
 }
@@ -2069,11 +2069,11 @@ function processSubmission(e, on_load = false) {
       units_param = null;
       time_param = null;
       detail_param = null;
-      et_decoders_param = null;
-      et_labels_param = null;
-      et_long_labels_param = null;
-      et_units_param = null;
-      et_resolutions_param = null;
+      ct_decoders_param = null;
+      ct_labels_param = null;
+      ct_long_labels_param = null;
+      ct_units_param = null;
+      ct_resolutions_param = null;
       params = parseParameters();
     }
   }
@@ -2307,34 +2307,34 @@ function computeDerivedData(spots) {
   return derived_data;
 }
 
-function extractExtendedTelemetryData(spots) {
-  let et_data = [];
+function extractCustomTelemetryData(spots) {
+  let ct_data = [];
   for (let i = 0; i < spots.length; i++) {
     const spot = spots[i];
-    if (spot.raw_et) {
-      spot.raw_et.forEach((v, slot) => {
-        const field = `raw_et${slot}`;
-        let field_data = et_data[field];
+    if (spot.raw_ct) {
+      spot.raw_ct.forEach((v, slot) => {
+        const field = `raw_ct${slot}`;
+        let field_data = ct_data[field];
         if (!field_data) {
           field_data = new Array(spots.length).fill(undefined);
-          et_data[field] = field_data;
+          ct_data[field] = field_data;
         }
         field_data[i] = v;
       });
     }
-    if (spot.opaque_et) {
-      spot.opaque_et.forEach((v, slot) => {
-        const field = `et${slot}`;
-        let field_data = et_data[field];
+    if (spot.opaque_ct) {
+      spot.opaque_ct.forEach((v, slot) => {
+        const field = `ct${slot}`;
+        let field_data = ct_data[field];
         if (!field_data) {
           field_data = new Array(spots.length).fill(undefined);
-          et_data[field] = field_data;
+          ct_data[field] = field_data;
         }
         field_data[i] = v;
       });
     }
   }
-  return et_data;
+  return ct_data;
 }
 
 function createTableCell(type, content, align = null, color = null,
@@ -2373,22 +2373,22 @@ function clearDataView() {
   data_view.innerHTML = '';
 }
 
-function getExtendedTelemetryAttributes(i) {
-  let label = `ET${i}`;
-  if (params.et_spec['labels'] && params.et_spec['labels'][i]) {
-    label = params.et_spec['labels'][i];
+function getCustomTelemetryAttributes(i) {
+  let label = `CT${i}`;
+  if (params.ct_spec['labels'] && params.ct_spec['labels'][i]) {
+    label = params.ct_spec['labels'][i];
   }
   let long_label = label;
-  if (params.et_spec['long_labels'] && params.et_spec['long_labels'][i]) {
-    long_label = params.et_spec['long_labels'][i];
+  if (params.ct_spec['long_labels'] && params.ct_spec['long_labels'][i]) {
+    long_label = params.ct_spec['long_labels'][i];
   }
   let units;
-  if (params.et_spec['units'] && params.et_spec['units'][i]) {
-    units = params.et_spec['units'][i];
+  if (params.ct_spec['units'] && params.ct_spec['units'][i]) {
+    units = params.ct_spec['units'][i];
   }
   let resolution;
-  if (params.et_spec['resolutions'] && params.et_spec['resolutions']) {
-    resolution = params.et_spec['resolutions'][i];
+  if (params.ct_spec['resolutions'] && params.ct_spec['resolutions']) {
+    resolution = params.ct_spec['resolutions'][i];
   }
   let formatter = (v, au) => {
     if (resolution != null) v = v.toFixed(resolution);
@@ -2477,7 +2477,7 @@ function showDataView() {
 
   let supplementary_data =
       { ...computeDerivedData(spots),
-        ...extractExtendedTelemetryData(spots) };
+        ...extractCustomTelemetryData(spots) };
 
   // Find the union of all present fields
   const present_spot_fields = Object.fromEntries(
@@ -2503,22 +2503,22 @@ function showDataView() {
   let can_show_more = false;
   let can_show_less = false;
 
-  // Add ET to the list of possible fields
+  // Add CT to the list of possible fields
   let data_fields = [...kDataFields];
   for (let i = 1; i < 5; i++) {
-    if (supplementary_data[`raw_et${i}`]) {
+    if (supplementary_data[`raw_ct${i}`]) {
       data_fields.push(
-          [`raw_et${i}`,
-           { 'color': '#7b5d45', 'label': `Raw ET${i}` }]);
+          [`raw_ct${i}`,
+           { 'color': '#7b5d45', 'label': `Raw CT${i}` }]);
     }
   }
   for (let i = 0; i < 32; i++) {
-    if (supplementary_data[`et${i}`]) {
+    if (supplementary_data[`ct${i}`]) {
       const [label, long_label, units, formatter] =
-          getExtendedTelemetryAttributes(i);
-      data_fields.push([`et${i}`,
+          getCustomTelemetryAttributes(i);
+      data_fields.push([`ct${i}`,
         { 'label': label, 'long_label': long_label, 'units': units,
-          'formatter': formatter, 'graph': {}, 'is_et' : true }]);
+          'formatter': formatter, 'graph': {}, 'is_ct' : true }]);
     }
   }
 
@@ -2818,11 +2818,11 @@ function initializeFormFields() {
   document.getElementById('start_date').value = start_date_param;
 }
 
-function parseExtendedTelemetrySpec() {
-  if (!et_decoders_param) return null;
-  if (!/^[0-9ets,:_~.-]+$/.test(et_decoders_param)) return null;
+function parseCustomTelemetrySpec() {
+  if (!ct_decoders_param) return null;
+  if (!/^[0-9ets,:_~.-]+$/.test(ct_decoders_param)) return null;
   let decoders = [];
-  for (const decoder_spec of et_decoders_param.toLowerCase().split('~')) {
+  for (const decoder_spec of ct_decoders_param.toLowerCase().split('~')) {
     let header_divisor = 1;
     let [filters_spec, extractors_spec] = decoder_spec.split('_');
     // Parse filters
@@ -2830,7 +2830,8 @@ function parseExtendedTelemetrySpec() {
     if (filters_spec) {
       for (const filter_spec of filters_spec.split(',')) {
         let filter = filter_spec.split(':');
-        if (filter.length == 1 && filter[0] == 'et') {
+        if (filter.length == 1 &&
+            (filter[0] == 'ct' || filter[0] == 'et')) {
           if (header_divisor != 1) return null;
           filters.push([1, 5, 's']);
           header_divisor = 5;
@@ -2906,23 +2907,23 @@ function parseExtendedTelemetrySpec() {
   let long_labels;
   let units;
   let resolutions;
-  if (et_labels_param) {
-    if (!/^[0-9a-z ,#_]+$/i.test(et_labels_param)) return null;
-    labels = et_labels_param.split(',');
+  if (ct_labels_param) {
+    if (!/^[0-9a-z ,#_]+$/i.test(ct_labels_param)) return null;
+    labels = ct_labels_param.split(',');
     if (!labels.every(v => v.length <= 32)) return null;
   }
-  if (et_long_labels_param) {
-    if (!/^[0-9a-z ,#_]+$/i.test(et_long_labels_param)) return null;
-    long_labels = et_long_labels_param.split(',');
+  if (ct_long_labels_param) {
+    if (!/^[0-9a-z ,#_]+$/i.test(ct_long_labels_param)) return null;
+    long_labels = ct_long_labels_param.split(',');
     if (!long_labels.every(v => v.length <= 64)) return null;
   }
-  if (et_units_param) {
-    if (!/^[a-z ,/°]+$/i.test(et_units_param)) return null;
-    units = et_units_param.split(',');
+  if (ct_units_param) {
+    if (!/^[a-z ,/°]+$/i.test(ct_units_param)) return null;
+    units = ct_units_param.split(',');
     if (!units.every(v => v.length <= 8)) return null;
   }
-  if (et_resolutions_param) {
-    resolutions = et_resolutions_param.split(',').map(
+  if (ct_resolutions_param) {
+    resolutions = ct_resolutions_param.split(',').map(
         v => v == '' ? null : Number(v));
     if (!resolutions.every(
         v => v == null || (Number.isInteger(v) && v >= 0 && v <= 6))) {
@@ -2964,11 +2965,16 @@ function start() {
   detail_param = getURLParameter('detail');
   sun_elevation_param =
       getURLParameter('sun_el') || getURLParameter('sun_elev');
-  et_decoders_param = getURLParameter('et_dec');
-  et_labels_param = getURLParameter('et_labels');
-  et_long_labels_param = getURLParameter('et_llabels');
-  et_units_param = getURLParameter('et_units');
-  et_resolutions_param = getURLParameter('et_res');
+  ct_decoders_param = getURLParameter('ct_dec') ||
+      getURLParameter('et_dec');
+  ct_labels_param = getURLParameter('ct_labels') ||
+      getURLParameter('et_labels');
+  ct_long_labels_param = getURLParameter('ct_llabels') ||
+      getURLParameter('et_llabels');
+  ct_units_param = getURLParameter('ct_units') ||
+      getURLParameter('et_units');
+  ct_resolutions_param = getURLParameter('ct_res') ||
+      getURLParameter('et_res');
 
   // On mobile devices, allow for a larger click area
   let click_tolerance = 0;
@@ -3087,8 +3093,8 @@ function start() {
       window.location.href = 'tools/history.html';
     } else if (this.value == 'channel_map') {
       window.open('tools/channel_map.html', '_new');
-    } else if (this.value == 'et_wizard') {
-      window.open('tools/et_wizard.html', '_new');
+    } else if (this.value == 'ct_wizard') {
+      window.open('tools/ct_wizard.html', '_new');
     } else {
       return;
     }

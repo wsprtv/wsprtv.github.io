@@ -1,4 +1,4 @@
-// Extended Telemetry Wizard
+// Custom Telemetry Wizard
 // https://github.com/wsprtv/wsprtv.github.io
 //
 // This file is part of the WSPR TV project.
@@ -50,18 +50,23 @@ function importWSPRTVURL(url) {
   spec.start_date = getURLParameter(url, 'start_date');
   spec.end_date = getURLParameter(url, 'end_date');
 
-  const decoders_param = getURLParameter(url, 'et_dec');
-  const labels_param = getURLParameter(url, 'et_labels');
-  const long_labels_param = getURLParameter(url, 'et_llabels');
-  const units_param = getURLParameter(url, 'et_units');
-  const resolutions_param = getURLParameter(url, 'et_res');
+  const decoders_param = getURLParameter(url, 'ct_dec') ||
+      getURLParameter(url, 'et_dec');
+  const labels_param = getURLParameter(url, 'ct_labels') ||
+      getURLParameter(url, 'et_labels');
+  const long_labels_param = getURLParameter(url, 'ct_llabels') ||
+      getURLParameter(url, 'et_llabels');
+  const units_param = getURLParameter(url, 'ct_units') ||
+      getURLParameter(url, 'et_units');
+  const resolutions_param = getURLParameter(url, 'ct_res') ||
+      getURLParameter(url, 'et_res');
 
   mode = 'advanced';
   if (!decoders_param) {
     createMessages(spec);
     return;
   }
-  if (!/^[0-9ets,:_~.-]+$/.test(decoders_param)) throw "Invalid et_dec";
+  if (!/^[0-9ets,:_~.-]+$/.test(decoders_param)) throw "Invalid ct_dec";
   spec.decoders = [];
   for (const decoder_spec of decoders_param.toLowerCase().split('~')) {
     let [filters_spec, extractors_spec] = decoder_spec.split('_');
@@ -184,7 +189,7 @@ function addButton(parent, text, action) {
   const id = seq++;
   const button = document.createElement('button');
   button.id = `id${id}`;
-  button.classList.add('pretty_button');
+  button.classList.add('blue_button');
   button.textContent = text;
   button.addEventListener('click', action);
   parent.appendChild(button);
@@ -378,7 +383,7 @@ function createMessage(decoder = null, spec = null) {
 
   let message_section = addSection(message_sections, 'box');
   message_section.style.backgroundColor = '#eee';
-  addTextElement(message_section, 'h2', 'ET Message Definition');
+  addTextElement(message_section, 'h2', 'CT Message Definition');
   addTypeAndSlotSelectors(message_section, decoder, spec)
   if (mode == 'advanced') {
     // Filters
@@ -388,7 +393,8 @@ function createMessage(decoder = null, spec = null) {
     addTextElement(filters_section, 'h3', 'Custom Filters');
     if (decoder && decoder[0]) {
       for (const filter of decoder[0]) {
-        if (filter[0] == 's' || ['et', 'et0', 'et3'].includes(filter[0])) {
+        if (filter[0] == 's' ||
+            ['ct', 'et', 'et0'].includes(filter[0])) {
           continue;
         }
         createFilter(filters_section, filter);
@@ -439,10 +445,10 @@ function addTypeAndSlotSelectors(message_section,
   let message_type_choices = [
     'Message type',
     '────────────',
-    'Generic ET',
+    'Custom Telemetry',
     'ET0 User Defined'
   ];
-  if (mode == 'advanced') message_type_choices.push('Custom');
+  if (mode == 'advanced') message_type_choices.push('Raw');
   const message_type_selector =
       addSelectMenu(message_section, message_type_choices, null);
   if (mode == 'basic') {
@@ -450,12 +456,12 @@ function addTypeAndSlotSelectors(message_section,
       updateMessageInfo(message_section.children[3]);
     };
   }
-  if (decoder && decoder[0].some(f => f[0] == 'et')) {
+  if (decoder && decoder[0].some(f => (f[0] == 'ct' || f[0] == 'et'))) {
     message_type_selector.value = 2;
   } else if (decoder && decoder[0].some(f => f[0] == 'et0')) {
     message_type_selector.value = 3;
   } else {
-    message_type_selector.value = (mode == 'advanced') ? 4 : 2;
+    message_type_selector.value = 2;
   }
   let slot_choices = [
       'Message slot (0 = regular CS)',
@@ -488,10 +494,10 @@ function createMessages(spec = null) {
   let info_section = addSection(wizard, 'box');
   let info = '<h3>Instructions</h3><br>Add one or more message definitions, ' +
       'then click "<b>Generate URL</b>" at the bottom of the page.<br><br>' +
-      '<b>Generic ET</b> = newer protocol offering 35.5 bits of payload ' +
-      '(not supported by all trackers yet)<br>' +
+      '<b>Custom Telemetry</b> = newer protocol offering 35.5 bits of ' +
+      'payload (not supported by all trackers)<br>' +
       '<b>ET0</b> = older protocol offering 29.5 bits of payload<br><br>' +
-      '<b>Slot</b> - TX slot for this ET message, usually 2 - 4' +
+      '<b>Slot</b> - TX slot for this CT message, usually 2 - 4' +
       ' (basic telemetry is in slot 1)<br><br>' +
       'Fields are packed starting with the least significant position ' +
       'in BigNum.<br><br>Hover over labels such as "Size" and "Step" to see ' +
@@ -507,7 +513,7 @@ function createMessages(spec = null) {
   } else {
     createMessage();
   }
-  addButton(wizard, 'Add Another ET Message', () => createMessage());
+  addButton(wizard, 'Add Another CT Message', () => createMessage());
 
   createMainParams(spec);
 }
@@ -698,8 +704,8 @@ function generateURL() {
     message_type_selector.className = '';
     slot_selector.className = '';
     if (message_type_selector.value == 2) {
-      // Generic ET
-      filters.push(['et']);
+      // Custom Telemetry
+      filters.push(['ct']);
       next_divisor = 5;
     } else if (message_type_selector.value == 3) {
       // ET0
@@ -832,21 +838,21 @@ function generateURL() {
            d[1].map(e => ((e[0] == '') ? e.slice(1) : e.slice(0))
                .join(':')).join(',')).join('~');
   if (decoder_param) {
-    url += 'et_dec=' + encodeURLParameter(decoder_param) + '&';
+    url += 'ct_dec=' + encodeURLParameter(decoder_param) + '&';
   }
   if (labels.length) {
-    url += 'et_labels=' + encodeURLParameter(labels.join(',')) + '&';
+    url += 'ct_labels=' + encodeURLParameter(labels.join(',')) + '&';
   }
   if (long_labels.length) {
-    url += 'et_llabels=' + encodeURLParameter(long_labels.join(',')) + '&';
+    url += 'ct_llabels=' + encodeURLParameter(long_labels.join(',')) + '&';
   }
   if (units.length) {
-    url += 'et_units=' + encodeURLParameter(units.join(',')) + '&';
+    url += 'ct_units=' + encodeURLParameter(units.join(',')) + '&';
   }
   const resolutions_param =
       resolutions.map(v => v == '0' ? '' : v).join(',');
   if (resolutions_param) {
-    url += 'et_res=' + encodeURLParameter(resolutions_param) + '&';
+    url += 'ct_res=' + encodeURLParameter(resolutions_param) + '&';
   }
   if (url.endsWith('&')) url = url.slice(0, -1);  // remove trailing &
   displayURL(url, all_opaque_extractors, labels, long_labels,
@@ -870,11 +876,11 @@ function displayURL(url, extractors, labels, long_labels, units, resolutions) {
   if (extractors.length) {
     let span1 = addTextElement(display_section, 'span');
     span1.innerHTML =
-        '<p>Here is how extended telemetry values will be displayed in ' +
+        '<p>Here is how custom telemetry values will be displayed in ' +
         '<b>short format</b> (used in spot info panels and data tables):<p>';
     let span2 = addTextElement(display_section, 'span');
     span2.innerHTML =
-        '<p>Here is how extended telemetry values will be displayed in ' +
+        '<p>Here is how custom telemetry values will be displayed in ' +
         '<b>long format</b> (used in charts and CVS headers):<p>';
     for (let i = 0; i < extractors.length; i++) {
       let extractor = [...extractors[i]];
@@ -934,7 +940,7 @@ function start() {
   // Add the user guide link
   const link = document.createElement('a');
   link.href =
-      'https://wsprtv.com/docs/user_guide.html#u4b-extended-telemetry';
+      'https://wsprtv.com/docs/user_guide.html#u4b-custom-telemetry';
   link.textContent = 'ℹ️';
   link.style.textDecoration = 'none';
   link.target = '_new3';
