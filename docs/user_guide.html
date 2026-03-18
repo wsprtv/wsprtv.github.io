@@ -570,7 +570,7 @@ and can influence the site's function at a more fundamental level.</p>
 <li>Type 108: enhanced speed resolution</li>
 <li>Type 109: enhanced speed range</li>
 </ul>
-<p>These types increase the resolution or range of basic U4B telemetry.
+<p>These types increase the resolution or range of standard U4B telemetry.
 The additional resolution / range depend on the size of the corresponding
 custom telemetry fields. For example, if 10 values are allocated to type 102,
 altitude resolution improves by a factor of 10, from 20m to 2m. If 3 values are
@@ -594,13 +594,13 @@ grow in the positive direction only.</p>
 timestamp. All of these values can be as large as necessary (e.g. 2000
 minutes). Do not specify more than one time delta type.</p>
 <p><code class="notranslate">Grid4 override</code> is used to replace the grid4 value received in the regular
-callsign message, as well as to set <code class="notranslate">is_gps_value = true</code> in the basic
+callsign message, as well as to set <code class="notranslate">is_gps_value = true</code> in the standard
 telemetry message.</p>
 <p>The recommended way to send historical data is as follows:</p>
 <ul>
 <li>Send a regular callsign message with the current location. If no other
 messages are received, this data will still be valid.</li>
-<li>Send a basic telemetry message with <code class="notranslate">is_valid_gps = false</code> and all other
+<li>Send a standard telemetry message with <code class="notranslate">is_valid_gps = false</code> and all other
 fields pertaining to the historical spot. If no other messages are
 received, this message will be ignored.</li>
 <li>Send an custom telemetry message specifying the time delta and replacing
@@ -889,20 +889,20 @@ of a single U4B channel.</p>
 each row. To locate a specific U4B channel, first identify the row
 containing the range, then scan across that row to find the channel.</p>
 <p><strong>The number in each bucket</strong> indicates how many <strong>unique 1-hour slots</strong>
-contained basic telemetry for that channel during the specified period
+contained standard telemetry for that channel during the specified period
 (custom telemetry is excluded). For a slot to be counted, at least two
-basic telemetry transmissions must occur within the hour. This threshold
+standard telemetry transmissions must occur within the hour. This threshold
 helps eliminate noise caused by corrupt messages, non-U4B use of special
 Q/0/1 callsigns, and various other corner cases.</p>
 <p>Additionally, an <code class="notranslate">RX Threshold</code> setting is available to
-<strong>filter out single-receiver reports</strong> when set to 2. Basic telemetry
+<strong>filter out single-receiver reports</strong> when set to 2. Standard telemetry
 reported by only one receiver is more likely to have an inaccurate
 frequency, as frequency values are averaged across multiple receivers.
 In some cases, single-receiver reports are also associated with
 incorrectly set receiver clocks, which can result in telemetry being
 assigned to the wrong time slot.</p>
 <p>Buckets are color-coded based on their count: <strong>green</strong> indicates that
-no basic telemetry has been observed in any 1-hour slots, while <strong>red</strong>
+no standard telemetry has been observed in any 1-hour slots, while <strong>red</strong>
 represents multiple hours of daily use over an custom period. For
 example, a tracker that transmits for 10 hours every day will show a
 count of about 300 after 30 days. <strong>Yellow and orange</strong> fall in between,

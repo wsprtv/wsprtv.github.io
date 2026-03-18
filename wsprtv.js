@@ -512,7 +512,7 @@ function matchOnCoreception(rx1, rx2, score_all = false) {
 }
 
 // Combines telemetry data from corresponding WSPR messages (regular callsign +
-// basic telemetry messages for U4B, type 2 and type 3 for Zachtek).
+// standard telemetry messages for U4B, type 2 and type 3 for Zachtek).
 // Returns a list of spots, with each spot having one or more messages
 // attached.
 function matchTelemetry(data) {
@@ -1395,7 +1395,8 @@ function displayTrack() {
       marker = L.circleMarker([spot.lat, spot.lon],
           { radius: 5, color: 'black',
             fillColor: spot.is_invalid_gps ?
-                '#fbb' : (spot.fill || 'white'),
+                '#fbb' : (spot.is_unattached ?
+                    'white' : (spot.fill || '#cfefff')),
             weight: 1,
             stroke: true, fillOpacity: 1 });
     } else {
@@ -1806,7 +1807,7 @@ function scheduleNextUpdate(update_ts = null) {
   const now = new Date();
 
   if (!update_ts) {
-    // Wait 1m 15s after the end of the next basic telemetry TX.
+    // Wait 1m 15s after the end of the next standard telemetry TX.
     // The delay is needed so that WSPR telemetry can trickle in.
     // It is randomized so that a large number of people watching
     // a flight do not all hit wspr.live servers at exactly the same
