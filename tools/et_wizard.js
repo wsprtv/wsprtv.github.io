@@ -899,7 +899,7 @@ function displayURL(url, extractors, labels, long_labels, units, resolutions) {
   addVerticalSpace(display_section);
   const wizard_link = document.createElement('a');
   wizard_link.href = '?spec=' + encodeURIComponent(url);
-  wizard_link.textContent = 'Current configuration link.';
+  wizard_link.textContent = 'Current configuration link';
   wizard_link.target = '_new3';
   display_section.appendChild(wizard_link);
 

@@ -656,7 +656,7 @@ function processU4BSlot1Message(spot, ignore_is_valid_gps = false) {
   if (!ignore_is_valid_gps && !is_valid_gps && params.version < 100) {
     // Invalid GPS bit
     spot.is_invalid_gps = true;
-    return false;
+    return true;
   }
   const p = Math.floor(m / 1068);
   spot.grid = spot.grid + String.fromCharCode(97 + Math.floor(p / 24)) +
@@ -1687,7 +1687,7 @@ function displaySpotInfo(marker, point) {
   }
   if (spot.is_invalid_gps) {
     spot_info.innerHTML +=
-        '<br><span style="color: red">Invalid GPS fix</span>';
+        '<br><span style="color: #fbb">Invalid GPS fix</span>';
   }
   spot_info.innerHTML += '<br>' +
       formatCoordinate([spot.lat, getLatitudePrecision(spot)]) + ', ' +
