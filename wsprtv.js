@@ -38,6 +38,7 @@ let selected_marker;  // currently selected (clicked) marker
 
 let data = [];  // raw wspr.live telemetry data
 let spots = [];  // merged / annotated telemetry data
+let forked_spots = [];  // forked historical spots
 
 let params;  // form / URL params
 let debug = 0;  // controls console logging
@@ -737,7 +738,9 @@ function processWB8ELKSlot1Message(spot) {
 
 // Annotates telemetry spots (appends lat, lon, speed, etc)
 function decodeSpots() {
+  forked_spots = [];  // historical spots are forked when decoded
   spots = spots.filter(spot => decodeSpot(spot));
+  spots = [...spots, ...forked_spots];
   // Resort spots as timestamps may have changed (e.g. due to
   // time delta native types).
   spots.sort((s1, s2) =>
@@ -917,6 +920,14 @@ function processNativeCustomTelemetry(spot) {
     }
     if (type >= 120 && type <= 123) {
       // Historical spot
+      if (!spot.forked) {
+        // Fork the original spot.
+        let forked_spot = { 'slots': [spot.slots[0]] };
+        decodeSpot(forked_spot);
+        forked_spots.push(forked_spot);
+        spot.forked = true;
+      }
+      // Update timestamp of the original spot
       spot.tx_ts = spot.ts;
       spot.fill = '#7abfb1';
       let offset = { 120 : 60, 121 : 600, 122 : 3600, 123 : 86400 }[type];
@@ -3085,6 +3096,21 @@ function start() {
   // Handle clicks on the "Go" button
   document.getElementById('go_button').addEventListener(
       'click', processSubmission);
+
+  // Also process submission when Enter is pressed in callsign
+  // or start date text fields
+  const submit_on_enter = function (event) {
+    if (event.key == 'Enter') {
+      event.preventDefault();
+      processSubmission();
+    }
+  };
+  document.getElementById('cs').addEventListener(
+      'keydown', submit_on_enter);
+  document.getElementById('ch').addEventListener(
+      'keydown', submit_on_enter);
+  document.getElementById('start_date').addEventListener(
+      'keydown', submit_on_enter);
 
   // Handle special menu selections
   document.getElementById('band').addEventListener('change', function () {
