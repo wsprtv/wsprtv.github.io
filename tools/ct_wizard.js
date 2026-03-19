@@ -66,7 +66,7 @@ function importWSPRTVURL(url) {
     createMessages(spec);
     return;
   }
-  if (!/^[0-9ets,:_~.-]+$/.test(decoders_param)) throw "Invalid ct_dec";
+  if (!/^[0-9cets,:_~.-]+$/.test(decoders_param)) throw "Invalid ct_dec";
   spec.decoders = [];
   for (const decoder_spec of decoders_param.toLowerCase().split('~')) {
     let [filters_spec, extractors_spec] = decoder_spec.split('_');
