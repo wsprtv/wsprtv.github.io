@@ -537,6 +537,10 @@ function matchTelemetry(data) {
         // New spot
         last_spot = { 'slots': [row] };
         spots.push(last_spot);
+      } else if (row.rx.length > last_spot.slots[0].rx.length) {
+        // In case of multiple regular callsign rows, prefer the one
+        //  with more RX reports
+        last_spot.slots[0] = row;
       }
     } else if (last_spot && row.ts - last_spot.slots[0].ts < 10 * 60 * 1000) {
       // Same TX sequence as last spot, try to attach the row
@@ -971,15 +975,15 @@ function categorizeSpots() {
       }
       let dist = getDistance(last_attached_spot, spot) / 1000;
       if (i < spots.length - 1) {
-        // Try to detect a sharp turn back between spots due to GPS spoofing
+        // Try to detect bad spots due to GPS spoofing
         const next_spot = spots[i + 1];
-        const min_dist = (last_attached_spot.grid.length + spot.grid.length +
-            next_spot.grid.length == 18) ? 25 : 250;
-        if (dist > min_dist &&
+        const dist_threshold = (last_attached_spot.grid.length +
+            spot.grid.length + next_spot.grid.length == 18) ? 25 : 250;
+        if (dist > dist_threshold &&
             next_spot.ts - last_attached_spot.ts < 86400 * 1000) {
           const dist2 = getDistance(last_attached_spot, next_spot) / 1000;
           if (dist2 < dist / 3) {
-            // Unlikely sharp turn
+            // Sharp turn back
             spot.is_unattached = true;
             continue;
           }
@@ -1228,7 +1232,7 @@ function computeTrackDistance(spots) {
       last_spot = spot;
     } else {
       const segment_dist = getDistance(spot, last_spot);
-      if (segment_dist > 100000 || i == spots.length - 1) {
+      if (segment_dist > 100000 || spot == last_marker.spot) {
         dist += segment_dist;
         last_spot = spot;
       }
@@ -1465,6 +1469,7 @@ function displayTrack() {
   // Populate flight synopsis
   let synopsis = document.getElementById('synopsis');
   if (last_attached_marker) {
+    last_marker = last_attached_marker;
     const last_spot = last_attached_marker.spot;
     const first_spot = first_attached_marker.spot;
     const duration = formatDuration(last_spot.ts, first_spot.ts);
@@ -1513,7 +1518,6 @@ function displayTrack() {
         formatDuration(new Date(), last_spot.ts));
     synopsis.innerHTML += `<br><b>(<span id='last_age'>${last_age}` +
         `</span> ago)</b>`;
-    last_marker = last_attached_marker;
   } else {
     // No markers in the track
     synopsis.innerHTML = `<b>${markers.length}</b> spot` +
@@ -1747,17 +1751,19 @@ function displaySpotInfo(marker, point) {
         `<br> ${formatDistance(max_rx_dist)} | ${avg_freq} Hz`;
   }
 
-  if (marker == selected_marker) {
+  if (marker == selected_marker && spot.altitude) {
+    spot_info.innerHTML += '<br><br>';
     // Add GoogleEarth view
     const d = spot.altitude / 0.23075;
     const dl = d / (111320 * Math.cos(spot.lat * 0.01745));
     const dt = Math.round((spot.altitude ** 2 + d ** 2) ** 0.5);
     spot_info.innerHTML +=
-        '<br><br><a href="https://earth.google.com/web/@' +
+        '<a href="https://earth.google.com/web/@' +
         spot.lat.toFixed(3) + ',' +
         (spot.lon + dl).toFixed(3) + ',0a,' +
         dt + 'd,35y,90h,77t" ' +
-        'style="color: white;" target=new>GoogleEarth View</a>' +
+        'style="color: #add8e6; text-decoration: none;" ' +
+        'target=new>[ GoogleEarth View ]</a>' +
         '<br>(use CTRL-arrows<br>to look around)';
   }
 
