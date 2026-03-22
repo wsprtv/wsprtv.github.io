@@ -655,13 +655,20 @@ removed) was received in the correct slot. To do this, we divide
 <code class="notranslate">HdrSlot</code> field using a modulus of 5. This value has to be equal to
 the special variable <code class="notranslate">slot</code>.</p>
 <p>We then access the adjacent <code class="notranslate">HdrRESERVED</code> field by dividing <code class="notranslate">BigNumber</code> by 5
-(this skips over <code class="notranslate">HdrSlot</code>) and extracting 1 of 4 possible values
+(this skips over <code class="notranslate">HdrSlot</code>) and extracting the 4 possible values
 using a modulus of 4. This value also has to be equal to 0 (for
 ET0).</p>
 <p>Finally, we check that <code class="notranslate">HdrType</code> is equal to 0. We skip over both the <code class="notranslate">HdrSlot</code>
 and <code class="notranslate">HdrRESERVED</code> fields, hence the division is by 5 * 4 = 20. We use a modulus
 of 16 to extract the 16 possible values. This value also has to be equal to 0 (for
 <code class="notranslate">USER_DEFINED</code>).</p>
+<p>If the divisor in a filter is missing, it is <strong>implied</strong> to equal
+the previous divisor multiplied by the previous modulus.
+In other words, the divisor is set to the end of the previous filter
+field. If no initial divisor is specified anywhere, the
+first divisor starts at 1 for unspecified protocols and at
+the end of the headers for known protocols (e.g., initial_divisor = 5
+when one of the filters in the message definition is <code class="notranslate">ct</code>).</p>
 <h3 id="temporal-filters">Temporal Filters</h3>
 <p>WSPR TV provides a powerful mechanism for multiplexing multiple message
 types within the same slot -- without using any extra bits to indicate
@@ -721,9 +728,10 @@ extractor</strong> specification is also available:</p>
 multiplying it by the modulus of the previous extractor. In other words,
 the divisor is set to the end of the previous value. If no initial
 divisor is specified anywhere (i.e., all extractors are 3-term), the
-first divisor starts at 1 for unspecified protocols and at the end of
-the headers for known protocols (e.g., initial_divisor = 320 when one of
-the filters in the message definition is <code class="notranslate">et0</code>).</p>
+first divisor starts at the end of custom filters. If no custom filters
+are specified, the first divisor is 1 for unspecified protocols and at
+the end of the headers for known protocols (e.g., initial_divisor = 320
+when one of the filters in the message definition is <code class="notranslate">et0</code>).</p>
 <p>For the previous Pressure / Heading example, the extractor specification
 becomes:</p>
 <pre class="notranslate"><code class="notranslate">[modulus, start_value, step]
@@ -817,7 +825,9 @@ separated from each other with commas (<code class="notranslate">,</code>):</p>
 </code></pre>
 <p>A filter can have one of the following forms:</p>
 <pre class="notranslate"><code class="notranslate">&lt;divisor&gt;:&lt;modulus&gt;:&lt;expected_value&gt;
+&lt;modulus&gt;:&lt;expected_value&gt;  (implied divisor)
 t:&lt;divisor&gt;:&lt;modulus&gt;:&lt;expected_value&gt;
+t:&lt;modulus&gt;:&lt;expected_value&gt; (implied divisor)
 s:&lt;slot&gt;
 
 </code></pre>
@@ -832,12 +842,12 @@ may be expressed as follows:</p>
 </code></pre>
 <p>An opaque value extractor can have either a 3-term or 4-term format,
 depending on whether the divisor is explicit or implicit:</p>
-<pre class="notranslate"><code class="notranslate">&lt;modulus&gt;:&lt;start_value&gt;:&lt;step&gt;
-&lt;divisor&gt;:&lt;modulus&gt;:&lt;start_value&gt;:&lt;step&gt;
+<pre class="notranslate"><code class="notranslate">&lt;divisor&gt;:&lt;modulus&gt;:&lt;start_value&gt;:&lt;step&gt;
+&lt;modulus&gt;:&lt;start_value&gt;:&lt;step&gt;  (implied divisor)
 </code></pre>
 <p>Native value extractors specify their type after the modulus:</p>
-<pre class="notranslate"><code class="notranslate">&lt;modulus&gt;:t&lt;type_id&gt;
-&lt;divisor&gt;:&lt;modulus&gt;:t&lt;type_id&gt;
+<pre class="notranslate"><code class="notranslate">&lt;divisor&gt;:&lt;modulus&gt;:t&lt;type_id&gt;
+&lt;modulus&gt;:t&lt;type_id&gt;  (implied divisor)
 </code></pre>
 <p>Finally, a set of annotation parameters -- <code class="notranslate">ct_labels</code>, <code class="notranslate">ct_llabels</code>,
 <code class="notranslate">ct_units</code>, and <code class="notranslate">ct_res</code> -- can be used to customize the display of opaque CT

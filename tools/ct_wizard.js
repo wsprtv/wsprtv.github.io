@@ -21,9 +21,7 @@
 let debug = 0;  // controls console logging
 let seq = 0;  // DOM element id sequence
 let mode;  // basic / advanced
-let tail;
-let message_sections;
-let num_opaque_extractors = 0;
+let num_imported_opaque_extractors;
 
 // Extracts a parameter value from the URL
 function getURLParameter(url, name) {
@@ -34,96 +32,6 @@ function getURLParameter(url, name) {
       decodeURIComponent(match[2].replace(/\+/g, ' ')) : '';
 }
 
-function setURL(url) {
-  try {
-    history.replaceState(null, '', url);
-  } catch (error) {
-    console.log('Security error triggered by history.replaceState()');
-  }
-}
-
-function importWSPRTVURL(url) {
-  let spec = {};
-  spec.cs = getURLParameter(url, 'cs');
-  spec.ch = getURLParameter(url, 'ch');
-  spec.band = getURLParameter(url, 'band');
-  spec.start_date = getURLParameter(url, 'start_date');
-  spec.end_date = getURLParameter(url, 'end_date');
-
-  const decoders_param = getURLParameter(url, 'ct_dec') ||
-      getURLParameter(url, 'et_dec');
-  const labels_param = getURLParameter(url, 'ct_labels') ||
-      getURLParameter(url, 'et_labels');
-  const long_labels_param = getURLParameter(url, 'ct_llabels') ||
-      getURLParameter(url, 'et_llabels');
-  const units_param = getURLParameter(url, 'ct_units') ||
-      getURLParameter(url, 'et_units');
-  const resolutions_param = getURLParameter(url, 'ct_res') ||
-      getURLParameter(url, 'et_res');
-
-  mode = 'advanced';
-  if (!decoders_param) {
-    createMessages(spec);
-    return;
-  }
-  if (!/^[0-9cets,:_~.-]+$/.test(decoders_param)) throw "Invalid ct_dec";
-  spec.decoders = [];
-  for (const decoder_spec of decoders_param.toLowerCase().split('~')) {
-    let [filters_spec, extractors_spec] = decoder_spec.split('_');
-    // Parse filters
-    let filters = [];
-    if (filters_spec) {
-      for (const filter_spec of filters_spec.split(',')) {
-        if (!filter_spec) continue;
-        let filter = filter_spec.split(':');
-        filters.push(filter);
-      }
-    }
-    // Parse extractors
-    let extractors = [];
-    for (const extractor_spec of extractors_spec.split(',')) {
-      if (!extractor_spec) continue;
-      let extractor = extractor_spec.split(':');
-      const is_native = extractor[extractor.length - 1].startsWith('t');
-      if (extractor.length == (2 + (is_native ? 0 : 1))) {
-        extractor.unshift('');
-      }
-      extractors.push(extractor);
-    }
-    spec.decoders.push([filters, extractors]);
-  }
-  // Parse optional params
-  let labels;
-  let long_labels;
-  let units;
-  let resolutions;
-  if (labels_param) {
-    spec.labels = labels_param.split(',');
-  }
-  if (long_labels_param) {
-    spec.long_labels = long_labels_param.split(',');
-  }
-  if (units_param) {
-    spec.units = units_param.split(',');
-  }
-  if (resolutions_param) {
-    spec.resolutions = resolutions_param.split(',');
-  }
-  createMessages(spec);
-}
-
-function handleImport(type) {
-  const input = document.getElementById('import_field');
-  input.disabled = true;
-  tail.remove();
-  try {
-    [importWSPRTVURL][type](input.value);
-  } catch (err) {
-    alert(err);
-    setOver();
-  }
-}
-
 // Similar to encodeURIComponent but does not escape ',' and ':', and
 // escapes ' ' as '+'
 function encodeURLParameter(param) {
@@ -132,27 +40,11 @@ function encodeURLParameter(param) {
   ).join('');
 }
 
-function handleRootAction() {
-  this.disabled = true;
-  const wizard = document.getElementById('wizard');
-  wizard.appendChild(document.createElement('p'));
-  if (this.value == '2') {
-    mode = 'basic';
-    createMessages();
-  } else if (this.value == '3') {
-    mode = 'advanced';
-    createMessages();
-  } else if (['4'].includes(this.value)) {
-    const import_field = document.createElement('textarea');
-    import_field.id = 'import_field';
-    import_field.rows = '8';
-    import_field.cols = '70';
-    import_field.placeholder = `Copy-paste the URL here`;
-    wizard.appendChild(import_field);
-    wizard.appendChild(document.createElement('p'));
-    tail = addSection(wizard);
-    addButton(tail, 'Import', () => handleImport(this.value - 4));
-    addButton(tail, 'Start Over', startOver);
+function setURL(url) {
+  try {
+    history.replaceState(null, '', url);
+  } catch (error) {
+    console.log('Security error triggered by history.replaceState()');
   }
 }
 
@@ -230,128 +122,345 @@ function addVerticalSpace(parent, space = 20) {
   return div;
 }
 
-function createFilter(parent, filter = null) {
-  let s = addSection(parent);
-  addLabel(s, 'Type', 'Filter type');
-  const filter_type = addSelectMenu(s, ['Regular', 'Temporal'], null);
-  if (filter && filter[0] == 't') {
-    filter_type.value = 1;
-    filter = filter.slice(1);
+// Entry point
+function start() {
+  let wizard = document.getElementById('wizard');
+  wizard.innerHTML = '';
+
+  const spec = getURLParameter(location.search, 'spec');
+  if (spec) {
+    importWSPRTVURL(spec);
+    return;
   }
+
+  addSelectMenu(wizard,
+      ['What would you like to do?',
+       '────────────',
+       'Create a new definition [basic]',
+       'Create a new definition [advanced]',
+       'Import a WSPR TV URL',
+      ], handleRootAction);
+  // Add the user guide link
+  const link = document.createElement('a');
+  link.href =
+      'https://wsprtv.com/docs/user_guide.html#u4b-custom-telemetry';
+  link.textContent = 'ℹ️';
+  link.style.textDecoration = 'none';
+  link.target = '_new3';
+  wizard.appendChild(link);
+}
+
+function handleRootAction() {
+  this.disabled = true;  // disable the root select menu
+  const wizard = document.getElementById('wizard');
+  wizard.appendChild(document.createElement('p'));
+  if (this.value == '2') {
+    mode = 'basic';
+    createMessages();
+  } else if (this.value == '3') {
+    mode = 'advanced';
+    createMessages();
+  } else if (['4'].includes(this.value)) {
+    const import_field = document.createElement('textarea');
+    import_field.id = 'import_field';
+    import_field.rows = '8';
+    import_field.cols = '70';
+    import_field.placeholder = `Copy-paste the URL here`;
+    wizard.appendChild(import_field);
+    wizard.appendChild(document.createElement('p'));
+    const footer = addSection(wizard);
+    footer.id = 'footer';
+    addButton(footer, 'Import', () => handleImport(this.value - 4));
+    addButton(footer, 'Start Over', startOver);
+  }
+}
+
+function handleImport(type) {
+  const input = document.getElementById('import_field');
+  input.disabled = true;
+  document.getElementById('footer').remove();
+  try {
+    [importWSPRTVURL][type](input.value);
+  } catch (err) {
+    alert(err);
+    startOver();
+  }
+}
+
+function importWSPRTVURL(url) {
+  let spec = {};
+  spec.cs = getURLParameter(url, 'cs');
+  spec.ch = getURLParameter(url, 'ch');
+  spec.band = getURLParameter(url, 'band');
+  spec.start_date = getURLParameter(url, 'start_date');
+  spec.end_date = getURLParameter(url, 'end_date');
+
+  const decoders_param = getURLParameter(url, 'ct_dec') ||
+      getURLParameter(url, 'et_dec');
+  const labels_param = getURLParameter(url, 'ct_labels') ||
+      getURLParameter(url, 'et_labels');
+  const long_labels_param = getURLParameter(url, 'ct_llabels') ||
+      getURLParameter(url, 'et_llabels');
+  const units_param = getURLParameter(url, 'ct_units') ||
+      getURLParameter(url, 'et_units');
+  const resolutions_param = getURLParameter(url, 'ct_res') ||
+      getURLParameter(url, 'et_res');
+
+  mode = 'advanced';
+  if (!decoders_param) {
+    createMessages(spec);
+    return;
+  }
+  if (!/^[0-9cets,:_~.-]+$/.test(decoders_param)) throw "Invalid ct_dec";
+  spec.decoders = [];
+  for (const decoder_spec of decoders_param.toLowerCase().split('~')) {
+    let [filters_spec, extractors_spec] = decoder_spec.split('_');
+    // Parse filters
+    let filters = [];
+    if (filters_spec) {
+      for (const filter_spec of filters_spec.split(',')) {
+        if (!filter_spec) continue;
+        let filter = filter_spec.split(':');
+        const is_temporal = filter[0] == 't';
+        if (filter.length == (2 + (is_temporal ? 1 : 0)) && filter[0] != 's') {
+          if (is_temporal) {
+            filter.shift();
+          }
+          filter.unshift('');
+          if (is_temporal) {
+            filter.unshift('t');
+          }
+        }
+        filters.push(filter);
+      }
+    }
+    // Parse extractors
+    let extractors = [];
+    for (const extractor_spec of extractors_spec.split(',')) {
+      if (!extractor_spec) continue;
+      let extractor = extractor_spec.split(':');
+      const is_native = extractor[extractor.length - 1].startsWith('t');
+      if (extractor.length == (2 + (is_native ? 0 : 1))) {
+        extractor.unshift('');
+      }
+      extractors.push(extractor);
+    }
+    spec.decoders.push([filters, extractors]);
+  }
+  // Parse optional params
+  let labels;
+  let long_labels;
+  let units;
+  let resolutions;
+  if (labels_param) {
+    spec.labels = labels_param.split(',');
+  }
+  if (long_labels_param) {
+    spec.long_labels = long_labels_param.split(',');
+  }
+  if (units_param) {
+    spec.units = units_param.split(',');
+  }
+  if (resolutions_param) {
+    spec.resolutions = resolutions_param.split(',');
+  }
+  createMessages(spec);
+}
+
+function createMessages(spec = null) {
+  num_imported_opaque_extractors = 0;
+  const wizard = document.getElementById('wizard');
+  let info_section = addSection(wizard, 'box');
+  info_section.innerHTML =
+      '<h3>Instructions</h3><br>Add one or more message definitions, ' +
+      'then click "<b>Generate URL</b>" at the bottom of the page.<br><br>' +
+      '<b>Custom Telemetry</b> - newer protocol providing 35.5 bits of ' +
+      'payload (not supported by all trackers).<br>' +
+      '<b>ET0</b> - older protocol providing 29.5 bits of payload.<br><br>' +
+      '<b>Slot</b> - TX slot for this CT message, typically 2 - 4 ' +
+      ' (basic telemetry is in slot 1).<br><br>' +
+      'Fields are packed starting with the least significant position ' +
+      'in BigNum.<br><br>Hover over labels such as "Size" and "Step" to see ' +
+      'their meaning.';
+  info_section.style.backgroundColor = '#fffff5';
+  if (mode == 'advanced') info_section.hidden = true;
+
+  const messages = addSection(wizard);
+  messages.id = 'messages';
+  if (spec && spec.decoders) {
+    for (let decoder of spec.decoders) {
+      createMessage(messages, decoder, spec);
+    }
+  } else {
+    createMessage(messages);
+  }
+  addButton(wizard, 'Add Another CT Message', () => createMessage(messages));
+
+  createMainParams(spec);
+}
+
+function createMessage(messages, decoder = null, spec = null) {
+  let message = addSection(messages, 'box');
+  message.style.backgroundColor = '#eee';
+  addTextElement(message, 'h2', 'CT Message Definition');
+  addTypeAndSlotSelectors(message, decoder, spec)
+  if (mode == 'advanced') {
+    // Filters
+    let filter_section = addSection(message, 'box');
+    filter_section.style.backgroundColor = '#fff';
+    addTextElement(filter_section, 'h3', 'Custom Filters');
+    let filters = addSection(filter_section);
+    if (decoder && decoder[0]) {
+      for (const filter_spec of decoder[0]) {
+        if (filter_spec[0] == 's' ||
+            ['ct', 'et', 'et0'].includes(filter_spec[0])) {
+          continue;
+        }
+        createFilter(filters, filter_spec);
+      }
+    }
+    addButton(filter_section, 'Add', () => createFilter(filters));
+  }
+
+  // Extractors
+  let extractor_section = addSection(message, 'box');
+  extractor_section.style.backgroundColor = '#fff';
+  addTextElement(extractor_section, 'h3',
+      (mode == 'basic') ? 'Fields' : 'Value Extractors');
+  let extractors = addSection(extractor_section);
+  if (decoder && decoder[1]) {
+    for (const extractor_spec of decoder[1]) {
+      if (extractor_spec &&
+          extractor_spec[extractor_spec.length - 1].startsWith('t')) {
+        createNativeExtractor(extractors, extractor_spec);
+      } else {
+        createOpaqueExtractor(extractors, extractor_spec,
+            (spec.labels || [])[num_imported_opaque_extractors],
+            (spec.long_labels || [])[num_imported_opaque_extractors],
+            (spec.units || [])[num_imported_opaque_extractors],
+            (spec.resolutions || [])[num_imported_opaque_extractors]);
+        num_imported_opaque_extractors++;
+      }
+    }
+  }
+
+  if (mode == 'basic') {
+    createOpaqueExtractor(extractors);
+  }
+  addButton(extractor_section,
+      (mode == 'basic')? 'Add Another Field' : 'Add Opaque',
+      () => createOpaqueExtractor(extractors));
+
+  if (mode == 'advanced') {
+    addButton(extractor_section, 'Add Native',
+        () => createNativeExtractor(extractors));
+  }
+
+  addButton(message, 'Delete Message', deleteMessage);
+
+  let info = addTextElement(message, 'span');
+  updateMessageInfo(message);
+}
+
+function createFilter(parent, filter_spec = null) {
+  let s = addSection(parent);
+  addLabel(s, 'Type', 'Filter type (temporal filters on tx_seq)');
+  const filter_type = addSelectMenu(s, ['Regular', 'Temporal'], null);
+  if (filter_spec && filter_spec[0] == 't') {
+    filter_type.value = 1;
+    filter_spec = filter_spec.slice(1);
+  }
+  filter_type.onchange = () => {
+    updateMessageInfo(parent.parentElement.parentElement);
+  };
   addLabel(s, 'Div',
-      'Divisor needed to shift BigNum right');
-  let f = addInputField(s, '', 50);
-  if (filter) f.value = filter[0];
+      'Divisor needed to extract the value');
+  let f = addInputField(s, '', 50, 'implied');
+  if (filter_spec) f.value = filter_spec[0];
+  f.oninput = (e) => {
+    updateMessageInfo(parent.parentElement.parentElement);
+  };
   addLabel(s, 'Mod',
-      'Modulus (typically equal to field size)');
+      'Modulus needed to extract the value ' +
+      '(typically equal to field size)');
   f = addInputField(s, '', 50);
-  if (filter) f.value = filter[1];
+  if (filter_spec) f.value = filter_spec[1];
+  f.oninput = (e) => {
+    updateMessageInfo(parent.parentElement.parentElement);
+  };
   addLabel(s, 'Value',
       'Expected value of extracted field');
   f = addInputField(s, '', 50);
-  if (filter) f.value = filter[2];
+  if (filter_spec) f.value = filter_spec[2];
   addButton(s, 'Delete', deleteFilter);
   return s;
 }
 
-function createOpaqueExtractor(parent, extractor = null, spec = null) {
+function createOpaqueExtractor(parent, extractor_spec = null,
+    label = '', long_label = '', units = '', resolution = '') {
   let s = addSection(parent);
-  let label = addLabel(s, 'Div',
+  let l = addLabel(s, 'Div',
       'Divisor needed to shift BigNum right for value extraction');
   let f = addInputField(s, '', 50, 'implied');
   if (mode == 'basic') {
-    label.hidden = true;
+    l.hidden = true;
     f.hidden = true;
   }
-  if (extractor) f.value = extractor[0];
+  f.oninput = (e) => {
+    updateMessageInfo(parent.parentElement.parentElement);
+  };
+  if (extractor_spec) f.value = extractor_spec[0];
   addLabel(s, (mode == 'basic') ? 'Size' : 'Mod',
       (mode == 'basic') ?
           'Field size (number of possible values)' :
           'Modulus (typically equal to field size)');
-  let size_f = addInputField(s, '', 50);
-  if (extractor) size_f.value = extractor[1];
-  if (mode == 'basic') {
-    size_f.oninput = (e) => {
-      updateMessageInfo(parent.parentElement);
-    };
-  }
+  f = addInputField(s, '', 50);
+  if (extractor_spec) f.value = extractor_spec[1];
+  f.oninput = (e) => {
+    updateMessageInfo(parent.parentElement.parentElement);
+  };
   addLabel(s, 'First value',
       'Value at index 0');
   f = addInputField(s, 0, 50);
-  if (extractor) f.value = extractor[2];
+  if (extractor_spec) f.value = extractor_spec[2];
   addLabel(s, 'Step',
       'Difference between successive values, can be negative');
   f = addInputField(s, 1, 50);
-  if (extractor) f.value = extractor[3];
+  if (extractor_spec) f.value = extractor_spec[3];
   addLabel(s, 'Label',
       'Short label such as "GpsSats", shown where space is tight. ' +
       'Defaults to a value such as "ET13".');
   f = addInputField(s, '', 75, 'default');
-  if (spec && spec.labels && spec.labels[num_opaque_extractors]) {
-    f.value = spec.labels[num_opaque_extractors];
-  }
+  f.value = label;
   addLabel(s, 'Long label',
       'Longer label such as "GPS Satellites", shown where more space is ' +
       'available. If left blank, defaults to the value of "Label".');
   f = addInputField(s, '', 100, '= Label');
-  if (spec && spec.long_labels && spec.long_labels[num_opaque_extractors]) {
-    f.value = spec.long_labels[num_opaque_extractors];
-  }
+  f.value = long_label;
   addLabel(s, 'Units',
       'Units such as " mph". Can be left blank. The space before units is ' +
       'significant: "4 V" vs. "4V".');
   f = addInputField(s, '', 50, 'none');
-  if (spec && spec.units && spec.units[num_opaque_extractors]) {
-    f.value = spec.units[num_opaque_extractors];
-  }
+  f.value = units;
   addLabel(s, 'Resolution',
       'Number of digits to display after the decimal point ' +
       '(e.g. 2 for "4.45V"). If blank or zero, values are shown as integers.');
   f = addInputField(s, '', 30, '0');
-  if (spec && spec.resolutions && spec.resolutions[num_opaque_extractors]) {
-    f.value = spec.resolutions[num_opaque_extractors];
-  }
+  f.value = resolution;
   addButton(s, 'Delete', deleteExtractor);
-  num_opaque_extractors++;
 }
 
-function updateMessageInfo(message) {
-  let info = message.lastElementChild;
-  let fields = [...message.children[0].children].slice(1);
-  const message_type = message.parentElement.children[1].value - 2;
-  const capacity = 194756140800.0 / [5, 320][message_type];
-  let total_size = 1;
-  for (const field of fields) {
-    const raw_size = field.children[3].value;
-    if (!raw_size) continue;
-    let size = Number(raw_size);
-    if (!size || size < 0) {
-      info.innerHTML = '';
-      return;
-    }
-    total_size *= size;
-  }
-  const size_left = capacity / total_size;
-  if (size_left >= 2) {
-    info.innerHTML =
-        `<font color="darkgreen">[ ${Math.log2(size_left).toFixed(2)} ` +
-        `bits remaining (${Math.floor(size_left)} values) ]</font>`;
-  } else if (size_left >= 1) {
-    info.innerHTML = '<font color="darkgreen">[ Full ]</font>';
-  } else {
-    info.innerHTML = `<font color="darkred">[ Overflow by ` +
-        `${-Math.log2(size_left).toFixed(2)} bits ]</font>`;
-  }
-}
-
-function createNativeExtractor(parent, extractor = null, spec = null) {
+function createNativeExtractor(parent, extractor_spec = null) {
   let s = addSection(parent);
   addLabel(s, 'Div');
   let f = addInputField(s, '', 50, 'implied');
-  if (extractor) f.value = extractor[0];
+  if (extractor_spec) f.value = extractor_spec[0];
   addLabel(s, 'Mod');
-  f = addInputField(s, '', 50);
-  if (extractor) f.value = extractor[1];
+  mod_f = addInputField(s, '', 50);
+  if (extractor_spec) mod_f.value = extractor_spec[1];
+  mod_f.oninput = (e) => {
+    updateMessageInfo(parent.parentElement.parentElement);
+  };
   addLabel(s, 'Type');
   const native_type = addSelectMenu(s,
       ['[100] Enhanced Longitude Resolution',
@@ -370,78 +479,62 @@ function createNativeExtractor(parent, extractor = null, spec = null) {
        '[123] Time Delta, Days',
        '[124] Grid4 Override (32400 Values)',
       ], null);
-  if (extractor && extractor[2][0] == 't') {
-    let value = Number(extractor[2].slice(1)) - 100;
-    if (value >= 20) value -= 10;  // account for gap
+  if (extractor_spec && extractor_spec[2][0] == 't') {
+    let value = Number(extractor_spec[2].slice(1)) - 100;
+    if (value >= 20) value -= 10;  // account for native type gap
     native_type.value = value;
   }
   addButton(s, 'Delete', deleteExtractor);
 }
 
-function createMessage(decoder = null, spec = null) {
-  let info;
-
-  let message_section = addSection(message_sections, 'box');
-  message_section.style.backgroundColor = '#eee';
-  addTextElement(message_section, 'h2', 'CT Message Definition');
-  addTypeAndSlotSelectors(message_section, decoder, spec)
-  if (mode == 'advanced') {
-    // Filters
-    let filters_wrapper = addSection(message_section, 'box');
-    filters_wrapper.style.backgroundColor = '#fff';
-    let filters_section = addSection(filters_wrapper);
-    addTextElement(filters_section, 'h3', 'Custom Filters');
-    if (decoder && decoder[0]) {
-      for (const filter of decoder[0]) {
-        if (filter[0] == 's' ||
-            ['ct', 'et', 'et0'].includes(filter[0])) {
-          continue;
-        }
-        createFilter(filters_section, filter);
+function updateMessageInfo(message) {
+  let info = message.lastElementChild;
+  let filters = (mode == 'basic') ?
+      [] : [...message.children[3].children[1].children];
+  let extractors =
+      [...message.children[mode == 'basic' ? 3 : 4].children[1].children];
+  const message_type = message.children[1].value - 2;
+  let next_div = [5, 320, 1][message_type];
+  let max_next_div = next_div;
+  for (const row of [...filters, ...extractors]) {
+    const is_filter = row.children.length < 10;
+    if (is_filter && row.children[1].value == 1) {
+      // Temporal filters do not effect next_div
+      continue;
+    }
+    const div_str = row.children[is_filter ? 3 : 1].value;
+    const mod_str = row.children[is_filter ? 5 : 3].value;
+    if (!mod_str) continue;
+    let div = next_div;
+    if (div_str) {
+      div = Number(div_str);
+      if (!div || div < 1) {
+        info.innerHTML = '';
+        return;
       }
     }
-    addButton(filters_wrapper, 'Add',
-        () => createFilter(filters_section));
-  }
-
-  // Extractors
-  let extractors_wrapper = addSection(message_section, 'box');
-  extractors_wrapper.style.backgroundColor = '#fff';
-  let extractors_section = addSection(extractors_wrapper);
-  addTextElement(extractors_section, 'h3',
-      (mode == 'basic') ? 'Fields' : 'Value Extractors');
-  if (decoder && decoder[1]) {
-    for (const extractor of decoder[1]) {
-      if (extractor && extractor[extractor.length - 1].startsWith('t')) {
-        createNativeExtractor(extractors_section, extractor, spec);
-      } else {
-        createOpaqueExtractor(extractors_section, extractor, spec);
-      }
+    let mod = Number(mod_str);
+    if (!mod || mod < 2) {
+      info.innerHTML = '';
+      return;
     }
+    next_div = div * mod;
+    max_next_div = Math.max(max_next_div, next_div);
   }
-
-  if (mode == 'basic') {
-    createOpaqueExtractor(extractors_section);
+  const size_left = 194756140800.0 / max_next_div;
+  if (size_left >= 2) {
+    info.innerHTML =
+        `<font color="darkgreen">[ ${Math.log2(size_left).toFixed(2)} ` +
+        `bits remaining (${Math.floor(size_left)} values) ]</font>`;
+  } else if (size_left >= 1) {
+    info.innerHTML = '<font color="darkgreen">[ Full ]</font>';
+  } else {
+    info.innerHTML = `<font color="darkred">[ Overflow by ` +
+        `${-Math.log2(size_left).toFixed(2)} bits ]</font>`;
   }
-  addButton(extractors_wrapper,
-      (mode == 'basic')? 'Add Another Field' : 'Add Opaque',
-      () => createOpaqueExtractor(extractors_section));
-
-  if (mode == 'advanced') {
-    addButton(extractors_wrapper, 'Add Native',
-        () => createNativeExtractor(extractors_section));
-  }
-
-  if (mode == 'basic') {
-    info = addTextElement(extractors_wrapper, 'span');
-    updateMessageInfo(extractors_wrapper);
-  }
-
-  addButton(message_section, 'Delete Message', deleteMessage);
 }
 
-function addTypeAndSlotSelectors(message_section,
-                                 decoder = null, spec = null) {
+function addTypeAndSlotSelectors(message, decoder = null) {
   let message_type_choices = [
     'Message type',
     '────────────',
@@ -450,12 +543,10 @@ function addTypeAndSlotSelectors(message_section,
   ];
   if (mode == 'advanced') message_type_choices.push('Raw');
   const message_type_selector =
-      addSelectMenu(message_section, message_type_choices, null);
-  if (mode == 'basic') {
-    message_type_selector.onchange = () => {
-      updateMessageInfo(message_section.children[3]);
-    };
-  }
+      addSelectMenu(message, message_type_choices, null);
+  message_type_selector.onchange = () => {
+    updateMessageInfo(message);
+  };
   if (decoder && decoder[0].some(f => (f[0] == 'ct' || f[0] == 'et'))) {
     message_type_selector.value = 2;
   } else if (decoder && decoder[0].some(f => f[0] == 'et0')) {
@@ -472,7 +563,7 @@ function addTypeAndSlotSelectors(message_section,
       'Slot 4'
   ];
   if (mode == 'advanced') slot_choices.push('Any slot');
-  const slot_selector = addSelectMenu(message_section, slot_choices, null);
+  const slot_selector = addSelectMenu(message, slot_choices, null);
   slot_selector.value = 3;
   if (decoder) {
     let found_slot = false;
@@ -485,37 +576,6 @@ function addTypeAndSlotSelectors(message_section,
     }
     if (!found_slot) slot_selector.value = 6;  // any slot
   }
-}
-
-function createMessages(spec = null) {
-  num_opaque_extractors = 0;
-  const wizard = document.getElementById('wizard');
-
-  let info_section = addSection(wizard, 'box');
-  let info = '<h3>Instructions</h3><br>Add one or more message definitions, ' +
-      'then click "<b>Generate URL</b>" at the bottom of the page.<br><br>' +
-      '<b>Custom Telemetry</b> = newer protocol offering 35.5 bits of ' +
-      'payload (not supported by all trackers)<br>' +
-      '<b>ET0</b> = older protocol offering 29.5 bits of payload<br><br>' +
-      '<b>Slot</b> - TX slot for this CT message, usually 2 - 4' +
-      ' (basic telemetry is in slot 1)<br><br>' +
-      'Fields are packed starting with the least significant position ' +
-      'in BigNum.<br><br>Hover over labels such as "Size" and "Step" to see ' +
-      'their meaning.';
-  info_section.innerHTML = info;
-  if (mode == 'advanced') info_section.hidden = true;
-
-  message_sections = addSection(wizard);
-  if (spec && spec.decoders) {
-    for (let decoder of spec.decoders) {
-      createMessage(decoder, spec);
-    }
-  } else {
-    createMessage();
-  }
-  addButton(wizard, 'Add Another CT Message', () => createMessage());
-
-  createMainParams(spec);
 }
 
 function createMainParams(spec = null) {
@@ -542,42 +602,49 @@ function createMainParams(spec = null) {
 
   wizard.appendChild(main_params);
 
-  tail = addSection(wizard);
-  addButton(tail, 'Generate URL', generateURL);
-  addButton(tail, 'Start Over', startOver);
+  let footer = addSection(wizard);
+  footer.id = 'footer';
+  addButton(footer, 'Generate URL', generateURL);
+  addButton(footer, 'Start Over', startOver);
 }
 
 function deleteFilter() {
+  const message =
+      this.parentElement.parentElement.parentElement.parentElement;
   this.parentElement.remove();
+  updateMessageInfo(message);
 }
 
 function deleteExtractor() {
-  const message_wrapper = this.parentElement.parentElement.parentElement;
+  const message =
+      this.parentElement.parentElement.parentElement.parentElement;
   this.parentElement.remove();
-  if (mode == 'basic') {
-    updateMessageInfo(message_wrapper);
-  }
+  updateMessageInfo(message);
 }
 
 function deleteMessage() {
   this.parentElement.remove();
 }
 
-function checkFilter(filter, row) {
+function checkFilter(filter, implied_div, row) {
+  let div = implied_div;
   try {
-    const div = Number(filter[0] || 'none');
-    if (!Number.isInteger(div) || div < 1) {
-      throw ['Filter divisor must be an integer >= 1', 3];
+    if (filter[1]) {
+      div = Number(filter[1]);
+      if (!Number.isInteger(div) || div < 1) {
+        throw ['Filter divisor must be an integer >= 1', 3];
+      }
     }
-    const mod = Number(filter[1] || 'none');
+    const mod = Number(filter[2] || 'none');
     if (!Number.isInteger(mod) || mod < 2) {
       throw ['Filter modulus must be an integer >= 2', 5];
     }
-    if (div * mod > 194756140800) {
+    if (!filter[0] && div * mod > 194756140800) {
+      // This check is only done for non-temporal filters
       throw ['Filter modulus is too large for BigNum', 5];
     }
-    if (filter[2] != 's') {
-      const value = Number(filter[2] || 'none');
+    if (filter[3] != 's') {
+      const value = Number(filter[3] || 'none');
       if (!Number.isInteger(value) || value < 0) {
         throw ['Filter value must be an integer >= 0', 7];
       }
@@ -695,22 +762,22 @@ function generateURL() {
   let resolutions = [];
   num_opaque_extractors = 0;
   let all_opaque_extractors = [];
-  for (const message_section of message_sections.children) {
+  for (const message of document.getElementById('messages').children) {
     let filters = [];
     let extractors = [];
-    let next_divisor = 1;
-    const message_type_selector = message_section.children[1];
-    const slot_selector = message_section.children[2];
+    let next_div = 1;
+    const message_type_selector = message.children[1];
+    const slot_selector = message.children[2];
     message_type_selector.className = '';
     slot_selector.className = '';
     if (message_type_selector.value == 2) {
       // Custom Telemetry
       filters.push(['ct']);
-      next_divisor = 5;
+      next_div = 5;
     } else if (message_type_selector.value == 3) {
       // ET0
       filters.push(['et0', '0']);
-      next_divisor = 320;
+      next_div = 320;
     } else if (message_type_selector.value != 4) {
       alert('Invalid message type');
       message_type_selector.className = 'error';
@@ -725,13 +792,21 @@ function generateURL() {
     }
     let filter_rows =
         (mode == 'basic') ? [] :
-        [...message_section.children[3].children[0].children].slice(1);
+        [...message.children[3].children[1].children];
+
     for (let i = 0; i < filter_rows.length; i++) {
       const filter_row = filter_rows[i];
-      let filter = [filter_row.children[3].value,
+      let filter = [filter_row.children[1].value,
+                    filter_row.children[3].value,
                     filter_row.children[5].value,
                     filter_row.children[7].value];
-      if (!checkFilter(filter, filter_row)) return;
+      if (!checkFilter(filter, next_div, filter_row)) return;
+      if (filter_row.children[3].value == '') {
+        next_div *= Number(filter[1]);
+        filter.shift();
+      } else {
+        next_div = Number(filter[0]) * Number(filter[1]);
+      }
       if (filter_row.children[1].value == 1) {
         // Temporal option selected
         filter.unshift('t');
@@ -740,7 +815,7 @@ function generateURL() {
     }
     const index = (mode == 'basic') ? 3 : 4;
     let extractor_rows =
-        [...message_section.children[index].children[0].children].slice(1);
+        [...message.children[index].children[1].children];
     for (let i = 0; i < extractor_rows.length; i++) {
       const extractor_row = extractor_rows[i];
       const is_native = (extractor_row.children.length == 7);
@@ -758,12 +833,12 @@ function generateURL() {
                      extractor_row.children[5].value,
                      extractor_row.children[7].value];
       }
-      if (!checkExtractor(extractor, next_divisor, extractor_row)) return;
+      if (!checkExtractor(extractor, next_div, extractor_row)) return;
       if (extractor_row.children[1].value == '') {
-        next_divisor *= Number(extractor[1]);
+        next_div *= Number(extractor[1]);
         extractor.shift();
       } else {
-        next_divisor = Number(extractor[0]) * Number(extractor[1]);
+        next_div = Number(extractor[0]) * Number(extractor[1]);
       }
       extractors.push(extractor);
       if (!is_native) {
@@ -860,10 +935,11 @@ function generateURL() {
 }
 
 function displayURL(url, extractors, labels, long_labels, units, resolutions) {
-  tail.remove();
-  tail = addSection(wizard);
+  document.getElementById('footer').remove();
+  const footer = addSection(wizard);
+  footer.id = 'footer';
 
-  let display_section = addSection(tail, 'box');
+  let display_section = addSection(footer, 'box');
   display_section.style.backgroundColor = '#f4f4f4';
   addTextElement(display_section, 'h3', 'WSPR TV URL');
 
@@ -899,7 +975,7 @@ function displayURL(url, extractors, labels, long_labels, units, resolutions) {
           `</b></font>: ${value.toFixed(resolution)}<br>`;
     }
     span2.innerHTML += `<br>If this doesn't look right, adjust the message ` +
-        `defintions and then click the "Update URL" button below.`;
+        `defintions and click the "<b>Update URL</b>" button below.`;
   }
 
   addVerticalSpace(display_section);
@@ -909,42 +985,14 @@ function displayURL(url, extractors, labels, long_labels, units, resolutions) {
   wizard_link.target = '_new3';
   display_section.appendChild(wizard_link);
 
-  addButton(tail, 'Update URL', generateURL);
-  addButton(tail, 'Copy URL', () => navigator.clipboard.writeText(url));
-  addButton(tail, 'Start Over', startOver);
+  addButton(footer, 'Update URL', generateURL);
+  addButton(footer, 'Copy URL', () => navigator.clipboard.writeText(url));
+  addButton(footer, 'Start Over', startOver);
 }
 
 function startOver() {
   setURL(location.pathname);
   start();
-}
-
-// Entry point
-function start() {
-  let wizard = document.getElementById('wizard');
-  wizard.innerHTML = '';
-
-  const spec = getURLParameter(location.search, 'spec');
-  if (spec) {
-    importWSPRTVURL(spec);
-    return;
-  }
-
-  addSelectMenu(wizard,
-      ['What would you like to do?',
-       '────────────',
-       'Create a new definition [basic]',
-       'Create a new definition [advanced]',
-       'Import a WSPR TV URL',
-      ], handleRootAction);
-  // Add the user guide link
-  const link = document.createElement('a');
-  link.href =
-      'https://wsprtv.com/docs/user_guide.html#u4b-custom-telemetry';
-  link.textContent = 'ℹ️';
-  link.style.textDecoration = 'none';
-  link.target = '_new3';
-  wizard.appendChild(link);
 }
 
 start();

@@ -2841,7 +2841,7 @@ function parseCustomTelemetrySpec() {
   if (!/^[0-9cets,:_~.-]+$/.test(ct_decoders_param)) return null;
   let decoders = [];
   for (const decoder_spec of ct_decoders_param.toLowerCase().split('~')) {
-    let header_divisor = 1;
+    let next_divisor = 1;
     let [filters_spec, extractors_spec] = decoder_spec.split('_');
     // Parse filters
     let filters = [];
@@ -2850,22 +2850,36 @@ function parseCustomTelemetrySpec() {
         let filter = filter_spec.split(':');
         if (filter.length == 1 &&
             (filter[0] == 'ct' || filter[0] == 'et')) {
-          if (header_divisor != 1) return null;
+          if (next_divisor != 1) return null;
           filters.push([1, 5, 's']);
-          header_divisor = 5;
+          next_divisor = 5;
           continue;
         } else if (filter.length == 2 && ['et0', 's'].includes(filter[0])) {
           filter[1] = Number(filter[1]);
           if (!Number.isInteger(filter[1]) || filter[1] < 0) return null;
           if (filter[0] == 'et0') {
-            if (header_divisor != 1) return null;
+            if (next_divisor != 1) return null;
             filters.push([1, 5, 's']);
             filters.push([5, 4, 0]);
             filters.push([20, 16, filter[1]]);
-            header_divisor = 320;
-            continue;
+            next_divisor = 320;
+          } else {
+            // 's'
+            filters.push(filter);
           }
-        } else if (filter.length == 4 && filter[0] == 't') {
+          continue;
+        }
+        const is_temporal = (filter[0] == 't');
+        if (is_temporal) {
+          filter.shift();
+        }
+        if (filter.length == 2) {
+          filter.unshift(next_divisor);
+        }
+        if (is_temporal) {
+          filter.unshift('t');
+        }
+        if (filter.length == 4 && filter[0] == 't') {
           filter = [filter[0], Number(filter[1]), Number(filter[2]),
                     Number(filter[3])];
           if (!filter.slice(1).every(v => Number.isInteger(v)) ||
@@ -2879,15 +2893,19 @@ function parseCustomTelemetrySpec() {
               filter[0] <= 0 || filter[1] <= 1 || filter[2] < 0) {
             return null;
           }
+          next_divisor = filter[0] * filter[1];
         } else {
           return null;
         }
         filters.push(filter);
       }
     }
+    if (next_divisor == 128000000000) {
+      // Hack to support old URLs for Dave's 83 flight
+      next_divisor = 320;
+    }
     // Parse extractors
     let extractors = [];
-    let next_divisor = header_divisor;
     if (extractors_spec) {
       for (const extractor_spec of extractors_spec.split(',')) {
         let extractor = extractor_spec.split(':');

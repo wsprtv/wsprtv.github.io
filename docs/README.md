@@ -747,7 +747,7 @@ removed) was received in the correct slot. To do this, we divide
 the special variable `slot`.
 
 We then access the adjacent `HdrRESERVED` field by dividing `BigNumber` by 5 
-(this skips over `HdrSlot`) and extracting 1 of 4 possible values 
+(this skips over `HdrSlot`) and extracting the 4 possible values 
 using a modulus of 4. This value also has to be equal to 0 (for 
 ET0).
 
@@ -755,6 +755,14 @@ Finally, we check that `HdrType` is equal to 0. We skip over both the `HdrSlot`
 and `HdrRESERVED` fields, hence the division is by 5 * 4 = 20. We use a modulus 
 of 16 to extract the 16 possible values. This value also has to be equal to 0 (for
 `USER_DEFINED`).
+
+If the divisor in a filter is missing, it is **implied** to equal
+the previous divisor multiplied by the previous modulus.
+In other words, the divisor is set to the end of the previous filter
+field. If no initial divisor is specified anywhere, the
+first divisor starts at 1 for unspecified protocols and at
+the end of the headers for known protocols (e.g., initial_divisor = 5
+when one of the filters in the message definition is `ct`).
 
 ### Temporal Filters
 
@@ -795,7 +803,6 @@ slot = value
 
 This enables different handling of messages in, for example, slot 2 
 versus slot 3.
-
 
 ### Opaque Value Extraction
 
@@ -844,9 +851,10 @@ The divisor here is **implied** by taking the previous divisor and
 multiplying it by the modulus of the previous extractor. In other words, 
 the divisor is set to the end of the previous value. If no initial 
 divisor is specified anywhere (i.e., all extractors are 3-term), the 
-first divisor starts at 1 for unspecified protocols and at the end of 
-the headers for known protocols (e.g., initial_divisor = 320 when one of 
-the filters in the message definition is `et0`).
+first divisor starts at the end of custom filters. If no custom filters
+are specified, the first divisor is 1 for unspecified protocols and at
+the end of the headers for known protocols (e.g., initial_divisor = 320
+when one of the filters in the message definition is `et0`).
 
 For the previous Pressure / Heading example, the extractor specification 
 becomes:
@@ -967,7 +975,9 @@ A filter can have one of the following forms:
 
 ```
 <divisor>:<modulus>:<expected_value>
+<modulus>:<expected_value>  (implied divisor)
 t:<divisor>:<modulus>:<expected_value>
+t:<modulus>:<expected_value> (implied divisor)
 s:<slot>
 
 ```
@@ -991,15 +1001,15 @@ An opaque value extractor can have either a 3-term or 4-term format,
 depending on whether the divisor is explicit or implicit:
 
 ```
-<modulus>:<start_value>:<step>
 <divisor>:<modulus>:<start_value>:<step>
+<modulus>:<start_value>:<step>  (implied divisor)
 ```
 
 Native value extractors specify their type after the modulus:
 
 ```
-<modulus>:t<type_id>
 <divisor>:<modulus>:t<type_id>
+<modulus>:t<type_id>  (implied divisor)
 ```
 
 Finally, a set of annotation parameters -- `ct_labels`, `ct_llabels`, 
