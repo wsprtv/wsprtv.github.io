@@ -496,8 +496,8 @@ function updateMessageInfo(message) {
   const message_type = message.children[1].value - 2;
   let next_div = [5, 320, 1][message_type];
   let max_next_div = next_div;
-  for (const row of [...filters, ...extractors]) {
-    const is_filter = row.children.length < 10;
+  for (const [i, row] of [...filters, ...extractors].entries()) {
+    const is_filter = i < filters.length;
     if (is_filter && row.children[1].value == 1) {
       // Temporal filters do not effect next_div
       continue;
