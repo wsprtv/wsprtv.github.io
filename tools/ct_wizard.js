@@ -629,22 +629,22 @@ function deleteMessage() {
 function checkFilter(filter, implied_div, row) {
   let div = implied_div;
   try {
-    if (filter[1]) {
+    if (filter[0]) {
       div = Number(filter[1]);
       if (!Number.isInteger(div) || div < 1) {
         throw ['Filter divisor must be an integer >= 1', 3];
       }
     }
-    const mod = Number(filter[2] || 'none');
+    const mod = Number(filter[1] || 'none');
     if (!Number.isInteger(mod) || mod < 2) {
       throw ['Filter modulus must be an integer >= 2', 5];
     }
-    if (!filter[0] && div * mod > 194756140800) {
+    if (!row.children[1].value == 0 && div * mod > 194756140800) {
       // This check is only done for non-temporal filters
       throw ['Filter modulus is too large for BigNum', 5];
     }
-    if (filter[3] != 's') {
-      const value = Number(filter[3] || 'none');
+    if (filter[2] != 's') {
+      const value = Number(filter[2] || 'none');
       if (!Number.isInteger(value) || value < 0) {
         throw ['Filter value must be an integer >= 0', 7];
       }
@@ -796,19 +796,22 @@ function generateURL() {
 
     for (let i = 0; i < filter_rows.length; i++) {
       const filter_row = filter_rows[i];
-      let filter = [filter_row.children[1].value,
-                    filter_row.children[3].value,
+      let filter = [filter_row.children[3].value,
                     filter_row.children[5].value,
                     filter_row.children[7].value];
       if (!checkFilter(filter, next_div, filter_row)) return;
+      const is_temporal = filter_row.children[1].value == 1;
       if (filter_row.children[3].value == '') {
-        next_div *= Number(filter[1]);
+        if (!is_temporal) {
+          next_div *= Number(filter[1]);
+        }
         filter.shift();
       } else {
-        next_div = Number(filter[0]) * Number(filter[1]);
+        if (!is_temporal) {
+          next_div = Number(filter[0]) * Number(filter[1]);
+        }
       }
-      if (filter_row.children[1].value == 1) {
-        // Temporal option selected
+      if (is_temporal) {
         filter.unshift('t');
       }
       filters.push(filter);
