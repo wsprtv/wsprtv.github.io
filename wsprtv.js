@@ -1573,6 +1573,8 @@ function displayTrack() {
   marker_group.on('mouseover', onMarkerMouseover);
   marker_group.on('mouseout', onMarkerMouseout);
   marker_group.on('click', onMarkerClick);
+
+  highlighted_spot = null;
 }
 
 function onMarkerMouseover(e) {
@@ -1955,7 +1957,6 @@ async function update(incremental_update = false) {
 
     if (document.getElementById('map').style.display == 'block') {
       // Map view active
-      highlighted_spot = undefined;
       displayTrack();
     } else {
       // Data view is active
@@ -2499,9 +2500,11 @@ function showDataView() {
   document.getElementById('map').style.display = 'none';
   document.getElementById('show_data_button').style.display = 'none';
   document.getElementById('control_panel').style.display = 'none';
+  if (selected_marker) {
+    highlighted_spot = selected_marker.spot;
+  }
   clearTrack();
   clearDataView();
-  highlighted_spot = undefined;
 
   let data_view = document.getElementById('data_view');
   data_view.style.display = 'block';
@@ -2740,9 +2743,14 @@ function showDataView() {
   }
   table.appendChild(row);
 
+  let highlighted_row;
   for (let i = table_data[0].length - 1; i >= 0; i--) {
     let row = document.createElement('tr');
     row.id = `row_${i}`;
+    if (spots[i] == highlighted_spot) {
+      row.style.backgroundColor = '#fffdcc';
+      highlighted_row = row;
+    }
     for (let j = 0; j < table_data.length; j++) {
       let value = table_data[j][i];
       if (value == null) {
@@ -2761,6 +2769,10 @@ function showDataView() {
   div.appendChild(table);
   data_view.appendChild(div);
 
+  if (highlighted_row) {
+    highlighted_row.scrollIntoView({ block: 'center' });
+  }
+
   data_view.onscrollend = () => {
     last_data_view_scroll_pos = data_view.scrollTop;
   }
@@ -2768,6 +2780,8 @@ function showDataView() {
   setTimeout(() => {
     data_view.scrollTop = last_data_view_scroll_pos;
   }, 5);
+
+  highlighted_spot = null;
 }
 
 function toggleDataViewDetail() {
