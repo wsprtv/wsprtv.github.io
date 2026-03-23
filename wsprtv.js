@@ -35,6 +35,7 @@ let marker_group;
 let marker_line;
 let last_marker;  // used to periodically update the 'last ago' message
 let selected_marker;  // currently selected (clicked) marker
+let highlighted_spot;
 
 let data = [];  // raw wspr.live telemetry data
 let spots = [];  // merged / annotated telemetry data
@@ -1398,6 +1399,7 @@ function displayTrack() {
   clearTrack();
   marker_group = L.featureGroup();
 
+  let highlighted_marker;
   for (let i = 0; i < spots.length; i++) {
     let spot = spots[i];
     if (spot.is_unattached && show_unattached_param == null) {
@@ -1422,6 +1424,9 @@ function displayTrack() {
                 'white' : (spot.fill || '#add8e6'),
             weight: 1,
             stroke: true, fillOpacity: 1 });
+    }
+    if (spot == highlighted_spot) {
+      highlighted_marker = marker;
     }
     marker.spot = spot;
     marker.addTo(marker_group);
@@ -1463,6 +1468,11 @@ function displayTrack() {
   }
 
   marker_group.addTo(map);
+
+  if (highlighted_marker) {
+    highlighted_marker.setStyle({ fillColor: '#ffdd03' });
+    highlighted_marker.bringToFront();
+  }
 
   if (nomirror_param == null) mirrorTrack();
 
@@ -1945,6 +1955,7 @@ async function update(incremental_update = false) {
 
     if (document.getElementById('map').style.display == 'block') {
       // Map view active
+      highlighted_spot = undefined;
       displayTrack();
     } else {
       // Data view is active
@@ -2421,6 +2432,23 @@ function createWSPRViewLink(i) {
       `onclick="toggleWSPRView(${i}); event.preventDefault()">📄</a>`;
 }
 
+function createHighlightSpotLink(i) {
+  return `<a href="#" class="plain_link" ` +
+      `title="Click to highlight spot on the map" ` +
+      `onclick="highlightSpot(${i - 1}); event.preventDefault()">${i}</a>`;
+}
+
+function highlightSpot(i) {
+  const spot = spots[i];
+  if (spot.is_unattached && show_unattached_param == null) {
+    alert('To highlight unattached spots, add &show_unattached to the URL');
+    return;
+  }
+  highlighted_spot = spot;
+  closeDataView();
+  map.setView([spot.lat, spot.lon]);
+}
+
 function toggleWSPRView(i) {
   const row = document.getElementById(`row_${i}`);
   if (!row) return;
@@ -2473,6 +2501,7 @@ function showDataView() {
   document.getElementById('control_panel').style.display = 'none';
   clearTrack();
   clearDataView();
+  highlighted_spot = undefined;
 
   let data_view = document.getElementById('data_view');
   data_view.style.display = 'block';
@@ -2510,8 +2539,8 @@ function showDataView() {
   let table_headers = ['#'];
   let long_headers = ['#'];
   let table_data = [Array.from(
-      { length: spots.length }, (_, i) => i + 1)];
-  let field_specs = [{}];
+      { length: spots.length }, (_, i) => createHighlightSpotLink(i + 1))];
+  let field_specs = [{ format: 'html' }];
   let table_formatters = [null];
   let graph_fetchers = [];
   let graph_formatters = [];
@@ -2611,7 +2640,6 @@ function showDataView() {
   }
 
   // Add raw WSPR data column
-  // table_headers.push('🛈');
   table_headers.push('WSPR');
   long_headers.push('Raw WSPR Data');
   table_data.push(Array.from(
@@ -2690,11 +2718,13 @@ function showDataView() {
   div.appendChild(
       createDataViewButton('Toggle Units', toggleUnits));
   // When exporting CSV, omit the last column, which is a link to
-  // raw WSPR data
+  // raw WSPR data. Also, rewrite the first column to contain plain
+  // row ids.
   div.appendChild(
       createDataViewButton('Export CSV',
           () => downloadCSV(long_headers.slice(0, -1),
-              table_data.slice(0, -1), table_formatters)));
+              [Array.from({ length: table_data[0].length }, (_, i) => i + 1),
+               ...table_data.slice(1, -1)], table_formatters)));
   div.appendChild(
       createDataViewButton('Get Raw Data', () => downloadJSON(spots)));
 
