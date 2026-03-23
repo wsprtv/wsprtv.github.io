@@ -2769,17 +2769,19 @@ function showDataView() {
   div.appendChild(table);
   data_view.appendChild(div);
 
-  if (highlighted_row) {
-    highlighted_row.scrollIntoView({ block: 'center' });
-  }
-
   data_view.onscrollend = () => {
     last_data_view_scroll_pos = data_view.scrollTop;
   }
 
-  setTimeout(() => {
-    data_view.scrollTop = last_data_view_scroll_pos;
-  }, 5);
+  if (highlighted_row) {
+    setTimeout(() => {
+      highlighted_row.scrollIntoView({ block: 'center' });
+    }, 100);
+  } else {
+    setTimeout(() => {
+      data_view.scrollTop = last_data_view_scroll_pos;
+    }, 5);
+  }
 
   highlighted_spot = null;
 }
