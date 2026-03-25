@@ -143,7 +143,7 @@ function start() {
   // Add the user guide link
   const link = document.createElement('a');
   link.href =
-      'https://wsprtv.com/docs/user_guide.html#u4b-custom-telemetry';
+      'https://wsprtv.com/docs/user_guide.html#u4b-custom-telemetry-(ct)';
   link.textContent = 'ℹ️';
   link.style.textDecoration = 'none';
   link.target = '_new3';
@@ -222,7 +222,8 @@ function importWSPRTVURL(url) {
         if (!filter_spec) continue;
         let filter = filter_spec.split(':');
         const is_temporal = filter[0] == 't';
-        if (filter.length == (2 + (is_temporal ? 1 : 0)) && filter[0] != 's') {
+        if (filter.length == (2 + (is_temporal ? 1 : 0)) &&
+            !['ct', 'et', 'et0', 's'].includes(filter[0])) {
           if (is_temporal) {
             filter.shift();
           }
