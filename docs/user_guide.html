@@ -601,6 +601,7 @@ other types use <code class="notranslate">first_value</code> and <code class="no
 <ul>
 <li>Type 140: new spot</li>
 <li>Type 141: switch to</li>
+<li>Type 142: alias to</li>
 </ul>
 <p>Type 140 creates a new spot (empty, with only the timestamp inherited
 from the parent spot), while type 141 switches to another previously
@@ -608,6 +609,11 @@ created spot. Switching may be necessary to specify which spot a
 subsequent type applies to. By default, new CT messages modify the
 original (parent) spot.</p>
 <p>Both of these types take a single attribute -- a user-chosen spot id.</p>
+<p>Type 142, aliasing, allows one opaque type to be aliased to another,
+so that they can both be shown in the same column of the data table and
+on the same graph, even though they come from different CT messages.
+The parameter to type 142 is the index of the previously defined
+opaque type (starting from 0).</p>
 <h3 id="custom-telemetry-message-definition">Custom Telemetry Message Definition</h3>
 <p>WSPR TV has an extremely flexible custom telemetry definition
 mechanism that is able to decode CT, ET0, or any past or

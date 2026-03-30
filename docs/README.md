@@ -681,6 +681,7 @@ other types use `first_value` and `step` attributes similar to opaque types.
 
 - Type 140: new spot
 - Type 141: switch to
+- Type 142: alias to
 
 Type 140 creates a new spot (empty, with only the timestamp inherited 
 from the parent spot), while type 141 switches to another previously 
@@ -689,6 +690,12 @@ subsequent type applies to. By default, new CT messages modify the
 original (parent) spot.
 
 Both of these types take a single attribute -- a user-chosen spot id.
+
+Type 142, aliasing, allows one opaque type to be aliased to another,
+so that they can both be shown in the same column of the data table and
+on the same graph, even though they come from different CT messages.
+The parameter to type 142 is the index of the previously defined
+opaque type (starting from 0).
 
 ### Custom Telemetry Message Definition
 
