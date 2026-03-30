@@ -68,7 +68,7 @@ special callsigns, begin 2 minutes into the 10-minute cycle, and
 transmit in the last 40 Hz of the band.</p>
 <p>Additional special callsign messages may follow in slots 2-4,
 representing <strong>custom telemetry (CT)</strong>. Custom telemetry is
-discussed in detail <a href="#u4b-custom-telemetry">below</a>.</p>
+discussed in detail <a href="#u4b-custom-telemetry-(ct)">below</a>.</p>
 <p>U4B channels are allowed to have a <code class="notranslate">V&lt;variant&gt;</code> suffix, such as
 <code class="notranslate">321V100</code>, to enable
 <a href="#u4b-experimental-extensions">certain experimental extensions</a>.</p>
@@ -216,7 +216,7 @@ respectively) and will pre-fill the control panel parameters. Example:
 <code class="notranslate">cs=AB1CDE&amp;ch=321&amp;band=10m&amp;start_date=2025-07-15</code>.</p>
 <p>Custom-telemetry-related URL parameters <code class="notranslate">ct_dec</code>, <code class="notranslate">ct_labels</code>,
 <code class="notranslate">ct_llabels</code>, <code class="notranslate">ct_units</code>, and <code class="notranslate">ct_res</code> are discussed in the
-<a href="#u4b-custom-telemetry">Custom Telemetry section</a> of this guide.</p>
+<a href="#u4b-custom-telemetry-(ct)">Custom Telemetry section</a> of this guide.</p>
 <h2 id="map-view">Map View</h2>
 <p>A track is rendered as a sequence of small white grid4 markers (low
 resolution) and larger light blue grid6 markers (high resolution).
@@ -556,8 +556,8 @@ by 3) to extract the value of <code class="notranslate">value3</code>.</p>
 can be graphed and displayed in a table, but their meaning is otherwise
 not known to WSPR TV. By contrast, native values have a well-defined type,
 and can influence the site's function at a more fundamental level.</p>
-<p><strong>Resolution / range</strong></p>
-<p>Currently, 10 native resolution / range types are supported:</p>
+<p><strong>Resolution / Range Enhancers</strong></p>
+<p>Currently, 10 enhanced telemetry resolution / range types are supported:</p>
 <ul>
 <li>Type 100: enhanced longitude resolution</li>
 <li>Type 101: enhanced latitude resolution</li>
@@ -570,7 +570,7 @@ and can influence the site's function at a more fundamental level.</p>
 <li>Type 108: enhanced speed resolution</li>
 <li>Type 109: enhanced speed range</li>
 </ul>
-<p>These types increase the resolution or range of standard U4B telemetry.
+<p>These types increase the resolution or range of standard (grid6) U4B telemetry.
 The additional resolution / range depend on the size of the corresponding
 custom telemetry fields. For example, if 10 values are allocated to type 102,
 altitude resolution improves by a factor of 10, from 20m to 2m. If 3 values are
@@ -582,30 +582,32 @@ alternates as the value of the range increases. For example, when type 107
 (enhanced voltage range) value is 1, the range spans 5 - 7V. When the value
 is 2, the range becomes 1 - 3V. Other ranges, such as speed and altitude,
 grow in the positive direction only.</p>
-<p><strong>Historical Data</strong></p>
+<p><strong>Setters</strong></p>
 <ul>
-<li>Type 120: Time delta, minutes</li>
-<li>Type 121: Time delta, 10 minute cycles</li>
-<li>Type 122: Time delta, hours</li>
-<li>Type 123: Time delta, days</li>
-<li>Type 124: Grid4 override (32400 values)</li>
+<li>Type 120: time offset (seconds)</li>
+<li>Type 121: longitude</li>
+<li>Type 122: latitude</li>
+<li>Type 123: grid4 longitude resolution</li>
+<li>Type 124: grid4 latitude resolution</li>
+<li>Type 125: altitude</li>
+<li>Type 126: temperature</li>
+<li>Type 127: voltage</li>
+<li>Type 128: speed</li>
 </ul>
-<p>To send historical data, a time offset can be specified relative to the TX
-timestamp. All of these values can be as large as necessary (e.g. 2000
-minutes). Do not specify more than one time delta type.</p>
-<p><code class="notranslate">Grid4 override</code> is used to replace the grid4 value received in the regular
-callsign message, as well as to set <code class="notranslate">is_gps_value = true</code> in the standard
-telemetry message.</p>
-<p>The recommended way to send historical data is as follows:</p>
+<p>These types can set / override various spot attributes. Longitude / latitude
+setters subdivide a geographical area (grid4 or the entire world), while
+other types use <code class="notranslate">first_value</code> and <code class="notranslate">step</code> attributes similar to opaque types.</p>
+<p><strong>Other</strong></p>
 <ul>
-<li>Send a regular callsign message with the current location. If no other
-messages are received, this data will still be valid.</li>
-<li>Send a standard telemetry message with <code class="notranslate">is_valid_gps = false</code> and all other
-fields pertaining to the historical spot. If no other messages are
-received, this message will be ignored.</li>
-<li>Send an custom telemetry message specifying the time delta and replacing
-the <code class="notranslate">grid4</code> value in the regular callsign message with the historical value.</li>
+<li>Type 140: new spot</li>
+<li>Type 141: switch to</li>
 </ul>
+<p>Type 140 creates a new spot (empty, with only the timestamp inherited
+from the parent spot), while type 141 switches to another previously
+created spot. Switching may be necessary to specify which spot a
+subsequent type applies to. By default, new CT messages modify the
+original (parent) spot.</p>
+<p>Both of these types take a single attribute -- a user-chosen spot id.</p>
 <h3 id="custom-telemetry-message-definition">Custom Telemetry Message Definition</h3>
 <p>WSPR TV has an extremely flexible custom telemetry definition
 mechanism that is able to decode CT, ET0, or any past or
@@ -662,7 +664,7 @@ ET0).</p>
 and <code class="notranslate">HdrRESERVED</code> fields, hence the division is by 5 * 4 = 20. We use a modulus
 of 16 to extract the 16 possible values. This value also has to be equal to 0 (for
 <code class="notranslate">USER_DEFINED</code>).</p>
-<p>If the divisor in a filter is missing, it is <strong>implied</strong> to equal
+<p>If the divisor in a filter tuple is missing, it is <strong>implied</strong> to equal
 the previous divisor multiplied by the previous modulus.
 In other words, the divisor is set to the end of the previous filter
 field. If no initial divisor is specified anywhere, the
@@ -675,7 +677,7 @@ types within the same slot -- without using any extra bits to indicate
 which schema is in use -- via the <code class="notranslate">tx_seq</code> variable.</p>
 <p><code class="notranslate">tx_seq</code> represents the transmission slot sequence number, which
 increments every 2 minutes and resets every month. If the GPS <strong>UTC</strong>
-time of the <strong>regular callsign</strong> transmission preceding an custom
+time of the <strong>regular callsign</strong> transmission preceding a custom
 telemetry message is <code class="notranslate">YYY-MM-DD HH:MM</code>, <code class="notranslate">tx_seq</code> is calculated as
 follows:</p>
 <pre class="notranslate"><code class="notranslate">tx_seq = ((DD - 1) * 720) + (HH * 30) + (MM / 2)
@@ -826,9 +828,9 @@ separated from each other with commas (<code class="notranslate">,</code>):</p>
 <p>A filter can have one of the following forms:</p>
 <pre class="notranslate"><code class="notranslate">&lt;divisor&gt;:&lt;modulus&gt;:&lt;expected_value&gt;
 &lt;modulus&gt;:&lt;expected_value&gt;  (implied divisor)
-t:&lt;divisor&gt;:&lt;modulus&gt;:&lt;expected_value&gt;
-t:&lt;modulus&gt;:&lt;expected_value&gt; (implied divisor)
 s:&lt;slot&gt;
+&lt;divisor&gt;:&lt;modulus&gt;:&lt;expected_value&gt;:t
+&lt;modulus&gt;:&lt;expected_value&gt;:t (implied divisor)
 
 </code></pre>
 <p>with the latter two representing temporal conditions. Shortcuts for
@@ -849,6 +851,8 @@ depending on whether the divisor is explicit or implicit:</p>
 <pre class="notranslate"><code class="notranslate">&lt;divisor&gt;:&lt;modulus&gt;:t&lt;type_id&gt;
 &lt;modulus&gt;:t&lt;type_id&gt;  (implied divisor)
 </code></pre>
+<p>An optional <code class="notranslate">&lt;first_value&gt;</code> and an optional <code class="notranslate">&lt;step&gt;</code> may follow
+<code class="notranslate">&lt;type_id&gt;</code> for certain types.</p>
 <p>Finally, a set of annotation parameters -- <code class="notranslate">ct_labels</code>, <code class="notranslate">ct_llabels</code>,
 <code class="notranslate">ct_units</code>, and <code class="notranslate">ct_res</code> -- can be used to customize the display of opaque CT
 values. All of these are a comma-separated list of parameters, with one
@@ -913,7 +917,7 @@ incorrectly set receiver clocks, which can result in telemetry being
 assigned to the wrong time slot.</p>
 <p>Buckets are color-coded based on their count: <strong>green</strong> indicates that
 no standard telemetry has been observed in any 1-hour slots, while <strong>red</strong>
-represents multiple hours of daily use over an custom period. For
+represents multiple hours of daily use over an extended period. For
 example, a tracker that transmits for 10 hours every day will show a
 count of about 300 after 30 days. <strong>Yellow and orange</strong> fall in between,
 with yellow in particular sometimes reflecting leakage from a nearby

@@ -1,0 +1,5 @@
+# Use python3 -m http.server to test URLs locally
+1: http://localhost:8000/?cs=TE5T&ch=t1&band=20m&ct_dec=ct,s:1_480:t123,480:t124,1690:t125:0:10,100:t128:0:3
+2: http://localhost:8000/?cs=TE5T&ch=t2&band=20m&start_date=2026-03-01&ct_dec=ct,s:2_1:t140:1,5:4320:t122,4320:t121,1068:t125:0:20,1:t120:86400:1
+3: http://localhost:8000/?cs=TE5T&ch=t3&band=20m&ct_dec=ct,s:2_1:t140:1,10080:t120:0:120,180:t122,180:t121,115:t128:0:3~ct,s:3_1:t141:1,24:t124,24:t123,1700:t125:0:10,80:t127:2:0.05,120:t126:-70:1,1:t141:0,5:24:0:1
+4: http://localhost:8000/?cs=TE5T&ch=t4&band=20m&ct_dec=ct,s:2_100:0:1,100:0:1~ct,s:3_1:t142:1,100:0:1,100:0:1&ct_labels=A,B,B,C

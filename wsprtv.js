@@ -39,7 +39,6 @@ let highlighted_spot;
 
 let data = [];  // raw wspr.live telemetry data
 let spots = [];  // merged / annotated telemetry data
-let forked_spots = [];  // forked historical spots
 
 let params;  // form / URL params
 let debug = 0;  // controls console logging
@@ -138,12 +137,13 @@ function parseDate(date_str, use_utc) {
   }
 }
 
-// Formats a Date() object to a string such as '2025-07-15 12:00:00'
+// Formats a Date() object to a string such as '2025-07-15 12:00'
 function formatTimestamp(ts, force_utc = 0) {
   if (params && params.use_utc == 0 && !force_utc) {
     ts = new Date(ts.getTime() - ts.getTimezoneOffset() * 60000);
   }
-  return ts.toISOString().slice(0, 16).replace('T', ' ');
+  const length = (ts.getSeconds() == 0) ? 16 : 19;
+  return ts.toISOString().slice(0, length).replace('T', ' ');
 }
 
 // Extracts a parameter value from the URL
@@ -210,6 +210,9 @@ function parseParameters() {
     } else if (/^C(\d+)?$/i.test(raw_ch)) {
       ch = raw_ch.length > 1 ? Number(raw_ch.slice(1)) : 0;
       tracker = 'custom';
+    } else if (/^T(\d+)?$/i.test(raw_ch)) {
+      ch = raw_ch.length > 1 ? Number(raw_ch.slice(1)) : 0;
+      tracker = 'test';
     } else {
       alert('Unknown tracker type: ' + raw_ch[0]);
       return null;
@@ -362,6 +365,7 @@ function getCustomTelemetrySlots(ct_spec) {
 
 // Returns TX minute for given slot in the U4B protocol
 function getU4BSlotMinute(slot) {
+  if (params.tracker == 'test') return slot * 2;
   const [starting_minute_offset, _, _2] = kWSPRBandInfo[params.band];
   return (starting_minute_offset + ((params.ch % 5) + slot) * 2) % 10;
 }
@@ -552,7 +556,7 @@ function matchTelemetry(data) {
         if (last_spot.slots[0].grid.slice(0, 4) == row.grid.slice(0, 4)) {
           last_spot.slots[slot] = row;
         }
-      } else if (params.tracker == 'u4b') {
+      } else if (params.tracker == 'u4b' || params.tracker == 'test') {
         // U4B frequency matching
         if (!last_spot.slots[slot]) {
           // New slot. Reset max coreception match score.
@@ -743,13 +747,28 @@ function processWB8ELKSlot1Message(spot) {
 
 // Annotates telemetry spots (appends lat, lon, speed, etc)
 function decodeSpots() {
-  forked_spots = [];  // historical spots are forked when decoded
   spots = spots.filter(spot => decodeSpot(spot));
-  spots = [...spots, ...forked_spots];
+  spots = [...spots, ...extractSiblingSpots(spots)];
   // Resort spots as timestamps may have changed (e.g. due to
   // time delta native types).
   spots.sort((s1, s2) =>
       (s1.ts - s2.ts) || ((s1.tx_ts || 0) - (s2.tx_ts || 0)));
+}
+
+function extractSiblingSpots(spots) {
+  let siblings = [];
+  for (let spot of spots) {
+    while (spot.next_sibling) {
+      const next_sibling = spot.next_sibling;
+      if (next_sibling.lat != undefined &&
+          next_sibling.lon != undefined) {
+        siblings.push(next_sibling);
+      }
+      delete spot.next_sibling;
+      spot = next_sibling;
+    }
+  }
+  return siblings;
 }
 
 // Decodes and annotates a spot
@@ -782,7 +801,7 @@ function decodeSpot(spot) {
     }
     // Grid comes from slot1 (type 3) message
     spot.grid = spot.slots[1].grid;
-  } else if (params.tracker == 'u4b') {
+  } else if (params.tracker == 'u4b' || params.tracker == 'test') {
     // Default: U4B
     if (spot.slots[1]) {
       if (!processU4BSlot1Message(spot)) {
@@ -796,26 +815,19 @@ function decodeSpot(spot) {
       }
     }
   }
-  if (spot.raw_ct) decodeCustomTelemetry(spot);
   if (spot.lat == undefined) {
     [spot.lat, spot.lon] = maidenheadToLatLon(spot.grid);
   }
-  if (spot.slots[1] && spot.native_ct) {
-    processNativeCustomTelemetry(spot);
-  }
+  if (spot.raw_ct) decodeCustomTelemetry(spot);
   return true;
 }
 
 function decodeCustomTelemetry(spot) {
   if (!params.ct_spec || !spot.raw_ct) return null;
-  let opaque_ct = [];  // opaque type values
-  let native_ct = {};  // native type values
-  let has_native_ct = false;
   let tx_seq = (spot.ts.getUTCDate() - 1) * 720 +
       spot.ts.getUTCHours() * 30 +
       Math.floor(spot.ts.getUTCMinutes() / 2);
   for (let i = 0; i < spot.raw_ct.length; i++) {
-    let opaque_index = 0;  // index within data
     const raw_ct = spot.raw_ct[i];
     if (raw_ct == undefined) continue;
     const decoders = params.ct_spec.decoders;
@@ -823,7 +835,7 @@ function decodeCustomTelemetry(spot) {
       const [filters, extractors] = decoders[j];
       let matched = true;
       for (let filter of filters) {
-        if (filter.length == 4 && filter[0] == 't' &&
+        if (filter.length == 4 && filter[3] == 't' &&
             Math.trunc(tx_seq / filter[1]) % filter[2] != filter[3]) {
           matched = false;
           break;
@@ -843,113 +855,233 @@ function decodeCustomTelemetry(spot) {
       }
       if (matched) {
         // Extract the values
-        for (const extractor of extractors) {
-          if (extractor[0]) {
-            // Native type
-            const [divisor, modulus, type_id] = extractor.slice(1);
-            native_ct[type_id] =
-                [Math.trunc(raw_ct / divisor) % modulus, modulus];
-            has_native_ct = true;
-          } else {
-            // Opaque type
-            const [divisor, modulus, first_value, step] = extractor.slice(1);
-            opaque_ct[opaque_index++] = first_value +
-                (Math.trunc(raw_ct / divisor) % modulus) * step;
-          }
-        }
+        extractCustomTelemetry(spot, raw_ct, extractors);
         break;  // do not try other decoders
-      } else {
-        // Skip over the missing indices
-        for (const extractor of extractors) {
-          if (!extractor[0]) opaque_index++;
-        }
       }
     }
   }
-  if (opaque_ct.length) spot.opaque_ct = opaque_ct;
-  if (has_native_ct) spot.native_ct = native_ct;
   return data;
 }
 
-function processNativeCustomTelemetry(spot) {
-  spot.fill = '#7ab1c9';
-  for (const [type, [value, num_values]] of Object.entries(spot.native_ct)) {
-    if (type == 100) {
-      // Enhanced longitude
-      if (spot.lon_res == undefined) {
-        spot.lon += -1 / 24 + (value + 0.5) / (12 * num_values);
-        spot.lon_res = 1 / (12 * num_values);
+function extractCustomTelemetry(spot, raw_ct, extractors) {
+  const original_spot = spot;
+  let discard_rest = false;
+  let opaque_index_override = null;
+  for (const extractor of extractors) {
+    if (!extractor[0]) {
+      // Opaque extractor
+      let [divisor, modulus, first_value, step, index] =
+          extractor.slice(1);
+      if (opaque_index_override != null) {
+        index = opaque_index_override;
+        opaque_index_override = null;
       }
-    } else if (type == 101) {
-      // Enhanced latitude
-      if (spot.lat_res == undefined) {
-        spot.lat += -1 / 48 + (value + 0.5) / (24 * num_values);
-        spot.lat_res = 1 / (24 * num_values);
-      }
-    } else if (type == 102) {
-      // Enhanced altitude resolution
-      if (spot.altitude_res == undefined) {
-        spot.altitude += 20 * value / num_values;
-        spot.altitude_res = 20 / num_values;
-      }
-    } else if (type == 103) {
-      // Enhanced altitude range
-      spot.altitude += 21360 * value;
-    } else if (type == 104) {
-      // Enhanced temperature resolution
-      if (spot.temp_res == undefined) {
-        spot.temp += value / num_values;
-        spot.temp_res = 1 / num_values;
-      }
-    } else if (type == 105) {
-      // Enhanced temperature range
-      spot.temp += (((value - 1) & 1) ? -90 : 90) * ((value + 1) >> 1);
-    } else if (type == 106) {
-      // Enhanced voltage resolution
-      if (spot.voltage_res == undefined) {
-        spot.voltage += 0.05 * value / num_values;
-        spot.voltage_res = 0.05 / num_values;
-      }
-    } else if (type == 107) {
-      // Enhanced voltage range
-      spot.temp += (((value - 1) & 1) ? -2 : 2) * ((value + 1) >> 1);
-    } else if (type == 108) {
-      // Enhanced speed resolution
-      if (spot.speed_res == undefined) {
-        spot.speed += 2 * 1.852 * value / num_values;
-        spot.speed_res = 2 * 1.852 / num_values;
-      }
-    } else if (type == 109) {
-      // Enhanced speed range
-      spot.speed += 84 * 1.852 * value;
+      if (discard_rest) continue;
+      if (!spot.opaque_ct) spot.opaque_ct = [];
+      spot.opaque_ct[index] = first_value +
+          (Math.trunc(raw_ct / divisor) % modulus) * step;
+      continue;
     }
-    if (type >= 120 && type <= 123) {
-      // Historical spot
-      if (!spot.forked) {
-        // Fork the original spot.
-        let forked_spot = { 'slots': [spot.slots[0]] };
-        decodeSpot(forked_spot);
-        forked_spots.push(forked_spot);
-        spot.forked = true;
-      }
-      // Update timestamp of the original spot
-      spot.tx_ts = spot.ts;
-      spot.fill = '#7abfb1';
-      let offset = { 120 : 60, 121 : 600, 122 : 3600, 123 : 86400 }[type];
-      spot.ts = new Date(spot.ts.getTime() - offset * value * 1000);
+    // Native extractor
+    const [divisor, modulus, type] = extractor.slice(1, 4);
+    const value = Math.trunc(raw_ct / divisor) % modulus;
+    const num_values = modulus;
+    const params = extractor.slice(4);
+    if (discard_rest && type != 141) continue;
+    if (type < 120) {
+      spot.fill = '#7ab1c9';
+      if (spot.grid.length < 6) continue;
     }
-    if (type == 124) {
-      // Grid4 override
-      spot.grid = String.fromCharCode(65 + Math.floor(value / 1800)) +
-          String.fromCharCode(65 + Math.floor(value / 100) % 18) +
-          Math.floor(value / 10) % 10 + value % 10;
-      delete spot.is_invalid_gps;
-      if (spot.slots[1]) {
-        processU4BSlot1Message(spot, true);
+    switch (type) {
+      case 100: {
+        // Enhanced grid6 longitude
+        if (spot.lon_res == undefined) {
+          spot.lon += -1 / 24 + (value + 0.5) / (12 * num_values);
+          spot.lon_res = 1 / (12 * num_values);
+        }
+        break;
       }
-      [spot.lat, spot.lon] = maidenheadToLatLon(spot.grid);
+      case 101: {
+        // Enhanced grid6 latitude
+        if (spot.lat_res == undefined) {
+          spot.lat += -1 / 48 + (value + 0.5) / (24 * num_values);
+          spot.lat_res = 1 / (24 * num_values);
+        }
+        break;
+      }
+      case 102: {
+        // Enhanced altitude resolution
+        if (spot.altitude_res == undefined) {
+          spot.altitude += 20 * value / num_values;
+          spot.altitude_res = 20 / num_values;
+        }
+        break;
+      }
+      case 103: {
+        // Enhanced altitude range
+        spot.altitude += 21360 * value;
+        break;
+      }
+      case 104: {
+        // Enhanced temperature resolution
+        if (spot.temp_res == undefined) {
+          spot.temp += value / num_values;
+          spot.temp_res = 1 / num_values;
+        }
+        break;
+      }
+      case 105: {
+        // Enhanced temperature range
+        spot.temp += (((value - 1) & 1) ? -90 : 90) * ((value + 1) >> 1);
+        break;
+      }
+      case 106: {
+        // Enhanced voltage resolution
+        if (spot.voltage_res == undefined) {
+          spot.voltage += 0.05 * value / num_values;
+          spot.voltage_res = 0.05 / num_values;
+        }
+        break;
+      }
+      case 107: {
+        // Enhanced voltage range
+        spot.temp += (((value - 1) & 1) ? -2 : 2) * ((value + 1) >> 1);
+        break;
+      }
+      case 108: {
+        // Enhanced speed resolution
+        if (spot.speed_res == undefined) {
+          spot.speed += 2 * 1.852 * value / num_values;
+          spot.speed_res = 2 * 1.852 / num_values;
+        }
+        break;
+      }
+      case 109: {
+        // Enhanced speed range
+        spot.speed += 84 * 1.852 * value;
+        break;
+      }
+      case 120: {
+        // Time delta
+        if (params.length != 2 || spots.tx_ts) break;
+        spot.tx_ts = spot.ts;
+        spot.fill = '#7abfb1';
+        spot.ts = new Date(spot.ts.getTime() -
+            (params[0] + value * params[1]) * 1000);
+        break;
+      }
+      case 121: {
+        // Longitude
+        spot.lon = 360 * (value + 0.5) / num_values - 180;
+        spot.lon_res = 360 / num_values;
+        break;
+      }
+      case 122: {
+        // Latitude
+        spot.lat = 180 * (value + 0.5) / num_values - 90;
+        spot.lat_res = 180 / num_values;
+        break;
+      }
+      case 123: {
+        // Enhanced grid4 longitude
+        if (spot.lon_res == undefined || spot.lon_res == 2) {
+          spot.lon = Math.floor(spot.lon / 2) * 2 +
+              2 * (value + 0.5) / num_values;
+          spot.lon_res = 2 / num_values;
+        }
+        break;
+      }
+      case 124: {
+        // Enhanced grid4 latitude
+        if (spot.lat_res == undefined || spot.lat_res == 1) {
+          spot.lat = Math.floor(spot.lat) + (value + 0.5) / num_values;
+          spot.lat_res = 1 / num_values;
+        }
+        break;
+      }
+      case 125: {
+        // Set altitude
+        spot.altitude = params[0] + value * params[1];
+        spot.altitude_res = params[1];
+        break;
+      }
+      case 126: {
+        // Set temperature
+        spot.temp = params[0] + value * params[1];
+        spot.temp_res = params[1];
+        break;
+      }
+      case 127: {
+        // Set voltage
+        spot.voltage = params[0] + value * params[1];
+        spot.voltage_res = params[1];
+        break;
+      }
+      case 128: {
+        // Set speed
+        spot.speed = params[0] + value * params[1];
+        spot.speed_res = params[1];
+        break;
+      }
+      case 140: {
+        // New spot
+        if (params.length != 1) break;
+        const new_spot = { ts: spot.tx_ts || spot.ts };
+        new_spot.id = params[0];
+        spot.next_sibling = new_spot;
+        spot = new_spot;
+        break;
+      }
+      case 141: {
+        // Switch spot
+        if (params.length != 1) break;
+        spot = original_spot;
+        discard_rest = false;
+        while ((spot.id || 0) != params[0]) {
+          if (spot.next_sibling) {
+            spot = spot.next_sibling;
+          } else {
+            discard_rest = true;
+            break;
+          }
+        }
+        break;
+      }
+      case 142: {
+        // Opaque type alias
+        if (params[0] >= 0 && Number.isInteger(params[0])) {
+          opaque_index_override = params[0];
+        }
+        break;
+      }
+    }
+    if ([121, 122, 123, 124].includes(type)) {
+      setGrid(spot);
     }
   }
+}
+
+function setGrid(spot) {
+  delete spot.grid;
+  if (spot.lat == undefined || spot.lon == undefined) return;
+  if ((spot.lat_res && spot.lat_res > 1) ||
+      (spot.lon_res && spot.lon_res > 2)) return;
+  let grid = '';
+  grid += String.fromCharCode(
+      'A'.charCodeAt() + Math.floor((spot.lon + 180) / 20));
+  grid += String.fromCharCode(
+      'A'.charCodeAt() + Math.floor((spot.lat + 90) / 10));
+  grid += String.fromCharCode(
+      '0'.charCodeAt() + Math.floor((spot.lon + 180) / 2) % 10);
+  grid += String.fromCharCode(
+      '0'.charCodeAt() + Math.floor(spot.lat + 90) % 10);
+  if (spot.lat_res <= 1 / 24 && spot.lon_res <= 1 / 12) {
+    grid += String.fromCharCode(
+        'a'.charCodeAt(0) + Math.floor((spot.lon + 180) * 12) % 24);
+    grid += String.fromCharCode(
+        'a'.charCodeAt(0) + Math.floor((spot.lat + 90) * 24) % 24);
+  }
+  spot.grid = grid;
 }
 
 // Categorizes spots on whether they should be part of the track
@@ -1706,7 +1838,7 @@ function displaySpotInfo(marker, point) {
     spot_info.innerHTML +=
         `<br>TX: ${ts}${tz}`;
   }
-  for (let i = 0; i < spot.slots.length; i++) {
+  for (let i = 0; spot.slots && i < spot.slots.length; i++) {
     const slot = spot.slots[i];
     if (slot && !slot.is_invalid) {
       spot_info.innerHTML +=
@@ -1774,7 +1906,7 @@ function displaySpotInfo(marker, point) {
         spot.lat.toFixed(3) + ',' +
         (spot.lon + dl).toFixed(3) + ',0a,' +
         dt + 'd,35y,90h,77t" ' +
-        'style="color: #add8e6; text-decoration: none;" ' +
+        'style="color: #81cdff; text-decoration: none;" ' +
         'target=new>[ GoogleEarth View ]</a>' +
         '<br>(use CTRL-arrows<br>to look around)';
   }
@@ -1892,13 +2024,41 @@ function importCustomData(data) {
   return spots;
 }
 
-async function updateFromCustomSource(incremental_update) {
+async function updateFromCustomSource() {
   const url =
       `${params.cs.toUpperCase()}_${params.ch}_${params.band}.json`;
   const response = await fetch(url, { cache: 'no-cache' });
   if (!response.ok) throw new Error('HTTP error ' + response.status);
   spots = importCustomData(await response.json());
   if (debug > 2) console.log(spots);
+}
+
+function importTestData(data) {
+  for (let i = 0; i < data.length; i++) {
+    let row = data[i];
+    row.ts = parseTimestamp(row.ts);
+    row.rx.sort((r1, r2) => (r1.cs > r2.cs) - (r1.cs < r2.cs));
+  }
+  return data;
+}
+
+async function updateFromTestData() {
+  const url =
+      `testdata/test_${params.ch}.json`;
+  const response = await fetch(url, { cache: 'no-cache' });
+  if (!response.ok) throw new Error('HTTP error ' + response.status);
+  let data = importTestData(await response.json());
+
+  // Sort data by (ts, cs)
+  data.sort((row1, row2) =>
+      (row1.ts - row2.ts) ||
+      (row1.cs > row2.cs) - (row1.cs < row2.cs));
+
+  spots = matchTelemetry(data);
+  if (debug > 2) console.log(spots);
+
+  decodeSpots();
+  categorizeSpots();
 }
 
 async function updateFromWSPRLive(incremental_update) {
@@ -1948,7 +2108,9 @@ async function update(incremental_update = false) {
     displaySpinner();
 
     if (params.tracker == 'custom') {
-      await updateFromCustomSource(incremental_update);
+      await updateFromCustomSource();
+    } else if (params.tracker == 'test') {
+      await updateFromTestData();
     } else {
       await updateFromWSPRLive(incremental_update);
     }
@@ -1970,8 +2132,8 @@ async function update(incremental_update = false) {
     const now = new Date();
     last_update_ts = now;
 
-    if (incremental_update ||
-        ((noupdate_param == null) && now < params.end_date)) {
+    if (incremental_update || (params.tracker != 'test' &&
+        noupdate_param == null && now < params.end_date)) {
       // Only schedule updates for current flights
       scheduleNextUpdate();
     }
@@ -2144,12 +2306,14 @@ const kDataFields = [
   ['lat', {
     'label': 'Lat',
     'color': '#0066cc',
+    'cursor': 'pointer',
     'type': 'angle',
     'source': (s) => [s.lat, getLatitudePrecision(s)],
     'formatter': formatCoordinate
   }],
   ['lon', {
     'label': 'Lon',
+    'cursor': 'pointer',
     'color': '#0066cc',
     'type': 'angle',
     'source': (s) => [s.lon, getLongitudePrecision(s)],
@@ -2267,7 +2431,9 @@ function computeDerivedData(spots) {
   let last_grid6_spot = null;
   for (let i = 0; i < spots.length; i++) {
     const spot = spots[i];
-    if (['u4b', 'generic1', 'generic2', 'unknown'].includes(params.tracker)) {
+    if (['u4b', 'generic1', 'generic2', 'unknown',
+         'test'].includes(params.tracker) &&
+        spot.slots) {
       derived_data['power'][i] = spot.slots[0]['power']
     }
     derived_data['gps_lock'][i] = spot.is_invalid_gps ? 0 : 1;
@@ -2368,7 +2534,7 @@ function extractCustomTelemetryData(spots) {
 }
 
 function createTableCell(type, content, align = null, color = null,
-                         format = null) {
+                         format = null, cursor = null) {
   const cell = document.createElement(type);
   if (format == 'html') {
     cell.innerHTML = content;
@@ -2380,6 +2546,9 @@ function createTableCell(type, content, align = null, color = null,
   }
   if (color) {
     cell.style.color = color;
+  }
+  if (cursor) {
+    cell.style.cursor = cursor;
   }
   return cell;
 }
@@ -2430,16 +2599,14 @@ function getCustomTelemetryAttributes(i) {
 
 function createWSPRViewLink(i) {
   return `<a href="#" class="plain_link" title="Click to toggle WSPR view" ` +
-      `onclick="toggleWSPRView(${i}); event.preventDefault()">📄</a>`;
-}
-
-function createHighlightSpotLink(i) {
-  return `<a href="#" class="plain_link" ` +
-      `title="Click to highlight spot on the map" ` +
-      `onclick="highlightSpot(${i - 1}); event.preventDefault()">${i}</a>`;
+      `onclick="toggleWSPRView(${i}); event.stopPropagation()">📄</a>`;
 }
 
 function highlightSpot(i) {
+  if (window.getSelection().toString().length > 0) {
+    event.preventDefault();
+    return;
+  }
   const spot = spots[i];
   if (spot.is_unattached && show_unattached_param == null) {
     alert('To highlight unattached spots, add &show_unattached to the URL');
@@ -2471,7 +2638,7 @@ function toggleWSPRView(i) {
        'SNR', 'Dist', 'Freq'],
   ];
   const blank_row = Array(field_align.length).fill('');
-  for (const slot of spots[i].slots) {
+  for (const slot of spots[i].slots || []) {
     if (!slot) continue;
     wspr_data.push(blank_row);
     for (const rx of slot.rx) {
@@ -2542,8 +2709,8 @@ function showDataView() {
   let table_headers = ['#'];
   let long_headers = ['#'];
   let table_data = [Array.from(
-      { length: spots.length }, (_, i) => createHighlightSpotLink(i + 1))];
-  let field_specs = [{ format: 'html' }];
+      { length: spots.length }, (_, i) => i + 1)];
+  let field_specs = [{ cursor: 'pointer' }];
   let table_formatters = [null];
   let graph_fetchers = [];
   let graph_formatters = [];
@@ -2726,8 +2893,7 @@ function showDataView() {
   div.appendChild(
       createDataViewButton('Export CSV',
           () => downloadCSV(long_headers.slice(0, -1),
-              [Array.from({ length: table_data[0].length }, (_, i) => i + 1),
-               ...table_data.slice(1, -1)], table_formatters)));
+              table_data.slice(0, -1), table_formatters)));
   div.appendChild(
       createDataViewButton('Get Raw Data', () => downloadJSON(spots)));
 
@@ -2747,6 +2913,7 @@ function showDataView() {
   for (let i = table_data[0].length - 1; i >= 0; i--) {
     let row = document.createElement('tr');
     row.id = `row_${i}`;
+    row.onclick = () => { highlightSpot(i); }
     if (spots[i] == highlighted_spot) {
       row.style.backgroundColor = '#fffdcc';
       highlighted_row = row;
@@ -2762,7 +2929,7 @@ function showDataView() {
       }
       const spec = field_specs[j];
       row.appendChild(createTableCell(
-          'td', value, spec.align, spec.color, spec.format));
+          'td', value, spec.align, spec.color, spec.format, spec.cursor));
     }
     table.appendChild(row);
   }
@@ -2773,15 +2940,13 @@ function showDataView() {
     last_data_view_scroll_pos = data_view.scrollTop;
   }
 
-  if (highlighted_row) {
-    setTimeout(() => {
+  setTimeout(() => {
+    if (highlighted_row) {
       highlighted_row.scrollIntoView({ block: 'center' });
-    }, 100);
-  } else {
-    setTimeout(() => {
+    } else {
       data_view.scrollTop = last_data_view_scroll_pos;
-    }, 5);
-  }
+    }
+  }, 5);
 
   highlighted_spot = null;
 }
@@ -2886,6 +3051,7 @@ function parseCustomTelemetrySpec() {
   if (!ct_decoders_param) return null;
   if (!/^[0-9cets,:_~.-]+$/.test(ct_decoders_param)) return null;
   let decoders = [];
+  let opaque_index = 0;
   for (const decoder_spec of ct_decoders_param.toLowerCase().split('~')) {
     let next_divisor = 1;
     let [filters_spec, extractors_spec] = decoder_spec.split('_');
@@ -2915,33 +3081,28 @@ function parseCustomTelemetrySpec() {
           }
           continue;
         }
-        const is_temporal = (filter[0] == 't');
+        const is_temporal = (filter[filter.length - 1] == 't');
         if (is_temporal) {
-          filter.shift();
-        }
-        if (filter.length == 2) {
-          filter.unshift(next_divisor);
-        }
-        if (is_temporal) {
-          filter.unshift('t');
-        }
-        if (filter.length == 4 && filter[0] == 't') {
-          filter = [filter[0], Number(filter[1]), Number(filter[2]),
-                    Number(filter[3])];
-          if (!filter.slice(1).every(v => Number.isInteger(v)) ||
-              filter[1] <= 0 || filter[2] <= 1 || filter[3] < 0) {
+          if (filter.length != 4) return null;
+          filter = [Number(filter[0]), Number(filter[1]),
+                    Number(filter[2]), 't'];
+          if (!filter.slice(0, -1).every(v => Number.isInteger(v)) ||
+              filter[0] <= 0 || filter[1] < 1 || filter[2] < 0) {
             return null;
           }
-        } else if (filter.length == 3) {
+        } else {
+          // Regular filter
+          if (filter.length == 2) {
+            filter.unshift(next_divisor);
+          }
+          if (filter.length != 3) return null;
           filter = [Number(filter[0]), Number(filter[1]),
                     filter[2] == 's' ? 's' : Number(filter[2])];
           if (!filter.every(v => Number.isInteger(v) || v == 's') ||
-              filter[0] <= 0 || filter[1] <= 1 || filter[2] < 0) {
+              filter[0] <= 0 || filter[1] < 1 || filter[2] < 0) {
             return null;
           }
           next_divisor = filter[0] * filter[1];
-        } else {
-          return null;
         }
         filters.push(filter);
       }
@@ -2955,29 +3116,41 @@ function parseCustomTelemetrySpec() {
     if (extractors_spec) {
       for (const extractor_spec of extractors_spec.split(',')) {
         let extractor = extractor_spec.split(':');
-        let is_native_type = false;
-        if (extractor[extractor.length - 1].startsWith('t')) {
-          extractor[extractor.length - 1] =
-              extractor[extractor.length - 1].substring(1);
-          is_native_type = true;
+        const native_index = extractor.findIndex(f => f.startsWith('t'));
+        if (![-1, 1, 2].includes(native_index) || extractor.length < 2) {
+          return null;
+        }
+        if (native_index != -1) {
+          extractor[native_index] = extractor[native_index].substring(1);
         }
         extractor = extractor.map(Number);
-        if (extractor.length == (is_native_type ? 2 : 3)) {
+        if (native_index == 1 ||
+            (native_index == -1 && extractor.length == 3)) {
           // Implicit divisor
           extractor.unshift(next_divisor);
         }
-        if (extractor.length != (is_native_type ? 3 : 4)) return null;
-        if (!Number.isInteger(extractor[0]) || extractor[0] < 1) return null;
-        if (!Number.isInteger(extractor[1]) || extractor[1] < 2) return null;
-        if (is_native_type) {
-          if (!Number.isInteger(extractor[2]) || extractor[2] < 0) return null;
-        } else {
+        if (!Number.isInteger(extractor[0]) || extractor[0] < 1 ||
+            !Number.isInteger(extractor[1]) || extractor[1] < 1) {
+          return null;
+        }
+        if (native_index == -1) {
           // Opaque type
-          if (Number.isNaN(extractor[2])) return null;
-          if (Number.isNaN(extractor[3]) || extractor[3] <= 0) return null;
+          if (extractor.length != 4 || Number.isNaN(extractor[2]) ||
+              Number.isNaN(extractor[3])) {
+            return null;
+          }
+        } else {
+          // Native type
+          if (extractor.length > 5 ||
+              !Number.isInteger(extractor[2]) || extractor[2] < 0 ||
+              (extractor.length > 3 && Number.isNaN(extractor[3])) ||
+              (extractor.length > 4 && Number.isNaN(extractor[4]))) {
+            return null;
+          }
         }
         next_divisor = extractor[0] * extractor[1];
-        extractor.unshift(is_native_type);
+        extractor.unshift(native_index != -1);
+        if (native_index == -1) extractor.push(opaque_index++);
         extractors.push(extractor);
       }
     }

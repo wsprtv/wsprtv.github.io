@@ -60,7 +60,7 @@ transmit in the last 40 Hz of the band.
 
   Additional special callsign messages may follow in slots 2-4, 
 representing **custom telemetry (CT)**. Custom telemetry is 
-discussed in detail [below](#u4b-custom-telemetry).
+discussed in detail [below](#u4b-custom-telemetry-(ct)).
 
   U4B channels are allowed to have a `V<variant>` suffix, such as 
 `321V100`, to enable
@@ -205,7 +205,7 @@ respectively) and will pre-fill the control panel parameters. Example:
 
 Custom-telemetry-related URL parameters `ct_dec`, `ct_labels`, 
 `ct_llabels`, `ct_units`, and `ct_res` are discussed in the
-[Custom Telemetry section](#u4b-custom-telemetry) of this guide.
+[Custom Telemetry section](#u4b-custom-telemetry-(ct)) of this guide.
 
 ## Map View
 
@@ -632,9 +632,9 @@ can be graphed and displayed in a table, but their meaning is otherwise
 not known to WSPR TV. By contrast, native values have a well-defined type,
 and can influence the site's function at a more fundamental level.
 
-**Resolution / range**
+**Resolution / Range Enhancers**
 
-Currently, 10 native resolution / range types are supported:
+Currently, 10 enhanced telemetry resolution / range types are supported:
 
 - Type 100: enhanced longitude resolution 
 - Type 101: enhanced latitude resolution 
@@ -647,7 +647,7 @@ Currently, 10 native resolution / range types are supported:
 - Type 108: enhanced speed resolution
 - Type 109: enhanced speed range
 
-These types increase the resolution or range of standard U4B telemetry.
+These types increase the resolution or range of standard (grid6) U4B telemetry.
 The additional resolution / range depend on the size of the corresponding
 custom telemetry fields. For example, if 10 values are allocated to type 102,
 altitude resolution improves by a factor of 10, from 20m to 2m. If 3 values are
@@ -661,31 +661,34 @@ alternates as the value of the range increases. For example, when type 107
 is 2, the range becomes 1 - 3V. Other ranges, such as speed and altitude,
 grow in the positive direction only.
 
-**Historical Data**
+**Setters**
 
-- Type 120: Time delta, minutes
-- Type 121: Time delta, 10 minute cycles
-- Type 122: Time delta, hours
-- Type 123: Time delta, days
-- Type 124: Grid4 override (32400 values)
+- Type 120: time offset (seconds)
+- Type 121: longitude
+- Type 122: latitude
+- Type 123: grid4 longitude resolution
+- Type 124: grid4 latitude resolution
+- Type 125: altitude
+- Type 126: temperature
+- Type 127: voltage
+- Type 128: speed
 
-To send historical data, a time offset can be specified relative to the TX
-timestamp. All of these values can be as large as necessary (e.g. 2000
-minutes). Do not specify more than one time delta type.
+These types can set / override various spot attributes. Longitude / latitude
+setters subdivide a geographical area (grid4 or the entire world), while
+other types use `first_value` and `step` attributes similar to opaque types.
 
-`Grid4 override` is used to replace the grid4 value received in the regular
-callsign message, as well as to set `is_gps_value = true` in the standard
-telemetry message.
+**Other**
 
-The recommended way to send historical data is as follows:
+- Type 140: new spot
+- Type 141: switch to
 
-- Send a regular callsign message with the current location. If no other
-messages are received, this data will still be valid.
-- Send a standard telemetry message with `is_valid_gps = false` and all other
-fields pertaining to the historical spot. If no other messages are
-received, this message will be ignored.
-- Send an custom telemetry message specifying the time delta and replacing
-the `grid4` value in the regular callsign message with the historical value.
+Type 140 creates a new spot (empty, with only the timestamp inherited 
+from the parent spot), while type 141 switches to another previously 
+created spot. Switching may be necessary to specify which spot a 
+subsequent type applies to. By default, new CT messages modify the 
+original (parent) spot.
+
+Both of these types take a single attribute -- a user-chosen spot id.
 
 ### Custom Telemetry Message Definition
 
@@ -756,7 +759,7 @@ and `HdrRESERVED` fields, hence the division is by 5 * 4 = 20. We use a modulus
 of 16 to extract the 16 possible values. This value also has to be equal to 0 (for
 `USER_DEFINED`).
 
-If the divisor in a filter is missing, it is **implied** to equal
+If the divisor in a filter tuple is missing, it is **implied** to equal
 the previous divisor multiplied by the previous modulus.
 In other words, the divisor is set to the end of the previous filter
 field. If no initial divisor is specified anywhere, the
@@ -772,7 +775,7 @@ which schema is in use -- via the `tx_seq` variable.
 
 `tx_seq` represents the transmission slot sequence number, which 
 increments every 2 minutes and resets every month. If the GPS **UTC** 
-time of the **regular callsign** transmission preceding an custom 
+time of the **regular callsign** transmission preceding a custom 
 telemetry message is `YYY-MM-DD HH:MM`, `tx_seq` is calculated as 
 follows:
 
@@ -976,9 +979,9 @@ A filter can have one of the following forms:
 ```
 <divisor>:<modulus>:<expected_value>
 <modulus>:<expected_value>  (implied divisor)
-t:<divisor>:<modulus>:<expected_value>
-t:<modulus>:<expected_value> (implied divisor)
 s:<slot>
+<divisor>:<modulus>:<expected_value>:t
+<modulus>:<expected_value>:t (implied divisor)
 
 ```
 
@@ -1011,6 +1014,9 @@ Native value extractors specify their type after the modulus:
 <divisor>:<modulus>:t<type_id>
 <modulus>:t<type_id>  (implied divisor)
 ```
+
+An optional `<first_value>` and an optional `<step>` may follow
+`<type_id>` for certain types.
 
 Finally, a set of annotation parameters -- `ct_labels`, `ct_llabels`, 
 `ct_units`, and `ct_res` -- can be used to customize the display of opaque CT 
@@ -1083,7 +1089,7 @@ assigned to the wrong time slot.
 
 Buckets are color-coded based on their count: **green** indicates that 
 no standard telemetry has been observed in any 1-hour slots, while **red** 
-represents multiple hours of daily use over an custom period. For 
+represents multiple hours of daily use over an extended period. For 
 example, a tracker that transmits for 10 hours every day will show a 
 count of about 300 after 30 days. **Yellow and orange** fall in between, 
 with yellow in particular sometimes reflecting leakage from a nearby 
