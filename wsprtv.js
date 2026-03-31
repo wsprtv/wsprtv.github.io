@@ -378,11 +378,11 @@ function createQueryDateRange(incremental_update = false) {
     // Fetch up to 6 hours prior to last update timestamp
     let cutoff_ts = last_update_ts;
     cutoff_ts.setHours(cutoff_ts.getHours() - 6);
-    const cutoff_ts_str = formatTimestamp(cutoff_ts, true);
+    const cutoff_ts_str = formatTimestamp(cutoff_ts, true).slice(0, 16);
     return `time > '${cutoff_ts_str}:00'`;
   } else {
-    const start_date = formatTimestamp(params.start_date, true);
-    const end_date = formatTimestamp(params.end_date, true);
+    const start_date = formatTimestamp(params.start_date, true).slice(0, 16);
+    const end_date = formatTimestamp(params.end_date, true).slice(0, 16);
     return `time >= '${start_date}:00' AND time < '${end_date}:00'`
   }
 }
@@ -498,7 +498,7 @@ async function runSondehubPrediction() {
         L.DomEvent.stopPropagation(e);
       });
       const ts_suffix = params.use_utc ? ':00 UTC | ' : ':00 | ';
-      marker.bindTooltip(formatTimestamp(ts).slice(0, -6) + ts_suffix +
+      marker.bindTooltip(formatTimestamp(ts).slice(0, 13) + ts_suffix +
           formatSpeed([speed, 0]),
           { direction: 'top', opacity: 0.8 });
       prediction_markers.push(marker);
@@ -1671,15 +1671,17 @@ function displayTrack() {
     marker_line.addTo(map);
   }
 
+  marker_group.addTo(map);
+
   // Highlight first / last markers
   if (first_attached_marker) {
     first_attached_marker.setStyle({ fillColor: '#3cb371' });
+    first_attached_marker.bringToFront();
   }
   if (last_attached_marker) {
     last_attached_marker.setStyle({ fillColor: 'red' });
+    last_attached_marker.bringToFront();
   }
-
-  marker_group.addTo(map);
 
   if (highlighted_marker) {
     highlighted_marker.setStyle({ fillColor: '#ffdd03' });
@@ -1866,6 +1868,11 @@ function closeSpotInfo() {
 }
 
 function onMapClick(e) {
+  if (map.getContainer().querySelector('.leaflet-tooltip')) {
+    // Allow all tooltips to close
+    return;
+  }
+
   // Display lat / lng / sun elevation of clicked point
   const lat = e.latlng.lat;
   const lon = e.latlng.lng;
