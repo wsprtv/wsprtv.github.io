@@ -444,6 +444,8 @@ async function runQuery(query) {
 async function runTawhiriPrediction() {
   clearPrediction();
   const spot = last_marker.spot;
+  closeSpotInfo();
+
   const url_prefix = (Date.now() - spot.ts < 7 * 3600 * 1000) ?
       'https://api.v2.sondehub.org/tawhiri' :
       'https://predict.adamlawson.uk/tawhiri/api/v1';
@@ -465,8 +467,7 @@ async function runTawhiriPrediction() {
     return;
   }
   if (debug > 1) console.log(data);
-  let path = [[[selected_marker.getLatLng().lat,
-               selected_marker.getLatLng().lng]]];
+  let path = [[[spot.lat, spot.lon]]];
   let markers = [];
   const points = data.prediction[data.prediction.length - 1].trajectory;
   let last_point;
@@ -521,8 +522,6 @@ async function runTawhiriPrediction() {
       prediction_markers.push(marker);
     }
   }
-
-  closeSpotInfo();
 }
 
 // Imports data from wspr.live for further processing:
