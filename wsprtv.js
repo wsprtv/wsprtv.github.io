@@ -456,7 +456,7 @@ async function runTawhiriPrediction() {
       `launch_datetime=${spot.ts.toISOString()}&` +
       `ascent_rate=0.1&float_altitude=${spot.altitude}&stop_datetime=` +
       `${new Date(spot.ts.getTime() + 3 * 86400000).toISOString()}&` +
-      `dt=1200&output_dt=1200`;
+      `dt=60&output_dt=1200`;
   if (debug > 0) console.log(url);
   let data;
   try {
