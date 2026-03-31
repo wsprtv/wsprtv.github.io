@@ -441,10 +441,13 @@ async function runQuery(query) {
   return (await response.json()).data;
 }
 
-async function runSondehubPrediction() {
+async function runTawhiriPrediction() {
   clearPrediction();
   const spot = last_marker.spot;
-  const url = 'https://api.v2.sondehub.org/tawhiri?profile=float_profile&' +
+  const url_prefix = (Date.now() - spot.ts < 7 * 3600 * 1000) ?
+      'https://api.v2.sondehub.org/tawhiri' :
+      'https://predict.adamlawson.uk/tawhiri/api/v1';
+  const url = url_prefix + '?profile=float_profile&' +
       `launch_latitude=${(spot.lat + 180) % 180}&` +
       `launch_longitude=${(spot.lon + 360) % 360}&` +
       `launch_altitude=${spot.altitude - 1}&` +
@@ -452,21 +455,34 @@ async function runSondehubPrediction() {
       `ascent_rate=0.1&float_altitude=${spot.altitude}&stop_datetime=` +
       `${new Date(spot.ts.getTime() + 3 * 86400000).toISOString()}`;
   if (debug > 0) console.log(url);
-  const response = await fetch(url);
-  if (!response.ok) throw new Error('HTTP error ' + response.status);
-  const data = await response.json();
+  let data;
+  try {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error('HTTP error ' + response.status);
+    data = await response.json();
+  } catch (error) {
+    alert('Unable to fetch the prediction');
+    return;
+  }
   if (debug > 1) console.log(data);
   let path = [[[selected_marker.getLatLng().lat,
                selected_marker.getLatLng().lng]]];
   let markers = [];
-  const points = data.prediction[1].trajectory;
+  const points = data.prediction[data.prediction.length - 1].trajectory;
+  let last_point;
   for (const [i, p] of points.entries()) {
+    if (last_point &&
+        new Date(p.datetime) - new Date(last_point.datetime) <
+            19 * 60 * 1000) {
+      continue;
+    }
     const [lat, lon] = [p.latitude > 90 ? p.latitude - 180 : p.latitude,
                         p.longitude > 180 ? p.longitude - 360 : p.longitude];
     extendPath(path, lat, lon);
     const ts = new Date(p.datetime);
     if (((params.use_utc ? ts.getUTCHours() : ts.getHours()) % 6) * 60 +
-         ts.getUTCMinutes() < 20) {
+         ts.getUTCMinutes() < 20 &&
+         ts.getHours() != new Date(last_point.datetime).getHours()) {
       const idx = (i == 0) ? 1 : 0;
       const dist =
           L.latLng([points[i].latitude, points[i].longitude]).distanceTo(
@@ -476,6 +492,7 @@ async function runSondehubPrediction() {
       const speed = dist / (ts_delta / 3600000.0);
       markers.push([ts, lat, lon, speed]);
     }
+    last_point = p;
   }
   if (nomirror_param == null) {
     path = [...path,
@@ -1989,8 +2006,8 @@ function displaySpotInfo(marker, point) {
 
   if (marker == selected_marker && spot.altitude) {
      spot_info.innerHTML += '<br><br>';
-     if (marker == last_marker && Date.now() - spot.ts < 7 * 3600 * 1000) {
-       spot_info.innerHTML += '<a href="#" onclick="runSondehubPrediction(); ' +
+     if (marker == last_marker && Date.now() - spot.ts < 72 * 3600 * 1000) {
+       spot_info.innerHTML += '<a href="#" onclick="runTawhiriPrediction(); ' +
            'return false" style="color: #81cdff; text-decoration: none;">' +
            'Path Prediction</a><br>';
      }
