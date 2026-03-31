@@ -472,25 +472,32 @@ async function runTawhiriPrediction() {
   let markers = [];
   const points = data.prediction[data.prediction.length - 1].trajectory;
   let last_point = points[0];
+  const now = new Date();
+  let added_current_location = now - spot.ts < 3600 * 1000;
   for (const [i, p] of points.entries()) {
     if (new Date(p.datetime) - new Date(last_point.datetime) <
-            19 * 60 * 1000) {
+            10 * 60 * 1000) {
       continue;
     }
     const [lat, lon] = [p.latitude > 90 ? p.latitude - 180 : p.latitude,
                         p.longitude > 180 ? p.longitude - 360 : p.longitude];
     extendPath(path, lat, lon);
     const ts = new Date(p.datetime);
-    if (((params.use_utc ? ts.getUTCHours() : ts.getHours()) % 6) * 60 +
-         ts.getUTCMinutes() < 20 &&
-         ts.getHours() != new Date(last_point.datetime).getHours()) {
+    if ((((params.use_utc ? ts.getUTCHours() : ts.getHours()) % 6) == 0 &&
+         ts.getHours() != new Date(last_point.datetime).getHours()) ||
+        (!added_current_location && ts > now)) {
       const dist =
           L.latLng([points[i].latitude, points[i].longitude]).distanceTo(
               [points[i - 1].latitude, points[i - 1].longitude]) / 1000;
       const ts_delta = new Date(points[i].datetime) -
           new Date(points[i - 1].datetime);
       const speed = dist / (ts_delta / 3600000.0);
-      markers.push([ts, lat, lon, speed]);
+      if (!added_current_location && ts > now) {
+        added_current_location = true;
+        markers.push([ts, lat, lon, speed, true]);
+      } else {
+        markers.push([ts, lat, lon, speed, false]);
+      }
     }
     last_point = p;
   }
@@ -499,23 +506,27 @@ async function runTawhiriPrediction() {
             ...path.map(l => l.map(p => [p[0], p[1] + 360])),
             ...path.map(l => l.map(p => [p[0], p[1] - 360]))];
   }
-  prediction_line = L.polyline(path, { color: '#555', weight: 2 });
+  prediction_line = L.polyline(path, { color: '#777', weight: 2 });
   prediction_line.addTo(map);
 
   prediction_markers = [];
   for (const offset of (nomirror_param == null) ? [0, 360, -360] : [0]) {
-    for (const [ts, lat, lon, speed] of markers) {
+    for (const [ts, lat, lon, speed, current_location] of markers) {
+      const radius = (current_location ||
+          (params.use_utc ? ts.getUTCHours() : ts.getHours()) == 0) ? 6 : 4;
       let marker = L.circleMarker(
           [lat, lon + offset],
-          { radius: (params.use_utc ? ts.getUTCHours() : ts.getHours()) == 0 ?
-                6 : 4,
-            color: 'black', fillColor: '#bbb', weight: 1, stroke: true,
+          { radius: radius,
+            color: current_location ? 'red' : 'black',
+            fillColor: '#bbb', weight: 1, stroke: true,
             fillOpacity: 1 }).addTo(map);
       marker.on('click', function(e) {
         L.DomEvent.stopPropagation(e);
       });
       const ts_suffix = params.use_utc ? ':00 UTC | ' : ':00 | ';
-      marker.bindTooltip(formatTimestamp(ts).slice(0, 13) + ts_suffix +
+      marker.bindTooltip(
+          (current_location ? 'Now ' : (formatTimestamp(ts).slice(0, 13) +
+              ts_suffix)) +
           formatSpeed([speed, 0]),
           { direction: 'top', opacity: 0.8 });
       prediction_markers.push(marker);
