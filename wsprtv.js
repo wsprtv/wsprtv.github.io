@@ -443,7 +443,7 @@ async function runQuery(query) {
 
 async function runTawhiriPrediction() {
   clearPrediction();
-  const spot = last_marker.spot;
+  const spot = selected_marker.spot;
   closeSpotInfo();
 
   const url_prefix = (Date.now() - spot.ts < 7 * 3600 * 1000) ?
@@ -455,7 +455,8 @@ async function runTawhiriPrediction() {
       `launch_altitude=${spot.altitude - 1}&` +
       `launch_datetime=${spot.ts.toISOString()}&` +
       `ascent_rate=0.1&float_altitude=${spot.altitude}&stop_datetime=` +
-      `${new Date(spot.ts.getTime() + 3 * 86400000).toISOString()}`;
+      `${new Date(spot.ts.getTime() + 3 * 86400000).toISOString()}&` +
+      `dt=1200&output_dt=1200`;
   if (debug > 0) console.log(url);
   let data;
   try {
@@ -2003,7 +2004,7 @@ function displaySpotInfo(marker, point) {
 
   if (marker == selected_marker && spot.altitude) {
      spot_info.innerHTML += '<br><br>';
-     if (marker == last_marker && Date.now() - spot.ts < 72 * 3600 * 1000) {
+     if (Date.now() - spot.ts < 72 * 3600 * 1000) {
        spot_info.innerHTML += '<a href="#" onclick="runTawhiriPrediction(); ' +
            'return false" style="color: #81cdff; text-decoration: none;">' +
            'Path Prediction</a><br>';
