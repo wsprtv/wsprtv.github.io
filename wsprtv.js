@@ -456,14 +456,14 @@ async function runSondehubPrediction() {
   if (!response.ok) throw new Error('HTTP error ' + response.status);
   const data = await response.json();
   if (debug > 1) console.log(data);
-  let path = [[selected_marker.getLatLng().lat,
-               selected_marker.getLatLng().lng]];
+  let path = [[[selected_marker.getLatLng().lat,
+               selected_marker.getLatLng().lng]]];
   let markers = [];
   const points = data.prediction[1].trajectory;
   for (const [i, p] of points.entries()) {
     const [lat, lon] = [p.latitude > 90 ? p.latitude - 180 : p.latitude,
                         p.longitude > 180 ? p.longitude - 360 : p.longitude];
-    path.push([lat, lon]);
+    extendPath(path, lat, lon);
     const ts = new Date(p.datetime);
     if (((params.use_utc ? ts.getUTCHours() : ts.getHours()) % 6) * 60 +
          ts.getUTCMinutes() < 20) {
@@ -478,9 +478,9 @@ async function runSondehubPrediction() {
     }
   }
   if (nomirror_param == null) {
-    path = [path,
-            path.map(p => [p[0], p[1] + 360]),
-            path.map(p => [p[0], p[1] - 360])];
+    path = [...path,
+            ...path.map(l => l.map(p => [p[0], p[1] + 360])),
+            ...path.map(l => l.map(p => [p[0], p[1] - 360]))];
   }
   prediction_line = L.polyline(path, { color: '#555', weight: 2 });
   prediction_line.addTo(map);
@@ -489,7 +489,7 @@ async function runSondehubPrediction() {
   for (const offset of (nomirror_param == null) ? [0, 360, -360] : [0]) {
     for (const [ts, lat, lon, speed] of markers) {
       let marker = L.circleMarker(
-          [lat, lon],
+          [lat, lon + offset],
           { radius: (params.use_utc ? ts.getUTCHours() : ts.getHours()) == 0 ?
                 6 : 4,
             color: 'black', fillColor: '#bbb', weight: 1, stroke: true,
