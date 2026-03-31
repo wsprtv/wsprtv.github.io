@@ -33,6 +33,8 @@ let map;  // Leaflet map object
 let markers = [];
 let marker_group;
 let marker_line;
+let prediction_line;
+let prediction_markers;
 let last_marker;  // used to periodically update the 'last ago' message
 let selected_marker;  // currently selected (clicked) marker
 let highlighted_spot;
@@ -437,6 +439,73 @@ async function runQuery(query) {
   const response = await fetch(url);
   if (!response.ok) throw new Error('HTTP error ' + response.status);
   return (await response.json()).data;
+}
+
+async function runSondehubPrediction() {
+  clearPrediction();
+  const spot = last_marker.spot;
+  const url = 'https://api.v2.sondehub.org/tawhiri?profile=float_profile&' +
+      `launch_latitude=${(spot.lat + 180) % 180}&` +
+      `launch_longitude=${(spot.lon + 360) % 360}&` +
+      `launch_altitude=${spot.altitude - 1}&` +
+      `launch_datetime=${spot.ts.toISOString()}&` +
+      `ascent_rate=0.1&float_altitude=${spot.altitude}&stop_datetime=` +
+      `${new Date(spot.ts.getTime() + 3 * 86400000).toISOString()}`;
+  if (debug > 0) console.log(url);
+  const response = await fetch(url);
+  if (!response.ok) throw new Error('HTTP error ' + response.status);
+  const data = await response.json();
+  if (debug > 1) console.log(data);
+  let path = [[selected_marker.getLatLng().lat,
+               selected_marker.getLatLng().lng]];
+  let markers = [];
+  const points = data.prediction[1].trajectory;
+  for (const [i, p] of points.entries()) {
+    const [lat, lon] = [p.latitude > 90 ? p.latitude - 180 : p.latitude,
+                        p.longitude > 180 ? p.longitude - 360 : p.longitude];
+    path.push([lat, lon]);
+    const ts = new Date(p.datetime);
+    if (((params.use_utc ? ts.getUTCHours() : ts.getHours()) % 6) * 60 +
+         ts.getUTCMinutes() < 20) {
+      const idx = (i == 0) ? 1 : 0;
+      const dist =
+          L.latLng([points[i].latitude, points[i].longitude]).distanceTo(
+              [points[i - 1].latitude, points[i - 1].longitude]) / 1000;
+      const ts_delta = new Date(points[i].datetime) -
+          new Date(points[i - 1].datetime);
+      const speed = dist / (ts_delta / 3600000.0);
+      markers.push([ts, lat, lon, speed]);
+    }
+  }
+  if (nomirror_param == null) {
+    path = [path,
+            path.map(p => [p[0], p[1] + 360]),
+            path.map(p => [p[0], p[1] - 360])];
+  }
+  prediction_line = L.polyline(path, { color: '#555', weight: 2 });
+  prediction_line.addTo(map);
+
+  prediction_markers = [];
+  for (const offset of (nomirror_param == null) ? [0, 360, -360] : [0]) {
+    for (const [ts, lat, lon, speed] of markers) {
+      let marker = L.circleMarker(
+          [lat, lon],
+          { radius: (params.use_utc ? ts.getUTCHours() : ts.getHours()) == 0 ?
+                6 : 4,
+            color: 'black', fillColor: '#bbb', weight: 1, stroke: true,
+            fillOpacity: 1 }).addTo(map);
+      marker.on('click', function(e) {
+        L.DomEvent.stopPropagation(e);
+      });
+      const ts_suffix = params.use_utc ? ':00 UTC | ' : ':00 | ';
+      marker.bindTooltip(formatTimestamp(ts).slice(0, -6) + ts_suffix +
+          formatSpeed([speed, 0]),
+          { direction: 'top', opacity: 0.8 });
+      prediction_markers.push(marker);
+    }
+  }
+
+  closeSpotInfo();
 }
 
 // Imports data from wspr.live for further processing:
@@ -1396,6 +1465,15 @@ function getNumLaps(spots) {
   return max_num_degrees / 360;
 }
 
+function clearPrediction() {
+  if (prediction_line) {
+    map.removeLayer(prediction_line);
+    prediction_markers.forEach(marker => map.removeLayer(marker));
+    prediction_line = null;
+    prediction_markers = null;
+  }
+}
+
 // Removes all existing markers and segments from the map
 function clearTrack() {
   if (marker_group) {
@@ -1406,6 +1484,7 @@ function clearTrack() {
     marker_group = null;
     marker_line = null;
   }
+
   document.getElementById('spot_info').style.display = 'none';
   document.getElementById('synopsis').innerHTML = '';
   document.getElementById('update_countdown').innerHTML = '';
@@ -1414,6 +1493,7 @@ function clearTrack() {
   if (selected_marker) {
     hideMarkerRXInfo(selected_marker);
   }
+  clearPrediction();
   selected_marker = null;
   last_marker = null;
 }
@@ -1777,10 +1857,15 @@ function onMarkerClick(e) {
   L.DomEvent.stopPropagation(e);
 }
 
-function onMapClick(e) {
-  // Hide spot info if currently displayed
+function closeSpotInfo() {
   document.getElementById('spot_info').style.display = 'none';
+  if (selected_marker) {
+    hideMarkerRXInfo(selected_marker);
+    selected_marker = null;
+  }
+}
 
+function onMapClick(e) {
   // Display lat / lng / sun elevation of clicked point
   const lat = e.latlng.lat;
   const lon = e.latlng.lng;
@@ -1809,9 +1894,9 @@ function onMapClick(e) {
         formatDistance(dist) + '</span>';
     // Clicking anywhere on the map hides the info bar for the last
     // clicked marker
-    hideMarkerRXInfo(selected_marker);
-    selected_marker = null;
+    closeSpotInfo();
   }
+  clearPrediction();
   aux_info.style.display = 'block';
 }
 
@@ -1896,7 +1981,12 @@ function displaySpotInfo(marker, point) {
   }
 
   if (marker == selected_marker && spot.altitude) {
-    spot_info.innerHTML += '<br><br>';
+     spot_info.innerHTML += '<br><br>';
+     if (marker == last_marker && Date.now() - spot.ts < 7 * 3600 * 1000) {
+       spot_info.innerHTML += '<a href="#" onclick="runSondehubPrediction(); ' +
+           'return false" style="color: #81cdff; text-decoration: none;">' +
+           'Path Prediction</a><br>';
+     }
     // Add GoogleEarth view
     const d = spot.altitude / 0.23075;
     const dl = d / (111320 * Math.cos(spot.lat * 0.01745));
@@ -1907,7 +1997,7 @@ function displaySpotInfo(marker, point) {
         (spot.lon + dl).toFixed(3) + ',0a,' +
         dt + 'd,35y,90h,77t" ' +
         'style="color: #81cdff; text-decoration: none;" ' +
-        'target=new>[ GoogleEarth View ]</a>' +
+        'target=new>GoogleEarth View</a>' +
         '<br>(use CTRL-arrows<br>to look around)';
   }
 

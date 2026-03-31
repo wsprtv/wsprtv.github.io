@@ -584,12 +584,14 @@ function updateMessageInfo(message) {
     max_next_div = Math.max(max_next_div, next_div);
   }
   const size_left = 194756140800.0 / max_next_div;
-  if (size_left > 1) {
+  if (size_left >= 2) {
     info.innerHTML =
         `<font color="darkgreen">[ ${Math.log2(size_left).toFixed(2)} ` +
         `bits remaining (${Math.floor(size_left)} values) ]</font>`;
-  } else if (size_left == 1) {
-    info.innerHTML = '<font color="darkgreen">[ Full ]</font>';
+  } else if (size_left >= 1) {
+    info.innerHTML =
+        `<font color="darkgreen">[ ${Math.log2(size_left).toFixed(2)} ` +
+        `bits remaining ]</font>`;
   } else {
     info.innerHTML = `<font color="darkred">[ Overflow by ` +
         `${-Math.log2(size_left).toFixed(2)} bits ]</font>`;
