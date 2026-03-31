@@ -470,10 +470,9 @@ async function runTawhiriPrediction() {
   let path = [[[spot.lat, spot.lon]]];
   let markers = [];
   const points = data.prediction[data.prediction.length - 1].trajectory;
-  let last_point;
+  let last_point = points[0];
   for (const [i, p] of points.entries()) {
-    if (last_point &&
-        new Date(p.datetime) - new Date(last_point.datetime) <
+    if (new Date(p.datetime) - new Date(last_point.datetime) <
             19 * 60 * 1000) {
       continue;
     }
@@ -484,7 +483,6 @@ async function runTawhiriPrediction() {
     if (((params.use_utc ? ts.getUTCHours() : ts.getHours()) % 6) * 60 +
          ts.getUTCMinutes() < 20 &&
          ts.getHours() != new Date(last_point.datetime).getHours()) {
-      const idx = (i == 0) ? 1 : 0;
       const dist =
           L.latLng([points[i].latitude, points[i].longitude]).distanceTo(
               [points[i - 1].latitude, points[i - 1].longitude]) / 1000;
