@@ -450,7 +450,7 @@ async function runTawhiriPrediction() {
       'https://api.v2.sondehub.org/tawhiri' :
       'https://predict.adamlawson.uk/tawhiri/api/v1';
   const url = url_prefix + '?profile=float_profile&' +
-      `launch_latitude=${(spot.lat + 180) % 180}&` +
+      `launch_latitude=${spot.lat}&` +
       `launch_longitude=${(spot.lon + 360) % 360}&` +
       `launch_altitude=${spot.altitude - 1}&` +
       `launch_datetime=${spot.ts.toISOString()}&` +
