@@ -1114,8 +1114,8 @@ function extractCustomTelemetry(spot, raw_ct, extractors) {
       }
       case 128: {
         // Set speed
-        spot.speed = params[0] + value * params[1];
-        spot.speed_res = params[1];
+        spot.speed = 1.852 * (params[0] + value * params[1]);
+        spot.speed_res = 1.852 * params[1];
         break;
       }
       case 140: {
