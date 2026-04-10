@@ -71,7 +71,10 @@ representing <strong>custom telemetry (CT)</strong>. Custom telemetry is
 discussed in detail <a href="#u4b-custom-telemetry-(ct)">below</a>.</p>
 <p>U4B channels are allowed to have a <code class="notranslate">V&lt;variant&gt;</code> suffix, such as
 <code class="notranslate">321V100</code>, to enable
-<a href="#u4b-experimental-extensions">certain experimental extensions</a>.</p>
+<a href="#u4b-experimental-extensions">certain experimental extensions</a>.
+They can also have a <code class="notranslate">P&lt;num&gt;</code> suffix, to display certain Custom
+Telemetry without specifying the usual URL decorators (e.g.
+use <code class="notranslate">&lt;ch&gt;p10</code> to view Nomad's enhanced CT).</p>
 </li>
 <li>
 <p><strong>U4B [<code class="notranslate">U&lt;CS1&gt;&lt;CS3&gt;&lt;M&gt;</code>]</strong>. This is an alternative U4B channel
@@ -193,6 +196,11 @@ becomes sluggish because of too many spots.</p>
 <p><strong>detach_grid4</strong> (no value needed) removes low-resolution (grid4)
 spots from the track. Removed spots can still be seen in the data table
 and on the map with <code class="notranslate">show_unattached</code>.</p>
+</li>
+<li>
+<p><strong>detach_noct</strong> (no value needed) removes spots that have no Custom
+Telemetry from the track. Removed spots can still be seen in the data
+table and on the map with <code class="notranslate">show_unattached</code>.</p>
 </li>
 <li>
 <p><strong>min_match=<code class="notranslate">&lt;score&gt;</code></strong> specifies the minimum co-reception match

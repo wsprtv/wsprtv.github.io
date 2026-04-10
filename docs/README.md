@@ -65,6 +65,9 @@ discussed in detail [below](#u4b-custom-telemetry-(ct)).
   U4B channels are allowed to have a `V<variant>` suffix, such as 
 `321V100`, to enable
 [certain experimental extensions](#u4b-experimental-extensions).
+They can also have a `P<num>` suffix, to display certain Custom
+Telemetry without specifying the usual URL decorators (e.g.
+use `<ch>p10` to view Nomad's enhanced CT).
 
 - **U4B [`U<CS1><CS3><M>`]**. This is an alternative U4B channel 
 representation that specifies the first and third characters of the 
@@ -185,6 +188,10 @@ becomes sluggish because of too many spots.
 - **detach_grid4** (no value needed) removes low-resolution (grid4)
 spots from the track. Removed spots can still be seen in the data table
 and on the map with `show_unattached`.
+
+- **detach_noct** (no value needed) removes spots that have no Custom
+Telemetry from the track. Removed spots can still be seen in the data
+table and on the map with `show_unattached`.
 
 - **min_match=`<score>`** specifies the minimum co-reception match
 score needed to link U4B telemetry. Defaults to 1. Setting the score

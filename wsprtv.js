@@ -53,6 +53,7 @@ let ate1y_param;  // ate1y = allow tracks exceeding 1 year
 let noupdate_param;
 let nomirror_param;
 let detach_grid4_param;
+let detach_noct_param;
 let min_match_param;
 let show_unattached_param;
 let sun_elevation_param;
@@ -161,11 +162,12 @@ function getURLParameter(name) {
   return getParameterFromURL(location.search, name);
 }
 
-// Parses a versioned parameter such as fooV12 into its prefix
-// and the version number (or 0 if not present)
-function parseVersionedParameter(param) {
-  const match = param.match(/^(.*?)(?:V(\d+))?$/i);
-  return [match[1], match[2] ? Number(match[2]) : 0];
+// Parses an annotated parameter such as fooV12 into its prefix ('foo'),
+// type ('V') and the suffix (12) (or 0 if the suffix is not present)
+function parseAnnotatedParameter(param) {
+  const match = param.match(/^(.*?)(?:([VP])(\d+))?$/i);
+  return [match[1], match[2] ? match[2].toUpperCase() : '',
+          match[3] ? Number(match[3]) : 0];
 }
 
 // Parses and validates input params, returning them as a dictionary.
@@ -178,8 +180,8 @@ function parseParameters() {
     return null;
   }
   // Channel may also encode tracker type, such as Z4 for Zachtek
-  const [raw_ch, version] =
-      parseVersionedParameter(document.getElementById('ch').value.trim());
+  const [raw_ch, annotation_type, annotation] =
+      parseAnnotatedParameter(document.getElementById('ch').value.trim());
   let ch;
   let tracker;
   const [starting_minute_offset, _, _2] = kWSPRBandInfo[band];
@@ -302,6 +304,10 @@ function parseParameters() {
     return null;
   }
 
+  if (annotation_type == 'P') {
+    loadProfile(annotation);
+  }
+
   const ct_spec = ct_decoders_param ? parseCustomTelemetrySpec() : null;
   if (ct_decoders_param && !ct_spec) {
     alert('Invalid CT spec');
@@ -315,7 +321,8 @@ function parseParameters() {
            'start_date': start_date, 'end_date': end_date,
            'ct_slots': ct_slots, 'units': units, 'use_utc': use_utc,
            'detail': detail, 'ct_spec': ct_spec,
-           'version': version };
+           'profile': (annotation_type == 'P') ? annotation : null,
+           'version': (annotation_type == 'V') ? annotation : null };
 }
 
 function loadHistory() {
@@ -510,10 +517,11 @@ async function runTawhiriPrediction() {
   prediction_line.addTo(map);
 
   prediction_markers = [];
+  let current_location_marker;
   for (const offset of (nomirror_param == null) ? [0, 360, -360] : [0]) {
     for (const [ts, lat, lon, speed, current_location] of markers) {
-      const radius = (current_location ||
-          (params.use_utc ? ts.getUTCHours() : ts.getHours()) == 0) ? 6 : 4;
+      const radius = current_location ? 7 :
+          (((params.use_utc ? ts.getUTCHours() : ts.getHours()) == 0) ? 6 : 4);
       let marker = L.circleMarker(
           [lat, lon + offset],
           { radius: radius,
@@ -530,7 +538,9 @@ async function runTawhiriPrediction() {
           formatSpeed([speed, 0]),
           { direction: 'top', opacity: 0.8 });
       prediction_markers.push(marker);
+      if (current_location) current_location_marker = marker;
     }
+    if (current_location_marker) current_location_marker.bringToFront();
   }
 }
 
@@ -931,7 +941,7 @@ function decodeCustomTelemetry(spot) {
       let matched = true;
       for (let filter of filters) {
         if (filter.length == 4 && filter[3] == 't' &&
-            Math.trunc(tx_seq / filter[1]) % filter[2] != filter[3]) {
+            Math.trunc(tx_seq / filter[0]) % filter[1] != filter[2]) {
           matched = false;
           break;
         }
@@ -950,6 +960,7 @@ function decodeCustomTelemetry(spot) {
       }
       if (matched) {
         // Extract the values
+        spot.has_ct = true;
         extractCustomTelemetry(spot, raw_ct, extractors);
         break;  // do not try other decoders
       }
@@ -1185,7 +1196,8 @@ function categorizeSpots() {
   for (let i = 0; i < spots.length; i++) {
     const spot = spots[i];
     if (spot.is_invalid_gps ||
-        (detach_grid4_param != null && spot.grid.length < 6)) {
+        (detach_grid4_param != null && spot.grid.length < 6) ||
+        (detach_noct_param != null && !spot.has_ct)) {
       spot.is_unattached = true;
       continue;
     }
@@ -2321,26 +2333,31 @@ function getCurrentURL() {
   if (detach_grid4_param != null) {
     url += '&detach_grid4';
   }
+  if (detach_noct_param != null) {
+    url += '&detach_noct';
+  }
   if (min_match_param != null) {
     url += '&min_match=' + encodeURIComponent(min_match_param);
   }
   if (sun_elevation_param != null) {
     url += '&sun_elev=' + encodeURIComponent(sun_elevation_param);
   }
-  if (ct_decoders_param) {
-    url += '&ct_dec=' + encodeURLParameter(ct_decoders_param);
-  }
-  if (ct_labels_param) {
-    url += '&ct_labels=' + encodeURLParameter(ct_labels_param);
-  }
-  if (ct_long_labels_param) {
-    url += '&ct_llabels=' + encodeURLParameter(ct_long_labels_param);
-  }
-  if (ct_units_param) {
-    url += '&ct_units=' + encodeURLParameter(ct_units_param);
-  }
-  if (ct_resolutions_param) {
-    url += '&ct_res=' + encodeURLParameter(ct_resolutions_param);
+  if (!params.profile) {
+    if (ct_decoders_param) {
+      url += '&ct_dec=' + encodeURLParameter(ct_decoders_param);
+    }
+    if (ct_labels_param) {
+      url += '&ct_labels=' + encodeURLParameter(ct_labels_param);
+    }
+    if (ct_long_labels_param) {
+      url += '&ct_llabels=' + encodeURLParameter(ct_long_labels_param);
+    }
+    if (ct_units_param) {
+      url += '&ct_units=' + encodeURLParameter(ct_units_param);
+    }
+    if (ct_resolutions_param) {
+      url += '&ct_res=' + encodeURLParameter(ct_resolutions_param);
+    }
   }
   return url;
 }
@@ -2361,6 +2378,19 @@ function encodeURLParameter(param) {
   ).join('');
 }
 
+function loadProfile(profile) {
+  if (profile == 10) {
+    // Nomad enhanced telemetry
+    ct_decoders_param = 'ct,s:2,5:2:0:t_256:t100,256:t101,20:t102,2:t109,' +
+        '3:t108,3:t107,5:t106,330:0:1~ct,s:2,5:2:1:t_256:t100,256:t101,' +
+        '20:t102,2:t109,3:t108,3:t107,5:t106,15:0:1,22:0:5';
+    ct_labels_param = 'NumTX,NumSats,TTFF';
+    ct_long_labels_param = null;
+    ct_units_param = ',, s';
+    ct_resolutions_param = null;
+  }
+}
+
 // Invoked when the "Go" button is pressed or when URL params are provided
 // on load
 function processSubmission(e, on_load = false) {
@@ -2379,6 +2409,7 @@ function processSubmission(e, on_load = false) {
       noupdate_param = null;
       nomirror_param = null;
       detach_grid4_param = null;
+      detach_noct_param = null;
       min_match_param = null;
       show_unattached_param = null;
       units_param = null;
@@ -3336,6 +3367,7 @@ function start() {
   noupdate_param = getURLParameter('noupdate') || getURLParameter('dnu');
   nomirror_param = getURLParameter('nomirror');
   detach_grid4_param = getURLParameter('detach_grid4');
+  detach_noct_param = getURLParameter('detach_noct');
   min_match_param = getURLParameter('min_match');
   show_unattached_param = getURLParameter('show_unattached');
   units_param = getURLParameter('units');
