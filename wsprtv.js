@@ -2383,7 +2383,7 @@ function loadProfile(profile) {
     // Nomad enhanced telemetry
     ct_decoders_param = 'ct,s:2,5:2:0:t_256:t100,256:t101,20:t102,2:t109,' +
         '3:t108,3:t107,5:t106,330:0:1~ct,s:2,5:2:1:t_256:t100,256:t101,' +
-        '20:t102,2:t109,3:t108,3:t107,5:t106,15:0:1,22:0:5';
+        '20:t102,2:t109,3:t108,3:t107,5:t106,15:3:1,22:0:5';
     ct_labels_param = 'NumTX,NumSats,TTFF';
     ct_long_labels_param = null;
     ct_units_param = ',, s';
