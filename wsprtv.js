@@ -1051,7 +1051,7 @@ function extractCustomTelemetry(spot, raw_ct, extractors) {
       }
       case 107: {
         // Enhanced voltage range
-        spot.temp += (((value - 1) & 1) ? -2 : 2) * ((value + 1) >> 1);
+        spot.voltage += (((value - 1) & 1) ? -2 : 2) * ((value + 1) >> 1);
         break;
       }
       case 108: {
