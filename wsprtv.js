@@ -531,11 +531,12 @@ async function runTawhiriPrediction() {
       marker.on('click', function(e) {
         L.DomEvent.stopPropagation(e);
       });
+      const sun_elevation = getSunElevation(ts, lat, lon);
       const ts_suffix = params.use_utc ? ':00 UTC | ' : ':00 | ';
       marker.bindTooltip(
-          (current_location ? 'Now ' : (formatTimestamp(ts).slice(0, 13) +
+          (current_location ? 'Now | ' : (formatTimestamp(ts).slice(0, 13) +
               ts_suffix)) +
-          formatSpeed([speed, 0]),
+          formatSpeed([speed, 0]) + ' | ' + sun_elevation + '&deg;',
           { direction: 'top', opacity: 0.8 });
       prediction_markers.push(marker);
       if (current_location) current_location_marker = marker;
@@ -2401,8 +2402,10 @@ function processSubmission(e, on_load = false) {
 
   if (params) {
     if (old_params &&
-        `${params.cs}.${params.ch}.${params.band}` !=
-        `${old_params.cs}.${old_params.ch}.${old_params.band}`) {
+        (params.cs != old_params.cs ||
+         params.ch != old_params.ch ||
+         params.band != old_params.band ||
+         params.profile != old_params.profile)) {
       // Discard URL-only params when looking up new flights
       end_date_param = null;
       ate1y_param = null;
