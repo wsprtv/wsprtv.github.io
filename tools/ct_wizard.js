@@ -203,8 +203,6 @@ function importWSPRTVURL(url) {
       getURLParameter(url, 'et_llabels');
   const units_param = getURLParameter(url, 'ct_units') ||
       getURLParameter(url, 'et_units');
-  const resolutions_param = getURLParameter(url, 'ct_res') ||
-      getURLParameter(url, 'et_res');
 
   mode = 'advanced';
   if (!decoders_param) {
@@ -247,7 +245,6 @@ function importWSPRTVURL(url) {
   let labels;
   let long_labels;
   let units;
-  let resolutions;
   if (labels_param) {
     spec.labels = labels_param.split(',');
   }
@@ -257,9 +254,6 @@ function importWSPRTVURL(url) {
   if (units_param) {
     spec.units = units_param.split(',');
   }
-  if (resolutions_param) {
-    spec.resolutions = resolutions_param.split(',');
-  }
   createMessages(spec);
 }
 
@@ -268,17 +262,17 @@ function createMessages(spec = null) {
   const wizard = document.getElementById('wizard');
   let info_section = addSection(wizard, 'box');
   info_section.innerHTML =
-      '<h3>Instructions</h3><br>Add one or more message definitions, ' +
+      '<h2>Instructions</h2><br>Add one or more message definitions, ' +
       'then click "<b>Generate URL</b>" at the bottom of the page.<br><br>' +
-      '<b>Custom Telemetry</b> - newer protocol providing 35.5 bits of ' +
+      '<b>Custom Telemetry</b> - 35.5 bits of ' +
       'payload (not supported by all trackers).<br>' +
-      '<b>ET0</b> - older protocol providing 29.5 bits of payload.<br><br>' +
+      '<b>ET0</b> - 29.5 bits of payload.<br><br>' +
       '<b>Slot</b> - TX slot for this CT message, typically 2 - 4 ' +
       ' (standard telemetry is in slot 1).<br><br>' +
       'Fields are packed starting with the least significant position ' +
       'in BigNum.<br><br>Hover over labels such as "Size" and "Step" to see ' +
       'their meaning.';
-  info_section.style.backgroundColor = '#fffff5';
+  info_section.style.backgroundColor = '#eee';
   if (mode == 'advanced') info_section.hidden = true;
 
   const messages = addSection(wizard);
@@ -333,8 +327,7 @@ function createMessage(messages, decoder = null, spec = null) {
         createExtractor(extractors, false, extractor_spec,
             (spec.labels || [])[num_imported_opaque_extractors],
             (spec.long_labels || [])[num_imported_opaque_extractors],
-            (spec.units || [])[num_imported_opaque_extractors],
-            (spec.resolutions || [])[num_imported_opaque_extractors]);
+            (spec.units || [])[num_imported_opaque_extractors]);
         num_imported_opaque_extractors++;
       }
     }
@@ -411,7 +404,7 @@ function createFilter(parent, filter_spec = null) {
 }
 
 function createExtractor(parent, is_native, extractor_spec = null,
-    label = '', long_label = '', units = '', resolution = '') {
+    label = '', long_label = '', units = '') {
   let s = addSection(parent);
   let l = addLabel(s, 'Div',
       'Divisor needed to shift BigNum right for value extraction');
@@ -521,11 +514,6 @@ function createExtractor(parent, is_native, extractor_spec = null,
         'significant: "4 V" vs. "4V".');
     f = addInputField(s, '', 50, 'none');
     f.value = units;
-    addLabel(s, 'Resolution',
-        'Number of digits to display after the decimal point ' +
-        '(e.g. 2 for "4.45V"). If blank or zero, values are shown as integers.');
-    f = addInputField(s, '', 30, '0');
-    f.value = resolution;
   }
   addButton(s, 'Delete', deleteExtractor);
   f = addTextElement(s, 'span', '⬆', 'color: gray; cursor: pointer');
@@ -808,11 +796,6 @@ function checkAnnotationField(name, field) {
         throw 'Units can only contain letters ' +
               'and [ /°] characters';
       }
-    } else if (name == 'resolution') {
-      const resolution = Number(value || 'none');
-      if (!Number.isInteger(resolution) || resolution < 0 || resolution > 6) {
-        throw `Resolution should be between 0 and 6`;
-      }
     }
   } catch (error) {
     alert(error);
@@ -828,7 +811,6 @@ function generateURL() {
   let labels = [];
   let long_labels = [];
   let units = [];
-  let resolutions = [];
   num_opaque_extractors = 0;
   let all_opaque_extractors = [];
   for (const message of document.getElementById('messages').children) {
@@ -933,11 +915,6 @@ function generateURL() {
           if (!checkAnnotationField('units', units_field)) return;
           units[num_opaque_extractors] = units_field.value;
         }
-        const resolution_field = extractor_fields[15];
-        if (resolution_field.value) {
-          if (!checkAnnotationField('resolution', resolution_field)) return;
-          resolutions[num_opaque_extractors] = resolution_field.value;
-        }
         num_opaque_extractors++;
       }
     }
@@ -999,17 +976,12 @@ function generateURL() {
   if (units.length) {
     url += 'ct_units=' + encodeURLParameter(units.join(',')) + '&';
   }
-  const resolutions_param =
-      resolutions.map(v => v == '0' ? '' : v).join(',');
-  if (resolutions_param) {
-    url += 'ct_res=' + encodeURLParameter(resolutions_param) + '&';
-  }
   if (url.endsWith('&')) url = url.slice(0, -1);  // remove trailing &
   displayURL(url, all_opaque_extractors, labels, long_labels,
-             units, resolutions);
+             units);
 }
 
-function displayURL(url, extractors, labels, long_labels, units, resolutions) {
+function displayURL(url, extractors, labels, long_labels, units) {
   document.getElementById('footer').remove();
   const footer = addSection(wizard);
   footer.id = 'footer';
@@ -1041,13 +1013,14 @@ function displayURL(url, extractors, labels, long_labels, units, resolutions) {
       const label = labels[i] || `CT${i}`;
       const long_label = long_labels[i] || labels[i] || `CT${i}`;
       const units_ = units[i] || '';
-      const resolution = Number(resolutions[i]) || 0;
+      const precision = Math.max((extractor[1].split('.')[1] || '').length,
+          (extractor[2].split('.')[1] || '').length);
       span1.innerHTML +=
           `<font color="darkgreen">` +
-          `<b>${label}</font></b>: ${value.toFixed(resolution)}${units_}<br>`;
+          `<b>${label}</font></b>: ${value.toFixed(precision)}${units_}<br>`;
       span2.innerHTML += `<font color="#8b4513"><b>${long_label}` +
           ((units_) ? ` (${units_.trim()})` : '') +
-          `</b></font>: ${value.toFixed(resolution)}<br>`;
+          `</b></font>: ${value.toFixed(precision)}<br>`;
     }
     span2.innerHTML += `<br>If this doesn't look right, adjust the message ` +
         `defintions and click the "<b>Update URL</b>" button below.`;

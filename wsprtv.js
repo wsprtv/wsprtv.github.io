@@ -63,7 +63,6 @@ let ct_decoders_param;
 let ct_labels_param;
 let ct_long_labels_param;
 let ct_units_param;
-let ct_resolutions_param;
 
 // Other URL parameters
 let units_param;
@@ -2356,9 +2355,6 @@ function getCurrentURL() {
     if (ct_units_param) {
       url += '&ct_units=' + encodeURLParameter(ct_units_param);
     }
-    if (ct_resolutions_param) {
-      url += '&ct_res=' + encodeURLParameter(ct_resolutions_param);
-    }
   }
   return url;
 }
@@ -2388,7 +2384,6 @@ function loadProfile(profile) {
     ct_labels_param = 'NumTX,NumSats,TTFF';
     ct_long_labels_param = null;
     ct_units_param = ',, s';
-    ct_resolutions_param = null;
   }
 }
 
@@ -2422,7 +2417,6 @@ function processSubmission(e, on_load = false) {
       ct_labels_param = null;
       ct_long_labels_param = null;
       ct_units_param = null;
-      ct_resolutions_param = null;
       params = parseParameters();
     }
   }
@@ -2742,12 +2736,12 @@ function getCustomTelemetryAttributes(i) {
   if (params.ct_spec['units'] && params.ct_spec['units'][i]) {
     units = params.ct_spec['units'][i];
   }
-  let resolution;
-  if (params.ct_spec['resolutions'] && params.ct_spec['resolutions']) {
-    resolution = params.ct_spec['resolutions'][i];
+  let precision;
+  if (params.ct_spec['precisions']) {
+    precision = params.ct_spec['precisions'][i];
   }
   let formatter = (v, au) => {
-    if (resolution != null) v = v.toFixed(resolution);
+    if (precision) v = v.toFixed(precision);
     if (units && au) v += units;
     return v;
   };
@@ -3208,6 +3202,7 @@ function parseCustomTelemetrySpec() {
   if (!ct_decoders_param) return null;
   if (!/^[0-9cets,:_~.-]+$/.test(ct_decoders_param)) return null;
   let decoders = [];
+  let precisions = [];  // number of decimal places to show
   let opaque_index = 0;
   for (const decoder_spec of ct_decoders_param.toLowerCase().split('~')) {
     let next_divisor = 1;
@@ -3296,6 +3291,10 @@ function parseCustomTelemetrySpec() {
               Number.isNaN(extractor[3])) {
             return null;
           }
+          // Compute precision (number of decimal places after the dot)
+          const [first_value, step] = extractor_spec.split(':').slice(-2);
+          precisions.push(Math.max((first_value.split('.')[1] || '').length,
+              (step.split('.')[1] || '').length));
         } else {
           // Native type
           if (extractor.length > 5 ||
@@ -3318,7 +3317,6 @@ function parseCustomTelemetrySpec() {
   let labels;
   let long_labels;
   let units;
-  let resolutions;
   if (ct_labels_param) {
     if (!/^[0-9a-z ,#_]+$/i.test(ct_labels_param)) return null;
     labels = ct_labels_param.split(',');
@@ -3334,19 +3332,11 @@ function parseCustomTelemetrySpec() {
     units = ct_units_param.split(',');
     if (!units.every(v => v.length <= 8)) return null;
   }
-  if (ct_resolutions_param) {
-    resolutions = ct_resolutions_param.split(',').map(
-        v => v == '' ? null : Number(v));
-    if (!resolutions.every(
-        v => v == null || (Number.isInteger(v) && v >= 0 && v <= 6))) {
-      return null;
-    }
-  }
   let spec = { 'decoders': decoders };
   if (labels) spec['labels'] = labels;
   if (long_labels) spec['long_labels'] = long_labels;
   if (units) spec['units'] = units;
-  if (resolutions) spec['resolutions'] = resolutions;
+  spec['precisions'] = precisions;
   return spec;
 }
 
@@ -3386,8 +3376,6 @@ function start() {
       getURLParameter('et_llabels');
   ct_units_param = getURLParameter('ct_units') ||
       getURLParameter('et_units');
-  ct_resolutions_param = getURLParameter('ct_res') ||
-      getURLParameter('et_res');
 
   // On mobile devices, allow for a larger click area
   let click_tolerance = 0;

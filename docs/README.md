@@ -211,7 +211,7 @@ respectively) and will pre-fill the control panel parameters. Example:
 `cs=AB1CDE&ch=321&band=10m&start_date=2025-07-15`.
 
 Custom-telemetry-related URL parameters `ct_dec`, `ct_labels`, 
-`ct_llabels`, `ct_units`, and `ct_res` are discussed in the
+`ct_llabels`, and `ct_units` are discussed in the
 [Custom Telemetry section](#u4b-custom-telemetry-(ct)) of this guide.
 
 ## Map View
@@ -886,7 +886,7 @@ becomes:
 ### Value Annotation
 
 Extracted values can optionally be annotated with a
-**short label**, **long label**, **units**, and **resolution**:
+**short label**, **long label**, and **units**:
 
 - **Short label** is a brief, descriptive identifier -- e.g., `VSpeed` 
 for "Vertical Speed". It can be up to 32 characters long and may only 
@@ -907,10 +907,6 @@ if short labels are also missing.
 letters, spaces, and the characters `/` and `°`. Countable values often 
 don't require units: `NumSats: 5` is typically clearer than
 `NumSats: 5 sats`.
-
-- **Resolution** specifies the number of digits to show after the 
-decimal point. By default, values are displayed as integers (resolution 
-= 0). The maximum allowed resolution is 6.
 
 ### Native Value Extraction
 
@@ -1033,7 +1029,7 @@ An optional `<first_value>` and an optional `<step>` may follow
 `<type_id>` for certain types.
 
 Finally, a set of annotation parameters -- `ct_labels`, `ct_llabels`, 
-`ct_units`, and `ct_res` -- can be used to customize the display of opaque CT 
+and `ct_units` -- can be used to customize the display of opaque CT 
 values. All of these are a comma-separated list of parameters, with one 
 value per extractor specification. For example, if there are 2 decoders 
 containing 4 and 5 extractors respectively, then the 7th item in 

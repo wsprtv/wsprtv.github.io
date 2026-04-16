@@ -223,7 +223,7 @@ parameters as well (using <code class="notranslate">cs</code>, <code class="notr
 respectively) and will pre-fill the control panel parameters. Example:
 <code class="notranslate">cs=AB1CDE&amp;ch=321&amp;band=10m&amp;start_date=2025-07-15</code>.</p>
 <p>Custom-telemetry-related URL parameters <code class="notranslate">ct_dec</code>, <code class="notranslate">ct_labels</code>,
-<code class="notranslate">ct_llabels</code>, <code class="notranslate">ct_units</code>, and <code class="notranslate">ct_res</code> are discussed in the
+<code class="notranslate">ct_llabels</code>, and <code class="notranslate">ct_units</code> are discussed in the
 <a href="#u4b-custom-telemetry-(ct)">Custom Telemetry section</a> of this guide.</p>
 <h2 id="map-view">Map View</h2>
 <p>A track is rendered as a sequence of small white grid4 markers (low
@@ -757,7 +757,7 @@ becomes:</p>
 </code></pre>
 <h3 id="value-annotation">Value Annotation</h3>
 <p>Extracted values can optionally be annotated with a
-<strong>short label</strong>, <strong>long label</strong>, <strong>units</strong>, and <strong>resolution</strong>:</p>
+<strong>short label</strong>, <strong>long label</strong>, and <strong>units</strong>:</p>
 <ul>
 <li>
 <p><strong>Short label</strong> is a brief, descriptive identifier -- e.g., <code class="notranslate">VSpeed</code>
@@ -781,11 +781,6 @@ if short labels are also missing.</p>
 letters, spaces, and the characters <code class="notranslate">/</code> and <code class="notranslate">°</code>. Countable values often
 don't require units: <code class="notranslate">NumSats: 5</code> is typically clearer than
 <code class="notranslate">NumSats: 5 sats</code>.</p>
-</li>
-<li>
-<p><strong>Resolution</strong> specifies the number of digits to show after the
-decimal point. By default, values are displayed as integers (resolution
-= 0). The maximum allowed resolution is 6.</p>
 </li>
 </ul>
 <h3 id="native-value-extraction">Native Value Extraction</h3>
@@ -868,7 +863,7 @@ depending on whether the divisor is explicit or implicit:</p>
 <p>An optional <code class="notranslate">&lt;first_value&gt;</code> and an optional <code class="notranslate">&lt;step&gt;</code> may follow
 <code class="notranslate">&lt;type_id&gt;</code> for certain types.</p>
 <p>Finally, a set of annotation parameters -- <code class="notranslate">ct_labels</code>, <code class="notranslate">ct_llabels</code>,
-<code class="notranslate">ct_units</code>, and <code class="notranslate">ct_res</code> -- can be used to customize the display of opaque CT
+and <code class="notranslate">ct_units</code> -- can be used to customize the display of opaque CT
 values. All of these are a comma-separated list of parameters, with one
 value per extractor specification. For example, if there are 2 decoders
 containing 4 and 5 extractors respectively, then the 7th item in
