@@ -1001,7 +1001,7 @@ function extractCustomTelemetry(spot, raw_ct, extractors) {
     const params = extractor.slice(4);
     if (discard_rest && type != 141) continue;
     if (type < 120) {
-      spot.fill = '#7ab1c9';
+      spot.fill = '#5f94ab';
       if (spot.grid.length < 6) continue;
     }
     switch (type) {
