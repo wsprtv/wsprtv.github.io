@@ -688,18 +688,11 @@ when one of the filters in the message definition is <code class="notranslate">c
 <h3 id="temporal-filters">Temporal Filters</h3>
 <p>WSPR TV provides a powerful mechanism for multiplexing multiple message
 types within the same slot -- without using any extra bits to indicate
-which schema is in use -- via the <code class="notranslate">tx_seq</code> variable.</p>
-<p><code class="notranslate">tx_seq</code> represents the transmission slot sequence number, which
-increments every 2 minutes and resets every month. If the GPS <strong>UTC</strong>
-time of the <strong>regular callsign</strong> transmission preceding a custom
-telemetry message is <code class="notranslate">YYY-MM-DD HH:MM</code>, <code class="notranslate">tx_seq</code> is calculated as
-follows:</p>
-<pre class="notranslate"><code class="notranslate">tx_seq = ((DD - 1) * 720) + (HH * 30) + (MM / 2)
-</code></pre>
-<p>For example, on May 3rd at 06:32 UTC,
-<code class="notranslate">tx_seq = (2 * 720) + (6 * 30) + (32 / 2) = 1636</code>.</p>
+which schema is in use -- via the <code class="notranslate">ts</code> variable.</p>
+<p><code class="notranslate">ts</code> represents the Unix timestamp (in seconds since epoch) for the
+preceding <strong>regular callsign</strong> transmission.</p>
 <p>This variable can be used instead of <code class="notranslate">BigNumber</code> in filters:</p>
-<pre class="notranslate"><code class="notranslate">(tx_seq / divisor) % modulus = expected_value
+<pre class="notranslate"><code class="notranslate">(ts / divisor) % modulus = expected_value
 </code></pre>
 <p>This allows WSPR TV to decode messages differently based on transmission
 time -- for example, every other transmission, during odd-numbered
@@ -801,7 +794,7 @@ from other formats.</p>
 <p><a target="_blank" rel="noopener noreferrer" href="images/img14.png"><img src="images/img14.png" width="900" style="max-width: 100%;"></a></p>
 <p>In this example, a single message is defined based on ET0 in slot 2. Two
 additional filters are applied: a temporal filter, which restricts the
-message to even <code class="notranslate">tx_seq</code> slots, and a custom selector, which checks that
+message to even slots, and a custom selector, which checks that
 the first bit after the ET0 header is 1 (perhaps because the message
 format changes when the bit is 0).</p>
 <p>The message contains two values -- Temperature and Voltage -- which
@@ -838,8 +831,8 @@ separated from each other with commas (<code class="notranslate">,</code>):</p>
 <pre class="notranslate"><code class="notranslate">&lt;divisor&gt;:&lt;modulus&gt;:&lt;expected_value&gt;
 &lt;modulus&gt;:&lt;expected_value&gt;  (implied divisor)
 s:&lt;slot&gt;
-&lt;divisor&gt;:&lt;modulus&gt;:&lt;expected_value&gt;:t
-&lt;modulus&gt;:&lt;expected_value&gt;:t (implied divisor)
+&lt;divisor&gt;:&lt;modulus&gt;:&lt;expected_value&gt;:ts
+&lt;modulus&gt;:&lt;expected_value&gt;:ts (implied divisor)
 
 </code></pre>
 <p>with the latter two representing temporal conditions. Shortcuts for

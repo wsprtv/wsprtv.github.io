@@ -929,7 +929,8 @@ function decodeSpot(spot) {
 
 function decodeCustomTelemetry(spot) {
   if (!params.ct_spec || !spot.raw_ct) return null;
-  let tx_seq = (spot.ts.getUTCDate() - 1) * 720 +
+  const ts = Math.floor((spot.tx_ts || spot.ts) / 1000);
+  const tx_seq = (spot.ts.getUTCDate() - 1) * 720 +
       spot.ts.getUTCHours() * 30 +
       Math.floor(spot.ts.getUTCMinutes() / 2);
   for (let i = 0; i < spot.raw_ct.length; i++) {
@@ -940,6 +941,11 @@ function decodeCustomTelemetry(spot) {
       const [filters, extractors] = decoders[j];
       let matched = true;
       for (let filter of filters) {
+        if (filter.length == 4 && filter[3] == 'ts' &&
+            Math.trunc(ts / filter[0]) % filter[1] != filter[2]) {
+          matched = false;
+          break;
+        }
         if (filter.length == 4 && filter[3] == 't' &&
             Math.trunc(tx_seq / filter[0]) % filter[1] != filter[2]) {
           matched = false;
@@ -1203,7 +1209,7 @@ function categorizeSpots() {
     }
 
     if (last_attached_spot) {
-      if (spot.ts == last_attached_spot.ts) {
+      if (+spot.ts == +last_attached_spot.ts) {
         // This can happen when historical data is resent
         if (spot.grid.length > last_attached_spot.length) {
           last_attached_spot.is_unattached = true;
@@ -2376,14 +2382,20 @@ function encodeURLParameter(param) {
 }
 
 function loadProfile(profile) {
+  ct_labels_param = null;
+  ct_long_labels_param = null;
+  ct_units_param = null;
   if (profile == 10) {
     // Nomad enhanced telemetry
-    ct_decoders_param = 'ct,s:2,5:2:0:t_256:t100,256:t101,20:t102,2:t109,' +
-        '3:t108,3:t107,5:t106,330:0:1~ct,s:2,5:2:1:t_256:t100,256:t101,' +
+    ct_decoders_param = 'ct,s:2,600:2:0:ts_256:t100,256:t101,20:t102,2:t109,' +
+        '3:t108,3:t107,5:t106,330:0:1~ct,s:2,600:2:1:ts_256:t100,256:t101,' +
         '20:t102,2:t109,3:t108,3:t107,5:t106,15:3:1,22:0:5';
     ct_labels_param = 'NumTX,NumSats,TTFF';
-    ct_long_labels_param = null;
     ct_units_param = ',, s';
+  } else if (profile == 20) {
+    // 7-day historical retransmission
+    ct_decoders_param = 'ct,s:2_1:t140:1,3:t120:583200:-21600,4320:t121,' +
+        '4320:t122,695:t125:0:30';
   }
 }
 
@@ -2592,9 +2604,11 @@ function computeDerivedData(spots) {
     if (!spot.is_unattached) {
       if (last_altitude_spot && spot.altitude) {
         // Calculate vspeed
-        derived_data['vspeed'][i] =
-            (spot.altitude - last_altitude_spot.altitude) * 60000 /
-            ((spot.ts - last_altitude_spot.ts) || 1);
+        if (+spot.ts != +last_altitude_spot.ts) {
+          derived_data['vspeed'][i] =
+              (spot.altitude - last_altitude_spot.altitude) * 60000 /
+              (spot.ts - last_altitude_spot.ts);
+        }
       }
       if (spot.grid.length == 6) {
         if (last_grid6_spot) {
@@ -2613,7 +2627,7 @@ function computeDerivedData(spots) {
           if (cspeed > (max_cspeed - min_cspeed) * 4 ||
               max_cspeed - min_cspeed <= 10) {
             // Close enough
-            derived_data['cspeed'][i] = [Math.min(350, cspeed), 0];
+            derived_data['cspeed'][i] = [Math.floor(Math.min(350, cspeed)), 0];
             last_grid6_spot = spot;
           }
         } else {
@@ -3233,11 +3247,11 @@ function parseCustomTelemetrySpec() {
           }
           continue;
         }
-        const is_temporal = (filter[filter.length - 1] == 't');
+        const is_temporal = ['ts', 't'].includes(filter[filter.length - 1]);
         if (is_temporal) {
           if (filter.length != 4) return null;
           filter = [Number(filter[0]), Number(filter[1]),
-                    Number(filter[2]), 't'];
+                    Number(filter[2]), filter[3]];
           if (!filter.slice(0, -1).every(v => Number.isInteger(v)) ||
               filter[0] <= 0 || filter[1] < 1 || filter[2] < 0) {
             return null;

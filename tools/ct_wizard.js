@@ -219,7 +219,7 @@ function importWSPRTVURL(url) {
       for (const filter_spec of filters_spec.split(',')) {
         if (!filter_spec) continue;
         let filter = filter_spec.split(':');
-        const is_temporal = filter[filter.length - 1] == 't';
+        const is_temporal = ['ts', 't'].includes(filter[filter.length - 1]);
         if (filter.length == (2 + (is_temporal ? 1 : 0)) &&
             !['ct', 'et', 'et0', 's'].includes(filter[0])) {
           filter.unshift('');
@@ -354,9 +354,13 @@ function createMessage(messages, decoder = null, spec = null) {
 function createFilter(parent, filter_spec = null) {
   let s = addSection(parent);
   addLabel(s, 'Type', 'Filter type');
-  const filter_type = addSelectMenu(s, ['Regular', 'TX_SEQ'], null);
-  if (filter_spec && filter_spec[filter_spec.length - 1] == 't') {
+  const filter_type =
+      addSelectMenu(s, ['Regular', 'Temporal', 'TX_SEQ'], null);
+  if (filter_spec && filter_spec[filter_spec.length - 1] == 'ts') {
     filter_type.value = 1;
+    filter_spec = filter_spec.slice(0, -1);
+  } else if (filter_spec && filter_spec[filter_spec.length - 1] == 't') {
+    filter_type.value = 2;
     filter_spec = filter_spec.slice(0, -1);
   }
   filter_type.onchange = () => {
@@ -753,8 +757,8 @@ function checkExtractor(implied_div, row) {
     }
     if (!fields[step_index].hidden) {
       const step = Number(fields[step_index].value || 'none');
-      if (Number.isNaN(step) || step <= 0) {
-        throw ['Invalid step', first_value_index];
+      if (Number.isNaN(step)) {
+        throw ['Invalid step', step_index];
       }
     }
     fields[1].className = '';
@@ -852,7 +856,7 @@ function generateURL() {
       let filter = [filter_fields[3].value,
                     filter_fields[5].value,
                     filter_fields[7].value];
-      const is_temporal = filter_fields[1].value == 1;
+      const is_temporal = filter_fields[1].value >= 1;
       if (filter_fields[3].value == '') {
         next_div *= Number(filter[1]);
         filter.shift();
@@ -860,7 +864,7 @@ function generateURL() {
         if (!is_temporal) {
           next_div = Number(filter[0]) * Number(filter[1]);
         } else {
-          filter.push('t');
+          filter.push(filter_fields[1].value == 1 ? 'ts' : 't');
         }
       }
       filters.push(filter);

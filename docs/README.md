@@ -785,25 +785,15 @@ when one of the filters in the message definition is `ct`).
 
 WSPR TV provides a powerful mechanism for multiplexing multiple message 
 types within the same slot -- without using any extra bits to indicate 
-which schema is in use -- via the `tx_seq` variable.
+which schema is in use -- via the `ts` variable.
 
-`tx_seq` represents the transmission slot sequence number, which 
-increments every 2 minutes and resets every month. If the GPS **UTC** 
-time of the **regular callsign** transmission preceding a custom 
-telemetry message is `YYY-MM-DD HH:MM`, `tx_seq` is calculated as 
-follows:
-
-```
-tx_seq = ((DD - 1) * 720) + (HH * 30) + (MM / 2)
-```
-
-For example, on May 3rd at 06:32 UTC,
-`tx_seq = (2 * 720) + (6 * 30) + (32 / 2) = 1636`.
+`ts` represents the Unix timestamp (in seconds since epoch) for the
+preceding **regular callsign** transmission.
 
 This variable can be used instead of `BigNumber` in filters:
 
 ```
-(tx_seq / divisor) % modulus = expected_value
+(ts / divisor) % modulus = expected_value
 ```
 
 This allows WSPR TV to decode messages differently based on transmission 
@@ -937,7 +927,7 @@ from other formats.
 
 In this example, a single message is defined based on ET0 in slot 2. Two 
 additional filters are applied: a temporal filter, which restricts the 
-message to even `tx_seq` slots, and a custom selector, which checks that 
+message to even slots, and a custom selector, which checks that 
 the first bit after the ET0 header is 1 (perhaps because the message 
 format changes when the bit is 0).
 
@@ -990,8 +980,8 @@ A filter can have one of the following forms:
 <divisor>:<modulus>:<expected_value>
 <modulus>:<expected_value>  (implied divisor)
 s:<slot>
-<divisor>:<modulus>:<expected_value>:t
-<modulus>:<expected_value>:t (implied divisor)
+<divisor>:<modulus>:<expected_value>:ts
+<modulus>:<expected_value>:ts (implied divisor)
 
 ```
 
