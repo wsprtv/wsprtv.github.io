@@ -143,6 +143,20 @@ function formatTimestamp(ts, force_utc = 0) {
   return ts.toISOString().slice(0, length).replace('T', ' ');
 }
 
+// (by KS4VA and Google Gemini Pro)
+// Calculates atmospheric pressure (hPa) from altitude (meters)
+// Uses the standard barometric formula, accounting for both the 
+// troposphere and the isothermal lower stratosphere (crucial for pico balloons).
+function altitudeToHPa(altitude_m) {
+  if (altitude_m < 11000) {
+    // Troposphere (lapse rate L = 0.0065 K/m)
+    return Math.round(1013.25 * Math.pow(1 - 0.0000225577 * altitude_m, 5.25588));
+  } else {
+    // Lower Stratosphere (isothermal T = 216.65 K)
+    return Math.round(226.321 * Math.exp(-0.000157688 * (altitude_m - 11000)));
+  }
+}
+
 // Extracts a parameter value from the URL
 function getParameterFromURL(url, name) {
   const regex = new RegExp('[?&]' + name + '(=([^&]*)|(?=[&]|$))');
@@ -1677,6 +1691,7 @@ function closeSpotInfo() {
   selected_spot = null;
 }
 
+// Edits by KS4VA and Google Gemini Pro
 function displaySpotInfo(spot, point) {
   let spot_info = document.getElementById('spot_info');
   spot_info.style.left = point.x + 50 + 'px';
@@ -1765,11 +1780,16 @@ function displaySpotInfo(spot, point) {
         dt + 'd,35y,90h,77t" ' +
         'style="color: #81cdff; text-decoration: none;" ' +
         'target=new>GoogleEarth View</a>' +
-        '<br>(use CTRL-arrows<br>to look around)';
+        '<br>(use CTRL-arrows<br>to look around)<br><br>';
+
+    // Add Windy.com view
+    const hPa = altitudeToHPa(spot.altitude);
+    spot_info.innerHTML +=
+        '<a href="https://www.windy.com/?' + hPa + 'h,' + spot.lat + ',' + spot.lon + ',5" ' +
+        'style="color: #81cdff; text-decoration: none;" target="_blank">Windy.com View</a>';
   }
   spot_info.style.display = 'block';
 }
-
 // Shows the 'Next update in Xm' message in the flight synopsis bar
 function displayNextUpdateCountdown() {
   let update_countdown = document.getElementById('update_countdown');
