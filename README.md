@@ -1,4 +1,5 @@
 # WSPR Telemetry Viewer (WSPR TV)
+**KS4VA Modifications** to add a windy.com link when examining a WSPR spot.
 **WSPR TV** is a pico-balloon telemetry visualization tool.
 For more information, see the
 [user guide](https://wsprtv.com/docs/user_guide.html).
