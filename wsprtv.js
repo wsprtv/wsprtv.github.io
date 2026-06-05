@@ -145,16 +145,34 @@ function formatTimestamp(ts, force_utc = 0) {
 
 // (by KS4VA and Google Gemini Pro)
 // Calculates atmospheric pressure (hPa) from altitude (meters)
-// Uses the standard barometric formula, accounting for both the 
-// troposphere and the isothermal lower stratosphere (crucial for pico balloons).
-function altitudeToHPa(altitude_m) {
+// and snaps it to the nearest Windy.com supported pressure level.
+function altitudeToWindyHPa(altitude_m) {
+  let raw_hPa;
+  
   if (altitude_m < 11000) {
     // Troposphere (lapse rate L = 0.0065 K/m)
-    return Math.round(1013.25 * Math.pow(1 - 0.0000225577 * altitude_m, 5.25588));
+    raw_hPa = 1013.25 * Math.pow(1 - 0.0000225577 * altitude_m, 5.25588);
   } else {
     // Lower Stratosphere (isothermal T = 216.65 K)
-    return Math.round(226.321 * Math.exp(-0.000157688 * (altitude_m - 11000)));
+    raw_hPa = 226.321 * Math.exp(-0.000157688 * (altitude_m - 11000));
   }
+
+  // Windy's supported isobaric pressure levels
+  const windy_levels = [1000, 975, 950, 925, 900, 850, 800, 700, 600, 500, 400, 300, 250, 200, 150, 100, 70, 50, 10];
+  
+  // Find the closest supported pressure level
+  let closest = windy_levels[0];
+  let min_diff = Math.abs(raw_hPa - closest);
+  
+  for (let i = 1; i < windy_levels.length; i++) {
+    let diff = Math.abs(raw_hPa - windy_levels[i]);
+    if (diff < min_diff) {
+      min_diff = diff;
+      closest = windy_levels[i];
+    }
+  }
+  
+  return closest;
 }
 
 // Extracts a parameter value from the URL
@@ -1783,9 +1801,9 @@ function displaySpotInfo(spot, point) {
         '<br>(use CTRL-arrows<br>to look around)<br><br>';
 
     // Add Windy.com view
-    const hPa = altitudeToHPa(spot.altitude);
+    const hPa = altitudeToWindyHPa(spot.altitude);
     spot_info.innerHTML +=
-        '<a href="https://www.windy.com/?' + hPa + 'h,' + spot.lat + ',' + spot.lon + ',5" ' +
+        '<a href="https://www.windy.com/?wind,' + hPa + 'h,' + spot.lat + ',' + spot.lon + ',5,d:picker" ' +
         'style="color: #81cdff; text-decoration: none;" target="_blank">Windy.com View</a>';
   }
   spot_info.style.display = 'block';
