@@ -143,7 +143,6 @@ function formatTimestamp(ts, force_utc = 0) {
   return ts.toISOString().slice(0, length).replace('T', ' ');
 }
 
-// (by KS4VA and Google Gemini Pro)
 // Calculates atmospheric pressure (hPa) from altitude (meters)
 // and snaps it to the nearest Windy.com supported pressure level.
 function altitudeToWindyHPa(altitude_m) {
@@ -1709,7 +1708,7 @@ function closeSpotInfo() {
   selected_spot = null;
 }
 
-// Edits by KS4VA and Google Gemini Pro
+// Convert altitude to pressure in hPa for windy.com
 function displaySpotInfo(spot, point) {
   let spot_info = document.getElementById('spot_info');
   spot_info.style.left = point.x + 50 + 'px';
