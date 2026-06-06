@@ -158,7 +158,7 @@ function altitudeToWindyHPa(altitude_m) {
   }
 
   // Windy's supported isobaric pressure levels
-  const windy_levels = [1000, 975, 950, 925, 900, 850, 800, 700, 600, 500, 400, 300, 250, 200, 150, 100, 70, 50, 10];
+  const windy_levels = [950, 925, 900, 850, 800, 700, 600, 500, 400, 300, 250, 200, 150, 10];
   
   // Find the closest supported pressure level
   let closest = windy_levels[0];
