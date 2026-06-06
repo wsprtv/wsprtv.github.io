@@ -1804,7 +1804,7 @@ function displaySpotInfo(spot, point) {
     const hPa = altitudeToWindyHPa(spot.altitude);
     spot_info.innerHTML +=
         '<a href="https://www.windy.com/?wind,' + hPa + 'h,' + spot.lat + ',' + spot.lon + ',5,d:picker" ' +
-        'style="color: #81cdff; text-decoration: none;" target="_blank">Windy.com View</a>';
+        'style="color: #81cdff; text-decoration: none;" target="_blank">Windy.com Weather</a>';
   }
   spot_info.style.display = 'block';
 }
