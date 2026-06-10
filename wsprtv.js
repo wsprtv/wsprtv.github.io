@@ -1764,9 +1764,9 @@ function displaySpotInfo(spot, point) {
            'Path Prediction</a><br>';
      }
      if (Date.now() - spot.ts < 24 * 3600 * 1000) {
+       // See https://community.windy.com/topic/77/windy-com-url-parameters
        const level = kPressureLevels[
            kPressureLevels.findIndex(l => l[0] >= spot.altitude)][1];
-       // See https://community.windy.com/topic/77/windy-com-url-parameters
        const ts = formatTimestamp(spot.ts, 1).slice(0, 13).replace(' ', '-');
        for (const [label, param] of
             [['Wind', 'wind'], ['CTops', 'cloudtop'], ['Rain', 'rain']]) {
@@ -4066,17 +4066,17 @@ class LibreMap {
     }, 'markers');
 
 
-    const tooltip = new maplibregl.Popup({
+    this.pred_tooltip = new maplibregl.Popup({
       closeButton: false,
       closeOnClick: false,
       offset: 10
     });
 
-    if (this.predOnMarkerMousemove) {
-      this.map.off('mousemove', 'pred_markers', this.predOnMarkerMousemove);
+    if (this.onPredMarkerMousemove) {
+      this.map.off('mousemove', 'pred_markers', this.onPredMarkerMousemove);
     }
 
-    this.predOnMarkerMousemove = (e) => {
+    this.onPredMarkerMousemove = (e) => {
       const [ts, lat, lon, speed, is_current] =
           markers[e.features[0].properties.i];
       const sun_elevation = getSunElevation(ts, lat, lon);
@@ -4084,16 +4084,16 @@ class LibreMap {
       const label = (is_current ? 'Now | ' :
           (formatTimestamp(ts).slice(0, 13) + ts_suffix)) +
           formatSpeed([speed, 0]) + ' | ' + sun_elevation + '&deg;';
-      tooltip.setLngLat(e.lngLat)
+      this.pred_tooltip.setLngLat([lon, lat])
           .setHTML(`<div>${label}</div>`).addTo(this.map);
     };
-    this.map.on('mousemove', 'pred_markers', this.predOnMarkerMousemove);
+    this.map.on('mousemove', 'pred_markers', this.onPredMarkerMousemove);
 
-    if (this.predOnMarkerMouseleave) {
-      this.map.off('mouseleave', 'pred_markers', this.predOnMarkerMouseleave);
+    if (this.onPredMarkerMouseleave) {
+      this.map.off('mouseleave', 'pred_markers', this.onPredMarkerMouseleave);
     }
-    this.predOnMarkerMouseleave = () => tooltip.remove();
-    this.map.on('mouseleave', 'pred_markers', this.predOnMarkerMouseleave);
+    this.onPredMarkerMouseleave = () => this.pred_tooltip.remove();
+    this.map.on('mouseleave', 'pred_markers', this.onPredMarkerMouseleave);
   }
 
   centerOn(lat, lon) {
@@ -4117,6 +4117,10 @@ class LibreMap {
       this.map.removeLayer('pred_path');
       this.map.removeSource('pred_markers');
       this.map.removeSource('pred_path');
+      if (this.pred_tooltip) {
+        this.pred_tooltip.remove();
+        this.pred_tooltip = undefined;
+      }
     }
   }
 
@@ -4126,6 +4130,10 @@ class LibreMap {
       this.map.removeLayer('rx_paths');
       this.map.removeSource('rx_markers');
       this.map.removeSource('rx_paths');
+      if (this.rx_tooltip) {
+        this.rx_tooltip.remove();
+        this.rx_tooltip = undefined;
+      }
     }
   }
 
@@ -4143,30 +4151,46 @@ class LibreMap {
   }
 
   onMapClick(e) {
-    if (this.map.getLayer('markers') && this.map.queryRenderedFeatures(
-            e.point, { layers: ['markers'] }).length) return;
-    if (this.map.getLayer('pred_markers') && this.map.queryRenderedFeatures(
-            e.point, { layers: ['pred_markers'] }).length) return;
+    for (const layer of ['markers', 'pred_markers', 'rx_markers']) {
+      if (this.map.getLayer(layer) && this.map.queryRenderedFeatures(
+              e.point, { layers: [layer] }).length) return;
+    }
     if (is_mobile) {
       const tolerance = 15;
       const bbox = [[e.point.x - tolerance, e.point.y - tolerance],
                     [e.point.x + tolerance, e.point.y + tolerance]];
-      if (this.map.getLayer('markers')) {
-        const features = this.map.queryRenderedFeatures(
-            bbox, { layers: ['markers'] });
-        const p = e.point;
-        if (features.length) {
-          const closest_feature = features.reduce((x, y) => {
-            const px = this.map.project(x.geometry.coordinates);
-            const py = this.map.project(y.geometry.coordinates);
-            const dx = (px.x - p.x) ** 2 + (px.y - p.y) ** 2;
-            const dy = (py.x - p.x) ** 2 + (py.y - p.y) ** 2;
-            return dy < dx ? y : x;
-          });
-          e.features = [closest_feature];
-          this.onMarkerClick(e);
-          return;
+      for (const layer of ['markers', 'pred_markers', 'rx_markers']) {
+        if (this.map.getLayer(layer)) {
+          const features = this.map.queryRenderedFeatures(
+              bbox, { layers: [layer] });
+          const p = e.point;
+          if (features.length) {
+            const closest_feature = features.reduce((x, y) => {
+              const px = this.map.project(x.geometry.coordinates);
+              const py = this.map.project(y.geometry.coordinates);
+              const dx = (px.x - p.x) ** 2 + (px.y - p.y) ** 2;
+              const dy = (py.x - p.x) ** 2 + (py.y - p.y) ** 2;
+              return dy < dx ? y : x;
+            });
+            e.features = [closest_feature];
+            if (layer == 'markers') {
+              this.onMarkerClick(e);
+            } else if (layer == 'pred_markers') {
+              this.onPredMarkerMousemove(e);
+            } else if (layer == 'rx_markers') {
+              this.onRXMarkerMousemove(e);
+            }
+            return;
+          }
         }
+      }
+      if (this.pred_tooltip) {
+        this.pred_tooltip.remove();
+        this.pred_tooltip = undefined;
+      }
+      if (this.rx_tooltip) {
+        this.rx_tooltip.remove();
+        this.rx_tooltip = undefined;
       }
     }
     // Display lat / lng / sun elevation of clicked point
@@ -4287,22 +4311,32 @@ class LibreMap {
         }, 'markers');
 
 
-        const tooltip = new maplibregl.Popup({
+        this.rx_tooltip = new maplibregl.Popup({
           closeButton: false,
           closeOnClick: false,
           offset: 10
         });
 
-        this.map.on('mousemove', 'rx_markers', (e) => {
+        if (this.onRXMarkerMousemove) {
+          this.map.off('mousemove', 'rx_markers', this.onRXMarkerMousemove);
+        }
+
+        this.onRXMarkerMousemove = (e) => {
           const rx = e.features[0].properties;
           let dist =
               L.latLng([spot.lat, spot.lon]).distanceTo([rx.lat, rx.lon]);
-          tooltip.setLngLat(e.lngLat)
+          this.rx_tooltip.setLngLat([rx.lon, rx.lat])
               .setHTML(`<div>${rx.cs} ${formatDistance(dist)} ` +
                        `${rx.snr} dB</div>`).addTo(this.map);
-        });
+        };
 
-        this.map.on('mouseleave', 'rx_markers', () => tooltip.remove());
+        this.map.on('mousemove', 'rx_markers', this.onRXMarkerMousemove);
+
+        if (this.onRXMarkerMouseleave) {
+          this.map.off('mouseleave', 'rx_markers', this.onRXMarkerMouseleave);
+        }
+        this.onRXMarkerMouseleave = () => this.rx_tooltip.remove();
+        this.map.on('mouseleave', 'rx_markers', this.onRXMarkerMouseleave);
       }
     }
   }
