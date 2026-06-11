@@ -1,5 +1,11 @@
 {
   "version": 8,
+  "sky": {
+    "atmosphere-blend": 0.08
+  },
+  "light": {
+    "position": [0.8, 90, 180]
+  },
   "sources": {
     "ne2_shaded": {
       "maxzoom": 6,
