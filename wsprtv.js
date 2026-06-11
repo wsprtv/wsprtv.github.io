@@ -29,7 +29,7 @@
 // this service."
 
 // Global vars
-let map;  // Leaflet map object
+let map;  // map object
 
 let data = [];  // raw wspr.live telemetry data
 let spots = [];  // merged / annotated telemetry data
@@ -2592,7 +2592,6 @@ function showDataView() {
   // Hide map UI
   document.getElementById('map').style.display = 'none';
   document.getElementById('show_data_button').style.display = 'none';
-  document.getElementById('change_map_type_button').style.display = 'none';
   document.getElementById('control_panel').style.display = 'none';
   if (selected_spot) {
     highlighted_spot = selected_spot;
@@ -2951,7 +2950,6 @@ function closeDataView() {
   // Display map UI
   map.invalidate();  // in case the screen rotated in data view
   document.getElementById('show_data_button').style.display = 'block';
-  document.getElementById('change_map_type_button').style.display = 'block';
   document.getElementById('control_panel').style.display = 'block';
   displayTrack();
 }
@@ -3193,9 +3191,8 @@ async function start() {
 
   // Make the map div visible (if not already)
   document.getElementById('map').style.display = 'block';
-  document.getElementById('change_map_type_button').style.display = 'block';
 
-  if ((localStorage.getItem('map_type') || 'libre') == 'libre') {
+  if (true || (localStorage.getItem('map_type') || 'libre') == 'libre') {
     map = new LibreMap();
   } else {
     map = new LeafletMap();
@@ -3236,10 +3233,6 @@ async function start() {
     }
     this.value = params ? params.band : '20m';
   });
-
-  // Handle clicks on the "Change map type" button
-  document.getElementById('change_map_type_button').addEventListener(
-      'click', changeMapType);
 
   // Handle clicks on the "Show data" button
   document.getElementById('show_data_button').addEventListener(
@@ -3727,7 +3720,7 @@ class LibreMap {
     let init_lat = localStorage.getItem('lat') || 40;
     let init_lon = localStorage.getItem('lon') || -100;
     let init_zoom_level = localStorage.getItem('zoom_level') || 3;
-    let init_projection = localStorage.getItem('projection') || 'mercator';
+    let init_projection = localStorage.getItem('projection') || 'globe';
     const map = new maplibregl.Map({
       container: 'map',
       style: 'map_style.json',
@@ -3757,7 +3750,7 @@ class LibreMap {
         { maxWidth: 100, unit: 'metric' }, 'bottom-left');
       map.addControl(this.scale_control);
 
-      map.addControl(new maplibregl.GlobeControl('top-left'));
+      map.addControl(new maplibregl.GlobeControl(), 'top-left');
 
       map.addSource('graticules', {
         type: 'geojson',
