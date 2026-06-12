@@ -487,9 +487,8 @@ async function runTawhiriPrediction() {
     if ((((params.use_utc ? ts.getUTCHours() : ts.getHours()) % 6) == 0 &&
          ts.getHours() != new Date(last_point.datetime).getHours()) ||
         (!added_current_location && ts > now)) {
-      const dist =
-          L.latLng([points[i].latitude, points[i].longitude]).distanceTo(
-              [points[i - 1].latitude, points[i - 1].longitude]) / 1000;
+      const dist = getDistance([points[i].latitude, points[i].longitude],
+          [points[i - 1].latitude, points[i - 1].longitude]) / 1000;
       const ts_delta = new Date(points[i].datetime) -
           new Date(points[i - 1].datetime);
       const speed = dist / (ts_delta / 3600000.0);
@@ -1182,7 +1181,7 @@ function categorizeSpots() {
         }
         continue;
       }
-      let dist = getDistance(last_attached_spot, spot) / 1000;
+      let dist = getSpotDistance(last_attached_spot, spot) / 1000;
       if (i < spots.length - 1) {
         // Try to detect bad spots due to GPS spoofing
         const next_spot = spots[i + 1];
@@ -1190,7 +1189,7 @@ function categorizeSpots() {
             spot.grid.length + next_spot.grid.length == 18) ? 25 : 250;
         if (dist > dist_threshold &&
             next_spot.ts - last_attached_spot.ts < 86400 * 1000) {
-          const dist2 = getDistance(last_attached_spot, next_spot) / 1000;
+          const dist2 = getSpotDistance(last_attached_spot, next_spot) / 1000;
           if (dist2 < dist / 3) {
             // Sharp turn back
             spot.is_unattached = true;
@@ -1214,7 +1213,7 @@ function categorizeSpots() {
         // Grid4 spot
         if (!['zachtek1', 'generic1', 'unknown'].includes(params.tracker) &&
             ((spot.ts - last_attached_spot.ts) < 2 * 3600 * 1000) &&
-            (getDistance(last_attached_spot, spot) < 200000)) {
+            (getSpotDistance(last_attached_spot, spot) < 200000)) {
           // Do not attach grid4 spots unless there are no other spots nearby
           spot.is_unattached = true;
           continue;
@@ -1223,7 +1222,7 @@ function categorizeSpots() {
         // Grid6 spot
         if ((last_attached_spot.grid.length < 6) &&
             (spot.ts - last_attached_spot.ts < 2 * 3600 * 1000) &&
-            (getDistance(last_attached_spot, spot) < 200000)) {
+            (getSpotDistance(last_attached_spot, spot) < 200000)) {
           // Unattach last grid4 marker
           last_attached_spot.is_unattached = true;
         }
@@ -1349,9 +1348,8 @@ function getRXStats(spot) {
       num_freqs += slot.rx.length;
     }
   }
-  const lat_lon = L.latLng([spot.lat, spot.lon]);
   const max_rx_dist = Math.max(...Object.keys(grids).map(grid =>
-      lat_lon.distanceTo(maidenheadToLatLon(grid))));
+      getDistance([spot.lat, spot.lon], maidenheadToLatLon(grid))));
   return [Object.keys(cs).length, max_rx_dist, max_snr,
           Math.floor(freq_sum / (num_freqs || 1))];
 }
@@ -1430,8 +1428,14 @@ function redraw() {
 }
 
 // Returns the distance between two spots in meters
-function getDistance(spot1, spot2) {
-  return L.latLng([spot1.lat, spot1.lon]).distanceTo([spot2.lat, spot2.lon]);
+function getSpotDistance(spot1, spot2) {
+  return getDistance([spot1.lat, spot2.lon], [spot2.lat, spot2.lon]);
+}
+
+// Returns the distance between two points in meters
+function getDistance([lat1, lon1], [lat2, lon2]) {
+  return new maplibregl.LngLat(lon1, lat1).distanceTo(
+      new maplibregl.LngLat(lon2, lat2));
 }
 
 // Only count distance between points at least 100km apart.
@@ -1446,7 +1450,7 @@ function computeTrackDistance(spots) {
     if (!last_spot) {
       last_spot = spot;
     } else {
-      const segment_dist = getDistance(spot, last_spot);
+      const segment_dist = getSpotDistance(spot, last_spot);
       if (segment_dist > 100000 || spot == last_attached_spot) {
         dist += segment_dist;
         last_spot = spot;
@@ -2358,7 +2362,7 @@ function computeDerivedData(spots) {
       if (spot.grid.length == 6) {
         if (last_grid6_spot) {
           // Calculate cspeed (computed speed)
-          let dist = getDistance(last_grid6_spot, spot) / 1000;
+          let dist = getSpotDistance(last_grid6_spot, spot) / 1000;
           let ts_delta = (spot.ts - last_grid6_spot.ts) || 1;
           let cspeed = dist * 3600000 / ts_delta;
           const eps_deg = Math.max(
@@ -2553,7 +2557,7 @@ function toggleWSPRView(i) {
     wspr_data.push(blank_row);
     for (const rx of slot.rx) {
        if (!rx) continue;
-       const dist = L.latLng([spots[i].lat, spots[i].lon]).distanceTo(
+       const dist = getDistance([spots[i].lat, spots[i].lon],
            maidenheadToLatLon(rx.grid));
        wspr_data.push([
            formatTimestamp(slot.ts || spots[i].ts).slice(11),
@@ -2570,22 +2574,6 @@ function toggleWSPRView(i) {
                 .call(c, max_widths[j], r[0] == '' ? '-' : ' '))
                     .join('  ') + '\n';
   }
-}
-
-async function changeMapType() {
-  clearTrack();
-  const zoom_level = Math.round(localStorage.getItem('zoom_level') || 2);
-  localStorage.setItem('zoom_level', zoom_level);
-  map.remove();
-  if (map instanceof LeafletMap) {
-    map = new LibreMap();
-  } else {
-    map = new LeafletMap();
-  }
-  await map.waitToLoad();
-  if (params) displayTrack();
-  localStorage.setItem(
-      'map_type', (map instanceof LeafletMap) ? 'leaflet' : 'libre');
 }
 
 function showDataView() {
@@ -3192,11 +3180,7 @@ async function start() {
   // Make the map div visible (if not already)
   document.getElementById('map').style.display = 'block';
 
-  if (true || (localStorage.getItem('map_type') || 'libre') == 'libre') {
-    map = new LibreMap();
-  } else {
-    map = new LeafletMap();
-  }
+  map = new LibreMap();
   await map.waitToLoad();
 
   // Handle clicks on the "Go" button
@@ -3296,423 +3280,6 @@ function get_solar_isoline(altitude = 0, invert = false,
     last_point = point;
   }
   return points;
-}
-
-class LeafletMap {
-  constructor() {
-    // Initialize the map
-    const map = L.map('map',
-        { renderer : L.canvas({ tolerance: is_mobile ? 15 : 0 })});
-
-    // Use local English-label tiles for lower levels
-    L.tileLayer(
-        'osm_tiles/{z}/{x}/{y}.png',
-        { minZoom: 1,
-          maxZoom: 6,
-          attribution:
-              '<a href="https://github.com/wsprtv/wsprtv.github.io">' +
-              'WSPR TV</a> | &copy; <a href="https://www.openstreetmap.org' +
-              '/copyright">OpenStreetMap</a> contributors'
-        }).addTo(map);
-
-    // Use OSM-hosted tiles for higher levels
-    L.tileLayer(
-        'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-        { minZoom: 7, maxZoom: 16,
-          attribution:
-              '<a href="https://github.com/wsprtv/wsprtv.github.io">' +
-              'WSPR TV</a> | &copy; <a href="https://www.openstreetmap.org' +
-              '/copyright">OpenStreetMap</a> contributors'
-        }).addTo(map);
-
-    // Recall previously stored map location and zoom level
-    let init_lat = localStorage.getItem('lat') || 40;
-    let init_lon = localStorage.getItem('lon') || -100;
-    let init_zoom_level = localStorage.getItem('zoom_level') || 2;
-    map.setView([init_lat, init_lon], init_zoom_level);
-
-    const terminator_points = get_solar_isoline(0, true, true);
-    const terminator_offsets = [0, 360, 720];
-    let terminators = [];
-    for (const offset of terminator_offsets) {
-      terminators.push(L.polygon(
-          terminator_points.map(p => [p[0], p[1] + offset]), {
-            interactive: false,
-            color: '#000',
-            opacity: 0,
-            fillColor: '#000',
-            fillOpacity: 0.3 }).addTo(map));
-    }
-
-    let sun_elevation = Number(sun_elevation_param)
-    let isoline_points = (sun_elevation > 0 && sun_elevation < 60) ?
-        get_solar_isoline(sun_elevation) : [];
-    this.solar_isoline_offsets = [0, 360, 720];
-    this.solar_isolines = [];
-    for (const offset of this.solar_isoline_offsets) {
-      this.solar_isolines.push(L.polyline(
-          isoline_points.map(p => [p[0], p[1] + offset]), {
-            interactive: false,
-            weight: 1.3,
-            color: 'gray',
-            dashArray: '8,5',
-            opacity: 0.5
-          }).addTo(map));
-    }
-
-    L.control.scale().addTo(map);
-
-    // Draw the antimeridian
-    const am_options = (nomirror_param == null) ?
-        { color: 'gray', weight: 1, opacity: 0.2 } :
-        { color: 'gray', weight: 2, dashArray: '8,5', opacity: 0.4 };
-    L.polyline([[90, 180], [-90, 180]], am_options)
-        .addTo(map).bringToBack();
-    L.polyline([[90, -180], [-90, -180]], am_options)
-        .addTo(map).bringToBack();
-
-    if (nomirror_param != null) {
-      // Shade map portions beyond the antimeridian
-      L.polygon([[[-90, -720], [90, -720], [90, -180], [-90, -180]]], {
-        fillColor: 'black', fillOpacity: 0.12, stroke: false,
-        interactive: false
-      }).addTo(map);
-
-      L.polygon([[[-90, 180], [90, 180], [90, 720], [-90, 720]]], {
-        fillColor: 'black', fillOpacity: 0.12, stroke: false,
-        interactive: false
-      }).addTo(map);
-    }
-
-    // Draw the equator
-    L.polyline([[0, -360], [0, 360]],
-        { color: 'gray', weight: 1, opacity: 0.2 })
-        .addTo(map).bringToBack();
-
-    // On pan / zoom, save map location and zoom level
-    map.on('moveend', () => {
-      const center = map.getCenter();
-      localStorage.setItem('lat', center.lat);
-      localStorage.setItem('lon', center.lng);
-
-      // Readjust the map when moving across the antimeridian
-      const wrapped_center = map.wrapLatLng(center);
-      if (Math.abs(center.lng - wrapped_center.lng) > 1e-8) {
-        map.setView(wrapped_center, map.getZoom(), { animate: false });
-      }
-    });
-    map.on('zoomend', function() {
-      localStorage.setItem('zoom_level', map.getZoom());
-    });
-
-    // Display auxiliary info for clicks on the map outside of markers
-    map.on('click', (e) => this.onMapClick(e));
-
-    this.terminator_updater = setInterval(() => {
-      // Update the terminator (day / night overlay) periodically
-      const terminator_points = get_solar_isoline(0, true, true);
-      for (let i = 0; i < terminator_offsets.length; i++) {
-        terminators[i].setLatLngs(
-            terminator_points.map(p => [p[0], p[1] + terminator_offsets[i]]));
-      }
-    }, 30 * 1000);
-
-    this.map = map;
-    this.markers = [];
-    this.marker_group = null;
-    this.marker_path = null;
-    this.rx_markers = [];
-    this.rx_paths = [];
-    this.prediction_line = null;
-    this.prediction_markers = null;
-  }
-
-  waitToLoad() {
-  }
-
-  remove() {
-    this.map.off('moveend');
-    this.map.off('zoomend');
-    clearInterval(this.terminator_updater);
-    this.map.remove();
-  }
-
-  invalidate() {
-    this.map.invalidateSize();
-  }
-
-  // Draws the track on the map
-  displayTrack(spots) {
-    this.clear();
-    this.marker_group = L.featureGroup();
-
-    let highlighted_marker;
-    for (let i = 0; i < spots.length; i++) {
-      let spot = spots[i];
-      if (spot.is_unattached && show_unattached_param == null) {
-        continue;
-      }
-
-      let marker = null;
-      if (spot.grid.length < 6) {
-        // Grid4
-        marker = L.circleMarker([spot.lat, spot.lon],
-            { radius: 5, color: 'black',
-              fillColor: spot.is_invalid_gps ?
-                  '#fbb' : (spot.is_unattached ?
-                      'white' : (spot.fill || '#cfefff')),
-              weight: 1,
-              stroke: true, fillOpacity: 1 });
-      } else {
-        // Grid6
-        marker = L.circleMarker([spot.lat, spot.lon],
-            { radius: 7, color: 'black',
-              fillColor: spot.is_invalid_gps ?
-                  '#fbb' : (spot.is_unattached ?
-                      'white' : (spot.fill || '#add8e6')),
-              weight: 1,
-              stroke: true, fillOpacity: 1 });
-      }
-      if (spot == highlighted_spot) {
-        highlighted_marker = marker;
-      }
-      marker.spot = spot;
-      marker.addTo(this.marker_group);
-      this.markers.push(marker);
-    }
-
-    // Add lines between markers
-    let path = [];
-    let first_attached_marker = null;
-    let last_attached_marker = null;
-    for (let i = 0; i < this.markers.length; i++) {
-      const marker = this.markers[i];
-      if (marker.spot.is_unattached) continue;
-      if (path.length == 0) {
-        first_attached_marker = marker;
-        path = [[[marker.getLatLng().lat, marker.getLatLng().lng]]];
-      }
-      extendPath(path, marker.getLatLng().lat, marker.getLatLng().lng,
-                 false, true);
-      last_attached_marker = marker;
-    }
-
-    if (params.tracker != 'unknown') {
-      this.marker_path = L.polyline(path, { color: '#00cc00' });
-      this.marker_path.addTo(this.map);
-    }
-
-    this.marker_group.addTo(this.map);
-
-    // Highlight first / last markers
-    if (first_attached_marker) {
-      first_attached_marker.setStyle({ fillColor: '#3cb371' });
-      first_attached_marker.bringToFront();
-    }
-
-    if (last_attached_marker) {
-      last_attached_marker.setStyle({ fillColor: 'red' });
-      last_attached_marker.bringToFront();
-    }
-
-    if (highlighted_marker) {
-      highlighted_marker.setStyle({ fillColor: '#ffdd03' });
-      highlighted_marker.bringToFront();
-    }
-
-    if (nomirror_param == null) this.mirrorTrack();
-
-    this.marker_group.on('mouseover', (e) => this.onMarkerMouseover(e));
-    this.marker_group.on('mouseout', (e) => this.onMarkerMouseout(e));
-    this.marker_group.on('click', (e) => this.onMarkerClick(e));
-  }
-
-  mirrorTrack() {
-    for (const marker of this.markers) {
-      let marker1 = L.circleMarker(
-          [marker.getLatLng().lat, marker.getLatLng().lng + 360],
-          marker.options).addTo(this.marker_group);
-      marker1.spot = marker.spot;
-      let marker2 = L.circleMarker(
-          [marker.getLatLng().lat, marker.getLatLng().lng - 360],
-          marker.options).addTo(this.marker_group);
-      marker2.spot = marker.spot;
-    }
-    if (this.marker_path) {
-      // Mirror marker line
-      const lat_lons1 = this.marker_path.getLatLngs().map(l =>
-          l.map((p) => [p.lat, p.lng + 360]));
-      const lat_lons2 = this.marker_path.getLatLngs().map(l =>
-          l.map((p) => [p.lat, p.lng - 360]));
-      this.marker_path.setLatLngs(
-          [...this.marker_path.getLatLngs(), lat_lons1, lat_lons2]);
-    }
-  }
-
-  displayPrediction(markers, path) {
-    if (nomirror_param == null) {
-      path = [...path,
-              ...path.map(l => l.map(p => [p[0], p[1] + 360])),
-              ...path.map(l => l.map(p => [p[0], p[1] - 360]))];
-    }
-    this.prediction_line = L.polyline(path, { color: '#777', weight: 2 });
-    this.prediction_line.addTo(this.map);
-
-    this.prediction_markers = [];
-    let current_location_marker;
-    for (const offset of (nomirror_param == null) ? [0, 360, -360] : [0]) {
-      for (const [ts, lat, lon, speed, current_location] of markers) {
-        const radius = current_location ? 7 :
-            (((params.use_utc ? ts.getUTCHours() : ts.getHours()) == 0) ? 6 : 4);
-        let marker = L.circleMarker(
-            [lat, lon + offset],
-            { radius: radius,
-              color: current_location ? 'red' : 'black',
-              fillColor: '#bbb', weight: 1, stroke: true,
-              fillOpacity: 1 }).addTo(this.map);
-        marker.on('click', function(e) {
-          L.DomEvent.stopPropagation(e);
-        });
-        const sun_elevation = getSunElevation(ts, lat, lon);
-        const ts_suffix = params.use_utc ? ':00 UTC | ' : ':00 | ';
-        marker.bindTooltip(
-            (current_location ? 'Now | ' : (formatTimestamp(ts).slice(0, 13) +
-                ts_suffix)) +
-            formatSpeed([speed, 0]) + ' | ' + sun_elevation + '&deg;',
-            { direction: 'top', opacity: 0.8 });
-        this.prediction_markers.push(marker);
-        if (current_location) current_location_marker = marker;
-      }
-      if (current_location_marker) current_location_marker.bringToFront();
-    }
-  }
-
-  centerOn(lat, lon) {
-    this.map.setView([lat, lon], this.map.getZoom(),
-        { animate: false });
-  }
-
-  clear() {
-    if (this.marker_group) {
-      this.marker_group.clearLayers();
-      this.map.removeLayer(this.marker_group);
-      if (this.marker_path) this.map.removeLayer(this.marker_path);
-      this.markers = [];
-      this.marker_group = null;
-      this.marker_path = null;
-    }
-    this.hideRXInfo();
-    this.clearPrediction();
-  }
-
-  clearPrediction() {
-    if (this.prediction_line) {
-      this.map.removeLayer(this.prediction_line);
-      this.prediction_markers.forEach(marker => this.map.removeLayer(marker));
-      this.prediction_line = null;
-      this.prediction_markers = null;
-    }
-  }
-
-  hideRXInfo() {
-    if (this.rx_markers) {
-      this.rx_markers.forEach(rx_marker => this.map.removeLayer(rx_marker));
-      delete this.rx_markers;
-      this.rx_paths.forEach(rx_path => this.map.removeLayer(rx_path));
-      delete this.rx_paths;
-    }
-  }
-
-  updateSolarIsoline(sun_elevation) {
-    const isoline_points = (sun_elevation > 0 && sun_elevation < 60) ?
-        get_solar_isoline(sun_elevation) : [];
-    for (let i = 0; i < this.solar_isoline_offsets; i++) {
-      this.solar_isolines.setLatLngs(isoline_points.map(
-          p => [p[0], p[1] + this.solar_isoline_offsets[i]]));
-    }
-  }
-
-  onMapClick(e) {
-    if (this.map.getContainer().querySelector('.leaflet-tooltip')) {
-      // Allow all tooltips to close
-      return;
-    }
-    // Display lat / lng / sun elevation of clicked point
-    const now = new Date();
-    const lat = e.latlng.lat;
-    const lon = e.latlng.lng;
-    const distance = selected_spot ?
-        e.latlng.distanceTo([selected_spot.lat, selected_spot.lon]) : null;
-    displayAuxInfo(now, lat, lon, distance);
-  }
-
-  onMarkerMouseover(e) {
-    let marker = e.layer;
-    if (marker.spot != selected_spot) {
-      this.hideRXInfo();
-      selected_spot = null;
-    }
-    displaySpotInfo(marker.spot, e.containerPoint);
-  }
-
-  onMarkerMouseout(e) {
-    let marker = e.layer;
-    if (marker.spot != selected_spot) {
-      let spot_info = document.getElementById('spot_info');
-      spot_info.style.display = 'none';
-      selected_spot = null;
-    }
-  }
-
-  onMarkerClick(e) {
-    let marker = e.layer;
-    const spot = marker.spot;
-    if (spot == selected_spot) {
-      this.hideRXInfo();
-      document.getElementById('spot_info').style.display = 'none';
-      selected_spot = null;
-    } else {
-      this.hideRXInfo();
-      selected_spot = spot;
-      displaySpotInfo(spot, e.containerPoint);
-      if (!spot.tx_ts) {
-        this.rx_markers = [];
-        this.rx_paths = [];
-        const unique_rx = [...new Map(spot.slots.flatMap(slot => slot.rx).
-            map(rx => [rx.cs, rx])).values()];
-        unique_rx.forEach(rx => {
-          let rx_lat_lon = maidenheadToLatLon(rx.grid);
-          let dist = marker.getLatLng().distanceTo(rx_lat_lon);
-          const marker_lat_lon = marker.getLatLng().wrap();
-          let path = [[[marker_lat_lon.lat, marker_lat_lon.lng]]];
-          extendPath(path, rx_lat_lon[0], rx_lat_lon[1],
-                     (spots.length < 20000) ? true : false);
-          for (const offset of
-               (nomirror_param == null) ? [0, 360, -360] : [0]) {
-            let rx_marker = L.circleMarker(
-                [rx_lat_lon[0], rx_lat_lon[1] + offset],
-                { radius: 6, color: 'black',
-                  fillColor: 'yellow', weight: 1, stroke: true,
-                  fillOpacity: 1 }).addTo(this.map);
-            rx_marker.on('click', function(e) {
-              L.DomEvent.stopPropagation(e);
-            });
-            rx_marker.bindTooltip(
-                `${rx.cs} ${formatDistance(dist)} ${rx.snr} dB`,
-                  { direction: 'top', opacity: 0.8 });
-            this.rx_markers.push(rx_marker);
-            const offset_path =
-                path.map(l => l.map((p) => [p[0], p[1] + offset]));
-            let rx_path = L.polyline(offset_path,
-                { weight: 2, color: 'blue', opacity: 0.4 }
-                ).addTo(this.map).bringToBack();
-            this.rx_paths.push(rx_path);
-          }
-        });
-      }
-    }
-    L.DomEvent.stopPropagation(e);
-  }
 }
 
 class LibreMap {
@@ -4190,7 +3757,7 @@ class LibreMap {
     const now = new Date();
     const lat = e.lngLat.lat;
     const lon = e.lngLat.lng;
-    const distance = selected_spot ? L.latLng([lat, lon]).distanceTo(
+    const distance = selected_spot ? getDistance([lat, lon],
         [selected_spot.lat, selected_spot.lon]) : null;
     displayAuxInfo(now, lat, lon, distance);
   }
@@ -4316,8 +3883,7 @@ class LibreMap {
 
         this.onRXMarkerMousemove = (e) => {
           const rx = e.features[0].properties;
-          let dist =
-              L.latLng([spot.lat, spot.lon]).distanceTo([rx.lat, rx.lon]);
+          let dist = getDistance([spot.lat, spot.lon], [rx.lat, rx.lon]);
           this.rx_tooltip.setLngLat([rx.lon, rx.lat])
               .setHTML(`<div>${rx.cs} ${formatDistance(dist)} ` +
                        `${rx.snr} dB</div>`).addTo(this.map);

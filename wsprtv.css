@@ -235,10 +235,6 @@ td.wspr_cell {
   border-radius: 3px;
 }
 
-.leaflet-tooltip {
-  font-size: 13px;
-}
-
 .maplibregl-ctrl-top-left {
   left: 3px;
   top: 5px;
