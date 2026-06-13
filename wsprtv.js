@@ -1429,7 +1429,7 @@ function redraw() {
 
 // Returns the distance between two spots in meters
 function getSpotDistance(spot1, spot2) {
-  return getDistance([spot1.lat, spot2.lon], [spot2.lat, spot2.lon]);
+  return getDistance([spot1.lat, spot1.lon], [spot2.lat, spot2.lon]);
 }
 
 // Returns the distance between two points in meters
