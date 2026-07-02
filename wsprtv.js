@@ -1536,9 +1536,13 @@ function extendPath(path, lat, lon, great_circle = false,
   const last_path = path[path.length - 1];
   if (!last_path.length) return;
   const [init_lat, init_lon] = last_path[last_path.length - 1];
-  const delta_lon = Math.abs(lon - init_lon);
-  if (delta_lon >
-          180 + (prefer_eastbound ? ((lon > init_lon) ? 60 : -60) : 0)) {
+  let delta_lon = (lon - init_lon) % 360;
+  const eastbound = ((delta_lon + 360) % 360) < (prefer_eastbound ? 270 : 180);
+  if ((delta_lon >= 0) != eastbound) {
+    // Long way around (can only be eastbound)
+    delta_lon = 360 - Math.abs(delta_lon);
+  }
+  if ((lon >= init_lon) != eastbound) {
     // Antimeridian crossing
     let lat180;
     if (great_circle) {
@@ -1550,11 +1554,12 @@ function extendPath(path, lat, lon, great_circle = false,
       const z = z1 + r * (z2 - z1);
       lat180 = fromCartesian(x, y, z)[0];
     } else {
-      const r = (180 - Math.abs(init_lon)) / (360 - delta_lon);
+      const r = Math.abs(((eastbound ? 180 : -180) - init_lon) / delta_lon);
       lat180 = init_lat + r * (lat - init_lat);
     }
-    extendPath(path, lat180, (lon > init_lon) ? -180 : 180, great_circle);
-    path.push([[lat180, (lon > init_lon) ? 180 : -180]]);
+    extendPath(path, lat180, eastbound ? 180 : -180, great_circle,
+               prefer_eastbound);
+    path.push([[lat180, eastbound ? -180 : 180]]);
     extendPath(path, lat, lon, great_circle, prefer_eastbound);
     return;
   }
