@@ -1563,11 +1563,12 @@ function extendPath(path, lat, lon, great_circle = false,
     extendPath(path, lat, lon, great_circle, prefer_eastbound);
     return;
   }
-  if (great_circle && delta_lon > 2) {
+  if (great_circle && Math.abs(delta_lon) > 2) {
     // Interpolate in cartesian space, then project back to unit sphere
     const [x1, y1, z1] = toCartesian(init_lat, init_lon);
     const [x2, y2, z2] = toCartesian(lat, lon);
-    const num_steps = (delta_lon > 175) ? 360 : Math.ceil(delta_lon / 2);
+    const num_steps = (Math.abs(delta_lon) > 175) ? 360 :
+        Math.ceil(Math.abs(delta_lon) / 2);
     for (let i = 1; i < num_steps; i++) {
       const r = i / num_steps;
       const x = x1 + r * (x2 - x1);
