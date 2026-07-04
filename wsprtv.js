@@ -1356,18 +1356,18 @@ function getRXStats(spot) {
 
 function getLatitudePrecision(spot) {
   const res = spot.lat_res || (spot.grid.length == 6 ? 1 / 48 : 1 / 2);
-  return Math.floor(-Math.log10(res)) + 1;
+  return Math.floor(-Math.log10(res * 1.01)) + 1;
 }
 
 function getLongitudePrecision(spot) {
   const res = spot.lon_res || (spot.grid.length == 6 ? 1 / 24 : 1);
-  return Math.floor(-Math.log10(res)) + 1;
+  return Math.floor(-Math.log10(res * 1.01)) + 1;
 }
 
 function getAltitudePrecision(spot) {
   const res = spot.altitude_res || 20;
   const unit_res = params.units ? res * 3.28 : res / 1000;
-  return Math.max(0, Math.floor(-Math.log10(unit_res)) + 1);
+  return Math.max(0, Math.floor(-Math.log10(unit_res * 1.01)) + 1);
 }
 
 function getTemperaturePrecision(spot) {
@@ -1378,13 +1378,13 @@ function getTemperaturePrecision(spot) {
 
 function getVoltagePrecision(spot) {
   const res = spot.voltage_res || 0.05;
-  return Math.floor(-Math.log10(res)) + 1;
+  return Math.floor(-Math.log10(res * 1.01)) + 1;
 }
 
 function getSpeedPrecision(spot) {
   const res = spot.speed_res || 2 * 1.852;
   const unit_res = params.units ? res * 0.62 : res;
-  return Math.floor(-Math.log10(unit_res)) + 1;
+  return Math.floor(-Math.log10(unit_res * 1.01)) + 1;
 }
 
 // Units / localization
