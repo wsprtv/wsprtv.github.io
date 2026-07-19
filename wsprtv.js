@@ -43,6 +43,7 @@ let params;  // form / URL params
 let debug = 0;  // controls console logging
 
 let num_fetch_retries = 0;
+let min_sun_elevation = null;
 
 // URL-only parameters
 let end_date_param;
@@ -456,7 +457,7 @@ async function runTawhiriPrediction() {
       `launch_altitude=${spot.altitude - 1}&` +
       `launch_datetime=${spot.ts.toISOString()}&` +
       `ascent_rate=0.1&float_altitude=${spot.altitude}&stop_datetime=` +
-      `${new Date(spot.ts.getTime() + 3 * 86400000).toISOString()}&` +
+      `${new Date(spot.ts.getTime() + 5 * 86400000).toISOString()}&` +
       `dt=60&output_dt=1200`;
   if (debug > 0) console.log(url);
   let data;
@@ -1666,10 +1667,10 @@ function displayTrack() {
 
   // Update solar isoline based on last 3 days of data
   const now = new Date();
+  min_sun_elevation = null;
   if (!sun_elevation_param && first_attached_spot &&
       last_attached_spot.ts - first_attached_spot.ts > 12 * 3600 * 1000 &&
       now - last_attached_spot.ts < 14 * 86400 * 1000) {
-    let min_sun_elevation = null;
     for (let i = 0; i < spots.length; i++) {
       const spot = spots[i];
       if (spot.is_unattached) continue;
@@ -1679,8 +1680,8 @@ function displayTrack() {
       min_sun_elevation = (min_sun_elevation == null) ?
           sun_elevation : Math.min(min_sun_elevation, sun_elevation);
     }
-    map.updateSolarIsoline(min_sun_elevation);
   }
+  map.updateSolarIsoline();
   highlighted_spot = null;
 }
 
@@ -1768,7 +1769,7 @@ function displaySpotInfo(spot, point) {
 
   if (spot == selected_spot && spot.altitude) {
      spot_info.innerHTML += '<br><br>';
-     if (Date.now() - spot.ts < 72 * 3600 * 1000) {
+     if (Date.now() - spot.ts < 120 * 3600 * 1000) {
        spot_info.innerHTML += '<a href="#" onclick="runTawhiriPrediction(); ' +
            'return false" style="color: #81cdff; text-decoration: none;">' +
            'Path Prediction</a><br>';
@@ -3178,7 +3179,7 @@ async function start() {
   // On mobile devices, allow for a larger click area
   const agent_regexp = new RegExp(
       'Mobi|Android|iPhone|iPad|iPod|Opera Mini|IEMobile|WPDesktop|' +
-      'BlackBerry|BB|PlayBook');
+      'BlackBerry|BB|PlayBook|Tesla');
   if (agent_regexp.test(navigator.userAgent)) {
     is_mobile = true;
   }
@@ -3378,16 +3379,13 @@ class LibreMap {
                  'line-opacity': 0.3 }
       });
 
-      const terminator_points =
-          get_solar_isoline(0, true, true).map(p => [p[1], p[0]]);
-
       map.addSource('terminator', {
         type: 'geojson',
         data: {
           type: 'Feature',
           geometry: {
             type: 'Polygon',
-            coordinates: [terminator_points]
+            coordinates: []
           }
         },
         buffer: 0.5
@@ -3403,29 +3401,13 @@ class LibreMap {
         }
       });
 
-      this.terminator_updater = setInterval(() => {
-        const terminator_points =
-            get_solar_isoline(0, true, true).map(p => [p[1], p[0]]);
-        this.map.getSource('terminator').setData({
-          type: 'Feature',
-          geometry: {
-            type: 'Polygon',
-            coordinates: [terminator_points]
-          }
-        });
-      }, 30 * 1000);
-
-      let sun_elevation = Number(sun_elevation_param)
-      let isoline_points = (sun_elevation > 0 && sun_elevation < 60) ?
-          get_solar_isoline(sun_elevation).map(p => [p[1], p[0]]) : [];
-
       map.addSource('isoline', {
         type: 'geojson',
         data: {
           type: 'Feature',
           geometry: {
             type: 'LineString',
-            coordinates: isoline_points
+            coordinates: []
           }
         },
         buffer: 0.5
@@ -3442,6 +3424,11 @@ class LibreMap {
           'line-dasharray': [5, 3]
         }
       });
+
+      this.periodic_tasks = setInterval(() => {
+        this.runPeriodicTasks();
+      }, 30 * 1000);
+      this.runPeriodicTasks();
 
       map.on('projectiontransition', () => {
         this.updateProjection();
@@ -3462,8 +3449,20 @@ class LibreMap {
 
       this.prediction_line = null;
       this.prediction_markers = null;
-      this.solar_isoline = null;
     });
+  }
+
+  runPeriodicTasks() {
+    const terminator_points =
+        get_solar_isoline(0, true, true).map(p => [p[1], p[0]]);
+    this.map.getSource('terminator').setData({
+      type: 'Feature',
+      geometry: {
+        type: 'Polygon',
+        coordinates: [terminator_points]
+      }
+    });
+    this.updateSolarIsoline();
   }
 
   updateProjection() {
@@ -3474,7 +3473,7 @@ class LibreMap {
   }
 
   remove() {
-    clearInterval(this.terminator_updater);
+    clearInterval(this.periodic_tasks);
     this.map.remove();
   }
 
@@ -3703,7 +3702,8 @@ class LibreMap {
     }
   }
 
-  updateSolarIsoline(sun_elevation) {
+  updateSolarIsoline() {
+    const sun_elevation = Number(sun_elevation_param) || min_sun_elevation;
     let isoline_points = (sun_elevation > 0 && sun_elevation < 60) ?
         get_solar_isoline(sun_elevation).map(p => [p[1], p[0]]) : [];
 
