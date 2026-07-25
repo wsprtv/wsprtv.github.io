@@ -75,7 +75,7 @@ let update_task;  // telemetry / map update task
 // Last scroll position of the table / chart viewer
 let last_data_view_scroll_pos = 0;
 
-let is_mobile;  // running on a mobile device
+let touch_only;  // running on a mobile device
 
 // WSPR band info. For each band, the value is
 // [U4B start minute offset, WSPR Live band id, start freq].
@@ -2602,7 +2602,7 @@ function showDataView() {
   div.id = 'data_view_wrapper';
 
   let notice = document.createElement('div');
-  if (is_mobile) {
+  if (touch_only) {
     notice.innerHTML = '&lt;-- Tap here to close. ' +
         'Charts are touch-enabled, supporting pan and zoom gestures.';
   } else {
@@ -3177,12 +3177,9 @@ async function start() {
       getURLParameter('et_units');
 
   // On mobile devices, allow for a larger click area
-  const agent_regexp = new RegExp(
-      'Mobi|Android|iPhone|iPad|iPod|Opera Mini|IEMobile|WPDesktop|' +
-      'BlackBerry|BB|PlayBook|Tesla');
-  if (agent_regexp.test(navigator.userAgent)) {
-    is_mobile = true;
-  }
+  touch_only =
+      window.matchMedia("(pointer: coarse)").matches &&
+      !window.matchMedia("(any-pointer: fine)").matches;
 
   // Make the map div visible (if not already)
   document.getElementById('map').style.display = 'block';
@@ -3545,8 +3542,8 @@ class LibreMap {
                 (s == last_attached_spot ? 'red' :
                 (s == first_attached_spot ? '#3cb371' :
                 (s.is_invalid_gps ? '#fbb' :
-                (s.is_unattached ? '#fff' :
                 (s.fill ? s.fill :
+                (s.is_unattached ? '#fff' :
                 (s.grid.length == 6 ? '#add8e6' : '#cfefff')))))),
             radius: s.grid.length == 6 ? 7 : 5
           }
@@ -3721,7 +3718,7 @@ class LibreMap {
       if (this.map.getLayer(layer) && this.map.queryRenderedFeatures(
               e.point, { layers: [layer] }).length) return;
     }
-    if (is_mobile) {
+    if (touch_only) {
       const tolerance = 15;
       const bbox = [[e.point.x - tolerance, e.point.y - tolerance],
                     [e.point.x + tolerance, e.point.y + tolerance]];
